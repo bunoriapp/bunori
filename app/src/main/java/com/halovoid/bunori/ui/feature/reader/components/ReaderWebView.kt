@@ -384,6 +384,8 @@ private fun ReaderSettings.toJsSettingsJson(accentHex: String = "#7C3AED"): Stri
         put("accentColor", accentHex)
         put("customCss", customCss)
         put("customJs", customJs)
+        put("customCssB64", encodeB64(customCss))
+        put("customJsB64", encodeB64(customJs))
     }
     return jsonObject.toString()
 }

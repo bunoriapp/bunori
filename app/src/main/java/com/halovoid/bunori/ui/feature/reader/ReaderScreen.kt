@@ -54,7 +54,6 @@ fun ReaderScreen(
     val currentChapter by viewModel.currentChapter.collectAsStateWithLifecycle()
     val currentChapterNumber by viewModel.currentChapterNumber.collectAsStateWithLifecycle()
     val totalChapters by viewModel.totalChapters.collectAsStateWithLifecycle()
-    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val tocChapters by viewModel.tocChapters.collectAsStateWithLifecycle()
     val readingProgress by viewModel.readingProgress.collectAsStateWithLifecycle()
     val isBlockedOrEmpty by viewModel.isBlockedOrEmpty.collectAsStateWithLifecycle()
@@ -130,34 +129,7 @@ fun ReaderScreen(
             }
         )
 
-        // 3. Loading Spinner & Status Indicator
-        if (isLoading) {
-            Surface(
-                modifier = Modifier.align(Alignment.Center),
-                shape = RoundedCornerShape(16.dp),
-                color = DarkSurface.copy(alpha = 0.95f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
-                shadowElevation = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(26.dp),
-                        color = Color.White,
-                        strokeWidth = 3.dp
-                    )
-                    Text(
-                        text = "Loading chapter...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = PrimaryText,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        }
+
 
         // 3. Floating Minimal Progress Pill (visible when controls are hidden)
         AnimatedVisibility(

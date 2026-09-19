@@ -29,6 +29,7 @@ import androidx.navigation.compose.rememberNavController
 import com.halovoid.bunori.data.repository.UpdateRepository
 import com.halovoid.bunori.ui.navigation.NavGraph
 import com.halovoid.bunori.ui.navigation.Screen
+import com.halovoid.bunori.ui.navigation.AppNavigationManager
 import com.halovoid.bunori.ui.core.theme.*
 
 /**
@@ -61,6 +62,18 @@ fun MainScreen() {
         .isAppUpdateAvailable.collectAsStateWithLifecycle()
     val isCrawlerUpdateAvailable by UpdateRepository.getInstance(navController.context)
         .isCrawlerUpdateAvailable.collectAsStateWithLifecycle()
+
+    LaunchedEffect(navController) {
+        AppNavigationManager.navigationEvents.collect { route ->
+            try {
+                navController.navigate(route) {
+                    launchSingleTop = true
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MainScreen", "Failed to navigate to route: $route", e)
+            }
+        }
+    }
 
     Scaffold(
         bottomBar = {

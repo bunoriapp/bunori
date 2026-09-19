@@ -54,6 +54,9 @@ class WebViewActivity : ComponentActivity() {
         val novelUrl = intent.getStringExtra("novel_url") ?: ""
         val chapterUrl = intent.getStringExtra("chapter_url") ?: url
         val scanlationSource = intent.getStringExtra("scanlation_source") ?: "Default"
+        val crawlerName = intent.getStringExtra("crawler_name")
+        val batchId = intent.getStringExtra("batch_id")
+        val dismissNotificationId = intent.getIntExtra("dismiss_notification_id", 0)
 
         setContent {
             BunoriTheme {
@@ -72,6 +75,17 @@ class WebViewActivity : ComponentActivity() {
                             WebViewResolverImpl.getInstance().saveUserAgent(host, userAgent)
                         }
                         WebViewResolverImpl.onResolutionResult(host, success)
+                        if (success) {
+                            if (dismissNotificationId != 0) {
+                                val nm = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                                nm.cancel(dismissNotificationId)
+                            }
+                            if (!crawlerName.isNullOrBlank()) {
+                                com.halovoid.bunori.data.scheduler.services.SchedulerService.unblockCrawler(this@WebViewActivity, crawlerName)
+                            } else if (!batchId.isNullOrBlank()) {
+                                com.halovoid.bunori.data.scheduler.services.SchedulerService.resumeJob(this@WebViewActivity, batchId)
+                            }
+                        }
                         setResult(if (success) Activity.RESULT_OK else Activity.RESULT_CANCELED)
                         finish()
                     }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Info
@@ -427,6 +428,15 @@ private fun SourcesTabContent(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = SecondaryText.copy(alpha = 0.5f),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
                 HorizontalDivider(
                     color = BorderColor.copy(alpha = 0.25f),

@@ -1,22 +1,18 @@
 package com.halovoid.bunori.data.scheduler.services
 
-import android.app.*
+import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.IBinder
-import androidx.core.app.NotificationCompat
-import com.halovoid.bunori.MainActivity
-import com.halovoid.bunori.R
 import com.halovoid.bunori.api.backup.BackupService
-import com.halovoid.bunori.data.artifact.ArtifactGenerator
-import com.halovoid.bunori.data.artifact.ArtifactGeneratorFactory
-import com.halovoid.bunori.data.artifact.generators.EpubGenerator
-import com.halovoid.bunori.data.artifact.generators.PdfGenerator
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.network.NetworkClient
 import com.halovoid.bunori.api.core.scrapper.Scrapper
+import com.halovoid.bunori.data.artifact.ArtifactGeneratorFactory
+import com.halovoid.bunori.data.artifact.generators.EpubGenerator
+import com.halovoid.bunori.data.artifact.generators.PdfGenerator
 import com.halovoid.bunori.data.db.AppDatabase
 import com.halovoid.bunori.data.db.dao.BatchDao
 import com.halovoid.bunori.data.db.dao.TaskDao
@@ -26,23 +22,26 @@ import com.halovoid.bunori.data.handlers.ArtifactHandler
 import com.halovoid.bunori.data.handlers.ChapterHandler
 import com.halovoid.bunori.data.handlers.NovelMetadataHandler
 import com.halovoid.bunori.data.handlers.RangeDownloadHandler
-import com.halovoid.bunori.data.repository.*
+import com.halovoid.bunori.data.handlers.utility.crawlerName
+import com.halovoid.bunori.data.repository.ArtifactRepository
+import com.halovoid.bunori.data.repository.ChapterRepository
+import com.halovoid.bunori.data.repository.DownloadRepositoryImpl
+import com.halovoid.bunori.data.repository.NovelRepository
+import com.halovoid.bunori.data.repository.PreferenceRepository
+import com.halovoid.bunori.data.repository.StorageRepositoryImpl
 import com.halovoid.bunori.data.scheduler.jobs.JobHandlerRegistry
 import com.halovoid.bunori.data.scheduler.jobs.JobScheduler
+import com.halovoid.bunori.data.scheduler.notification.DownloadNotificationManager
 import com.halovoid.bunori.extension.manager.ExtensionManager
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import okhttp3.OkHttpClient
-import java.util.concurrent.TimeUnit
-
-private data class NotificationConfig(
-    val title: String,
-    val content: String,
-    val progressCurrent: Int,
-    val progressTotal: Int,
-    val isIndeterminate: Boolean
-)
+import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 class SchedulerService : Service() {
 
@@ -50,10 +49,12 @@ class SchedulerService : Service() {
     private lateinit var scheduler: JobScheduler
     private lateinit var batchDao: BatchDao
     private lateinit var taskDao: TaskDao
+    private lateinit var notificationManager: DownloadNotificationManager
+
+    private val previousBatchStatuses = ConcurrentHashMap<String, JobStatus>()
+    private val notifiedBlockedCrawlers = ConcurrentHashMap.newKeySet<String>()
 
     companion object {
-        const val CHANNEL_ID = "scheduler_channel"
-        const val NOTIFICATION_ID = 1
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
         const val ACTION_CANCEL_JOB = "ACTION_CANCEL_JOB"
@@ -134,6 +135,76 @@ class SchedulerService : Service() {
                 context.startService(intent)
             }
         }
+
+        fun createPausePendingIntent(context: Context, jobId: String): PendingIntent {
+            val intent = Intent(context, SchedulerService::class.java).apply {
+                action = ACTION_PAUSE_JOB
+                putExtra(EXTRA_JOB_ID, jobId)
+            }
+            return PendingIntent.getService(
+                context,
+                (jobId.hashCode() and 0xFFFF) + 10,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        }
+
+        fun createResumePendingIntent(context: Context, jobId: String): PendingIntent {
+            val intent = Intent(context, SchedulerService::class.java).apply {
+                action = ACTION_RESUME_JOB
+                putExtra(EXTRA_JOB_ID, jobId)
+            }
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                PendingIntent.getForegroundService(
+                    context,
+                    (jobId.hashCode() and 0xFFFF) + 20,
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            } else {
+                PendingIntent.getService(
+                    context,
+                    (jobId.hashCode() and 0xFFFF) + 20,
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            }
+        }
+
+        fun createCancelPendingIntent(context: Context, jobId: String): PendingIntent {
+            val intent = Intent(context, SchedulerService::class.java).apply {
+                action = ACTION_CANCEL_JOB
+                putExtra(EXTRA_JOB_ID, jobId)
+            }
+            return PendingIntent.getService(
+                context,
+                (jobId.hashCode() and 0xFFFF) + 30,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        }
+
+        fun createReplayPendingIntent(context: Context, jobId: String): PendingIntent {
+            val intent = Intent(context, SchedulerService::class.java).apply {
+                action = ACTION_REPLAY_JOB
+                putExtra(EXTRA_JOB_ID, jobId)
+            }
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                PendingIntent.getForegroundService(
+                    context,
+                    (jobId.hashCode() and 0xFFFF) + 40,
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            } else {
+                PendingIntent.getService(
+                    context,
+                    (jobId.hashCode() and 0xFFFF) + 40,
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            }
+        }
     }
 
     override fun onCreate() {
@@ -141,6 +212,7 @@ class SchedulerService : Service() {
         val db = AppDatabase.getDatabase(this)
         batchDao = db.batchDao()
         taskDao = db.taskDao()
+        notificationManager = DownloadNotificationManager(this)
 
         val novelRepository = NovelRepository.getInstance(this)
         val chapterRepository = ChapterRepository.getInstance(this)
@@ -175,8 +247,6 @@ class SchedulerService : Service() {
         scheduler.setOnEmptyListener {
             stopSelf()
         }
-
-        createNotificationChannel()
 
         serviceScope.launch {
             ExtensionManager.getInstance(this@SchedulerService)
@@ -227,6 +297,8 @@ class SchedulerService : Service() {
                 ensureForeground()
                 val crawlerName = intent?.getStringExtra(EXTRA_CRAWLER_NAME)
                 if (crawlerName != null) {
+                    notifiedBlockedCrawlers.remove(crawlerName)
+                    notificationManager.dismissCloudflareAlert(crawlerName)
                     scheduler.unblockCrawlerAsync(crawlerName)
                 } else {
                     scheduler.start()
@@ -237,8 +309,10 @@ class SchedulerService : Service() {
     }
 
     private fun ensureForeground() {
-        val initialConfig = NotificationConfig("Processing...", "Active background tasks", 0, 0, true)
-        startForeground(NOTIFICATION_ID, createNotification(initialConfig, 0))
+        startForeground(
+            DownloadNotificationManager.FOREGROUND_NOTIFICATION_ID,
+            notificationManager.createInitialForegroundNotification()
+        )
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -249,75 +323,87 @@ class SchedulerService : Service() {
         super.onDestroy()
     }
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Job Scheduler",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows progress of background crawl and download tasks"
-            }
-            val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
-        }
-    }
-
-    private fun createNotification(config: NotificationConfig, othersCount: Int): Notification {
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val contextText = if (othersCount > 0) {
-            "${config.content} (+ $othersCount others)"
-        } else {
-            config.content
-        }
-
-        val largeIcon = BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(config.title)
-            .setContentText(contextText)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setLargeIcon(largeIcon)
-            .setContentIntent(pendingIntent)
-            .setProgress(
-                config.progressTotal,
-                config.progressCurrent,
-                config.isIndeterminate
-            )
-            .setOngoing(true)
-            .build()
-    }
-
     private fun observeProgress() {
-        batchDao.getBatchesWithStatsFlow()
-            .onEach { batches ->
-                val active = batches.filter { it.batch.status == JobStatus.RUNNING }
-                    .sortedByDescending { it.batch.updatedAt }
-                if (active.isEmpty()) return@onEach
+        combine(
+            batchDao.getBatchesWithStatsFlow(),
+            taskDao.getRunningTasksFlow()
+        ) { batches, runningTasks ->
+            handleProgressUpdate(batches, runningTasks)
+        }.launchIn(serviceScope)
+    }
 
-                val primary = active.first()
-                val config = NotificationConfig(
-                    title = when (primary.batch.type) {
-                        JobType.RANGE_DOWNLOAD -> "Downloading Chapters"
-                        JobType.ARTIFACT -> "Creating Artifact"
-                        JobType.NOVEL_METADATA -> "Refreshing Novel"
-                        else -> "LN Crawler Task"
-                    },
-                    content = primary.batch.name,
-                    progressCurrent = primary.completedTasks,
-                    progressTotal = primary.totalTasks,
-                    isIndeterminate = primary.totalTasks <= 0
-                )
-                val othersCount = active.size - 1
+    private fun handleProgressUpdate(
+        batches: List<com.halovoid.bunori.data.db.dao.BatchWithStats>,
+        runningTasks: List<com.halovoid.bunori.data.db.entities.TaskEntity>
+    ) {
+        // 1. Process batch transitions (Blocked, Success, Failure)
+        for (item in batches) {
+            val batch = item.batch
+            val prevStatus = previousBatchStatuses[batch.id]
+            val currentStatus = batch.status
 
-                val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                manager.notify(NOTIFICATION_ID, createNotification(config, othersCount))
+            if (prevStatus != currentStatus) {
+                val crawler = batch.crawlerName.orEmpty()
+
+                when (currentStatus) {
+                    JobStatus.BLOCKED -> {
+                        if (crawler.isNotBlank() && !notifiedBlockedCrawlers.contains(crawler)) {
+                            notifiedBlockedCrawlers.add(crawler)
+                            val targetUrl = runningTasks.firstOrNull { it.batchId == batch.id }?.url ?: batch.novelUrl
+                            notificationManager.showCloudflareAlert(batch, crawler, targetUrl)
+                        }
+                    }
+
+                    JobStatus.SUCCESS -> {
+                        if (prevStatus == JobStatus.RUNNING || prevStatus == JobStatus.BLOCKED || prevStatus == JobStatus.PENDING) {
+                            notificationManager.showCompletionNotification(batch, item.totalTasks)
+                            if (crawler.isNotBlank()) {
+                                notifiedBlockedCrawlers.remove(crawler)
+                                notificationManager.dismissCloudflareAlert(crawler)
+                            }
+                        }
+                    }
+
+                    JobStatus.FAILED -> {
+                        if (prevStatus == JobStatus.RUNNING || prevStatus == JobStatus.BLOCKED || prevStatus == JobStatus.PENDING) {
+                            notificationManager.showFailureNotification(batch, batch.error)
+                            if (crawler.isNotBlank()) {
+                                notifiedBlockedCrawlers.remove(crawler)
+                                notificationManager.dismissCloudflareAlert(crawler)
+                            }
+                        }
+                    }
+
+                    JobStatus.RUNNING -> {
+                        if (crawler.isNotBlank() && notifiedBlockedCrawlers.contains(crawler)) {
+                            notifiedBlockedCrawlers.remove(crawler)
+                            notificationManager.dismissCloudflareAlert(crawler)
+                        }
+                    }
+
+                    else -> {}
+                }
+
+                previousBatchStatuses[batch.id] = currentStatus
             }
-            .launchIn(serviceScope)
+        }
+
+        // 2. Active tasks for foreground notification
+        val active = batches.filter {
+            it.batch.status == JobStatus.RUNNING ||
+            it.batch.status == JobStatus.PAUSED ||
+            it.batch.status == JobStatus.PENDING
+        }.sortedByDescending { it.batch.updatedAt }
+
+        if (active.isNotEmpty()) {
+            val primary = active.first()
+            val notification = notificationManager.createProgressNotification(
+                primaryBatch = primary,
+                runningTasks = runningTasks,
+                activeBatchesCount = active.size
+            )
+            val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+            manager.notify(DownloadNotificationManager.FOREGROUND_NOTIFICATION_ID, notification)
+        }
     }
 }

@@ -31,8 +31,19 @@
     hasMoreNext: true,
     hasMorePrev: true,
     pendingTurnToPrevious: false,
-    userHasScrolled: false
+    userHasScrolled: false,
+    customJs: ''
   };
+
+  function runUserCustomJs() {
+    if (!state.customJs) return;
+    try {
+      const fn = new Function(state.customJs);
+      fn();
+    } catch (e) {
+      console.error('Custom user JS error:', e);
+    }
+  }
 
   const elements = {
     root: document.getElementById('reader-root'),
@@ -243,21 +254,6 @@
     if (state.hasMorePrev && !state.isLoadingPrev) {
       setSentinelState(elements.topSentinel, 'idle', '');
       let banner = elements.topSentinel.querySelector('.prev-chapter-banner');
-      if (!banner) {
-        banner = document.createElement('div');
-        banner.className = 'prev-chapter-banner';
-        banner.innerHTML = '<span>▲ Tap or pull down to load previous chapter</span>';
-        banner.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const first = getFirstChapterInfo();
-          if (first && !state.isLoadingPrev) {
-            state.isLoadingPrev = true;
-            setSentinelState(elements.topSentinel, 'loading', 'Loading previous chapter...');
-            bridge.onRequestPreviousChapter(first.id);
-          }
-        });
-        elements.topSentinel.appendChild(banner);
-      }
       banner.style.display = 'flex';
     } else {
       const banner = elements.topSentinel.querySelector('.prev-chapter-banner');
@@ -535,6 +531,8 @@
     elements.container.appendChild(wrapper);
     state.chapters.set(chapterData.id, chapterData);
 
+    runUserCustomJs();
+
     if (!state.activeChapterId) state.activeChapterId = chapterData.id;
     if (state.hasMoreNext) setSentinelState(elements.bottomSentinel, 'idle', '');
 
@@ -573,6 +571,8 @@
       elements.container.insertBefore(wrapper, elements.container.firstChild);
       state.chapters.set(chapterData.id, chapterData);
 
+      runUserCustomJs();
+
       const clientWidth = window.innerWidth;
       const newTotal = Math.max(1, Math.round(elements.container.scrollWidth / clientWidth));
       state.totalPages = newTotal;
@@ -606,6 +606,8 @@
     const wrapper = createChapterElement(chapterData);
     elements.container.insertBefore(wrapper, elements.container.firstChild);
     state.chapters.set(chapterData.id, chapterData);
+
+    runUserCustomJs();
 
     const newScrollHeight = document.documentElement.scrollHeight;
     const diff = newScrollHeight - prevScrollHeight;
@@ -686,9 +688,23 @@
     }
 
     if (settings.readingMode) window.setReadingMode(settings.readingMode);
-    if (elements.userCustomStyle && typeof settings.customCss === 'string') elements.userCustomStyle.textContent = settings.customCss;
-    if (elements.userCustomScript && settings.customJs) {
-      try { new Function(settings.customJs)(); } catch (e) { console.error('Custom user JS error:', e); }
+
+    const customCss = settings.customCssB64 ? decodeB64(settings.customCssB64) : (settings.customCss || '');
+    const customJs = settings.customJsB64 ? decodeB64(settings.customJsB64) : (settings.customJs || '');
+
+    if (typeof customCss === 'string') {
+      let cssEl = document.getElementById('user-custom-css');
+      if (!cssEl) {
+        cssEl = document.createElement('style');
+        cssEl.id = 'user-custom-css';
+        document.head.appendChild(cssEl);
+      }
+      cssEl.textContent = customCss;
+    }
+
+    if (typeof customJs === 'string') {
+      state.customJs = customJs;
+      runUserCustomJs();
     }
 
     if (state.isPagedMode) recalculatePages();
@@ -812,15 +828,23 @@
 
     const link = e.target.closest('a');
     if (link) {
+      const isPointerDisabled = link.style.pointerEvents === 'none' ||
+                                 window.getComputedStyle(link).pointerEvents === 'none' ||
+                                 window.getComputedStyle(link).display === 'none';
       const href = link.getAttribute('href');
-      if (href) {
+
+      if (!href || isPointerDisabled) {
         e.preventDefault();
-        if (href.startsWith('#')) {
-          const targetEl = document.querySelector(href);
-          if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } else {
-          (window.BunoriBridge || bridge).onLinkClick(link.href);
-        }
+        e.stopPropagation();
+        return;
+      }
+
+      e.preventDefault();
+      if (href.startsWith('#')) {
+        const targetEl = document.querySelector(href);
+        if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        (window.BunoriBridge || bridge).onLinkClick(link.href);
       }
       return;
     }

@@ -36,6 +36,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE status = 'RUNNING'")
     suspend fun getRunningTasks(): List<TaskEntity>
 
+    @Query("SELECT * FROM tasks WHERE status = 'RUNNING'")
+    fun getRunningTasksFlow(): Flow<List<TaskEntity>>
+
     @Query("UPDATE tasks SET status = :status, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateStatus(id: String, status: JobStatus, updatedAt: Long = System.currentTimeMillis())
 
