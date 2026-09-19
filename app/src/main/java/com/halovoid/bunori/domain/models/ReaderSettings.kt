@@ -4,14 +4,16 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class ReaderTheme(val id: String, val displayName: String) {
-    OLED("oled", "OLED Pitch Black"),
+    OLED("oled", "OLED"),
     DARK("dark", "Dark Slate")
 }
 
 @Serializable
 enum class ReadingMode(val id: String, val displayName: String) {
-    CONTINUOUS("CONTINUOUS", "Continuous Vertical"),
-    PAGED("PAGED", "Paged Mode")
+    CONTINUOUS("CONTINUOUS", "Continuous"),
+    PAGED("PAGED", "Paged (Left to Right)"),
+    PAGED_RTL("PAGED_RTL", "Paged (Right to Left)"),
+    VERTICAL_TAP("VERTICAL_TAP", "Paged (Vertical)")
 }
 
 @Serializable

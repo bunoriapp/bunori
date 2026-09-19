@@ -381,7 +381,7 @@ fun WebViewScreen(
             activeSelector = detectedSelector.orEmpty(),
             savedSelector = savedDomainSelector.orEmpty(),
             onTestHighlight = { selector ->
-                webViewRef?.evaluateJavascript("window.highlightElement ? window.highlightElement('$selector') : 0;", null)
+                webViewRef?.evaluateJavascript("window.highlightElement ? window.highlightElement('$selector', true) : 0;", null)
             },
             onSaveSelector = { selector ->
                 coroutineScope.launch {
@@ -507,9 +507,20 @@ private fun injectExtractorScript(webView: WebView, customDomainSelector: String
 
         function cleanHtml(el) {
             const clone = el.cloneNode(true);
-            const toRemove = clone.querySelectorAll('script, style, noscript, iframe, button, input, form, nav, header, footer, aside, .ad, .ads, .advertisement, [id*="ad-"], [class*="ad-"]');
+            const toRemove = clone.querySelectorAll(
+                'script, style, noscript, iframe, button, input, form, select, textarea, nav, header, footer, aside, img, picture, figure, svg, canvas, video, audio, .ad, .ads, .advertisement, [id*="ad-"], [class*="ad-"], .social-share, .comments, .comment-list, .author-box, .related-posts'
+            );
             toRemove.forEach(n => n.remove());
-            return clone.innerHTML;
+
+            const links = clone.querySelectorAll('a');
+            links.forEach(a => {
+                const textNode = document.createTextNode(a.textContent || '');
+                a.replaceWith(textNode);
+            });
+
+            let html = clone.innerHTML;
+            html = html.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '');
+            return html;
         }
 
         function countWords(str) {
@@ -537,7 +548,7 @@ private fun injectExtractorScript(webView: WebView, customDomainSelector: String
             return bestEl;
         }
 
-        window.highlightElement = function(selector) {
+        window.highlightElement = function(selector, shouldScroll) {
             document.querySelectorAll('.bunori-highlight').forEach(el => {
                 el.classList.remove('bunori-highlight');
                 el.style.outline = '';
@@ -546,8 +557,10 @@ private fun injectExtractorScript(webView: WebView, customDomainSelector: String
                 const els = document.querySelectorAll(selector);
                 els.forEach(el => {
                     el.classList.add('bunori-highlight');
-                    el.style.outline = '4px solid #F59E0B';
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.style.outline = '3px solid #F59E0B';
+                    if (shouldScroll) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                 });
                 return els.length;
             } catch(e) {
@@ -565,6 +578,8 @@ private fun injectExtractorScript(webView: WebView, customDomainSelector: String
             }
             return false;
         }
+
+        let observer = null;
 
         window.runExtractor = function(customSelector) {
             if (isChallengePage()) {
@@ -614,7 +629,11 @@ private fun injectExtractorScript(webView: WebView, customDomainSelector: String
                 const preview = (matchedEl.innerText || '').trim().substring(0, 150);
                 const html = cleanHtml(matchedEl);
                 if (!matchedSelector.startsWith('heuristic')) {
-                    window.highlightElement(matchedSelector);
+                    window.highlightElement(matchedSelector, false);
+                }
+                if (observer) {
+                    observer.disconnect();
+                    observer = null;
                 }
                 window.BunoriExtractorBridge.onExtractionDetected(matchedSelector, wordCount, preview, html);
             }
@@ -623,10 +642,10 @@ private fun injectExtractorScript(webView: WebView, customDomainSelector: String
         setTimeout(() => window.runExtractor('$escapedDomainSelector'), 600);
 
         // Next.js/React hydration observer
-        const observer = new MutationObserver(() => {
-            window.runExtractor('$escapedDomainSelector');
-        });
         if (document.body) {
+            observer = new MutationObserver(() => {
+                window.runExtractor('$escapedDomainSelector');
+            });
             observer.observe(document.body, { childList: true, subtree: true });
         }
     })();

@@ -20,6 +20,7 @@
   const MAX_DOM_CHAPTERS = 4;
 
   const state = {
+    readingMode: 'CONTINUOUS',
     isPagedMode: false,
     currentPage: 0,
     totalPages: 1,
@@ -140,6 +141,10 @@
       </div>
     `;
 
+    // Observe end card to immediately complete chapter when scrolled to end
+    const endCard = wrapper.querySelector('.chapter-card-end');
+    if (endCard) endCardObserver.observe(endCard);
+
     // Recalculate paged layout when images finish loading
     wrapper.querySelectorAll('img').forEach((img) => {
       img.addEventListener('load', () => {
@@ -155,6 +160,20 @@
   // ==========================================================================
   // Active Chapter & Progress Tracking (Unified for Continuous & Paged)
   // ==========================================================================
+  const endCardObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        const wrapper = entry.target.closest('.chapter-wrapper');
+        if (wrapper) {
+          const id = parseInt(wrapper.dataset.chapterId, 10);
+          if (id) {
+            bridge.onChapterCompleted(id);
+          }
+        }
+      }
+    }
+  }, { threshold: 0.05 });
+
   function updateActiveChapterAndProgress() {
     const centerEl = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
     const currentWrapper = centerEl ? centerEl.closest('.chapter-wrapper') : null;
@@ -172,9 +191,14 @@
     }
 
     if (state.isPagedMode) {
-      const progress = state.totalPages > 0 ? (state.currentPage + 1) / state.totalPages : 1.0;
+      const clientWidth = window.innerWidth || 1;
+      const chapterStartPage = Math.round(activeWrapper.offsetLeft / clientWidth);
+      const chapterPages = Math.max(1, Math.round(activeWrapper.scrollWidth / clientWidth));
+      const chapterEndPage = chapterStartPage + chapterPages - 1;
+
+      const progress = Math.min(1.0, Math.max(0, (state.currentPage - chapterStartPage + 1) / chapterPages));
       bridge.onProgressUpdate(id, progress);
-      if (state.currentPage >= state.totalPages - 1) {
+      if (state.currentPage >= chapterEndPage) {
         bridge.onChapterCompleted(id);
       }
     } else {
@@ -186,7 +210,7 @@
         const scrollableRange = chapterHeight - viewportHeight;
         const progress = scrollableRange <= 0 ? 1.0 : Math.min(1, Math.max(0, scrolledDistance / scrollableRange));
         bridge.onProgressUpdate(id, progress);
-        if (progress >= 0.95) {
+        if (progress >= 0.85) {
           bridge.onChapterCompleted(id);
         }
       }
@@ -214,6 +238,33 @@
   let bottomObserver = null;
   let topObserver = null;
 
+  function updateTopSentinelBanner() {
+    if (state.isPagedMode) return;
+    if (state.hasMorePrev && !state.isLoadingPrev) {
+      setSentinelState(elements.topSentinel, 'idle', '');
+      let banner = elements.topSentinel.querySelector('.prev-chapter-banner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.className = 'prev-chapter-banner';
+        banner.innerHTML = '<span>▲ Tap or pull down to load previous chapter</span>';
+        banner.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const first = getFirstChapterInfo();
+          if (first && !state.isLoadingPrev) {
+            state.isLoadingPrev = true;
+            setSentinelState(elements.topSentinel, 'loading', 'Loading previous chapter...');
+            bridge.onRequestPreviousChapter(first.id);
+          }
+        });
+        elements.topSentinel.appendChild(banner);
+      }
+      banner.style.display = 'flex';
+    } else {
+      const banner = elements.topSentinel.querySelector('.prev-chapter-banner');
+      if (banner) banner.style.display = 'none';
+    }
+  }
+
   function initObservers() {
     // Bottom Sentinel (Preload Next Chapter when scrolling downwards)
     bottomObserver = new IntersectionObserver((entries) => {
@@ -236,7 +287,7 @@
     topObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting && !state.isLoadingPrev && state.hasMorePrev && !state.isPagedMode) {
-          if (window.scrollY < 50 && !state.userHasScrolled) return;
+          if (window.scrollY < 10 && !state.userHasScrolled) return;
           const first = getFirstChapterInfo();
           if (first) {
             state.isLoadingPrev = true;
@@ -458,6 +509,7 @@
       }
       bridge.onProgressUpdate(chapterData.id, startAtEnd ? 1.0 : 0);
     }
+    updateTopSentinelBanner();
   };
 
   window.setInitialChapterB64 = function (id, b64Title, index, b64Html, startAtEnd, b64Scanlator) {
@@ -557,9 +609,15 @@
 
     const newScrollHeight = document.documentElement.scrollHeight;
     const diff = newScrollHeight - prevScrollHeight;
-    window.scrollTo({ top: prevScrollTop + diff, behavior: 'instant' });
+
+    if (prevScrollTop <= 15) {
+      window.scrollTo({ top: Math.max(0, diff - 100), behavior: 'instant' });
+    } else {
+      window.scrollTo({ top: prevScrollTop + diff, behavior: 'instant' });
+    }
 
     if (state.hasMorePrev) setSentinelState(elements.topSentinel, 'idle', '');
+    updateTopSentinelBanner();
 
     // Keep DOM memory bounded by pruning newest chapter if limit exceeded
     pruneNewestChapter();
@@ -580,6 +638,7 @@
     state.isLoadingPrev = false;
     hidePagedLoader();
     setSentinelState(elements.topSentinel, hasMore ? 'idle' : 'boundary', '');
+    updateTopSentinelBanner();
   };
 
   window.setHasMoreNext = function (hasMore) {
@@ -592,7 +651,8 @@
 
   window.setReadingMode = function (mode) {
     const wasPaged = state.isPagedMode;
-    state.isPagedMode = mode === 'PAGED';
+    state.readingMode = mode || 'CONTINUOUS';
+    state.isPagedMode = mode === 'PAGED' || mode === 'PAGED_RTL';
     document.body.classList.toggle('paged-mode', state.isPagedMode);
 
     if (state.isPagedMode) {
@@ -606,6 +666,7 @@
       elements.container.style.transform = '';
       state.currentPage = 0;
     }
+    updateTopSentinelBanner();
   };
 
   window.applyReaderSettings = function (settings) {
@@ -638,18 +699,42 @@
   // ==========================================================================
   let touchStartX = 0;
   let touchStartY = 0;
+  let touchStartScrollY = 0;
   let touchStartTime = 0;
   let lastTouchEndTime = 0;
 
-  function handleTap(clientX) {
+  function handleTap(clientX, clientY) {
     const xRatio = clientX / window.innerWidth;
+    const yRatio = clientY != null ? clientY / window.innerHeight : 0.5;
     const b = window.BunoriBridge || bridge;
+
+    if (state.readingMode === 'VERTICAL_TAP') {
+      if (yRatio < 0.30) {
+        window.scrollBy({ top: -window.innerHeight * 0.75, behavior: 'smooth' });
+      } else if (yRatio > 0.70) {
+        window.scrollBy({ top: window.innerHeight * 0.75, behavior: 'smooth' });
+      } else {
+        b.onCenterTap();
+      }
+      return;
+    }
+
+    if (state.readingMode === 'PAGED_RTL') {
+      if (xRatio < 0.33) {
+        pageTurn(1); // Left tap -> Next page in RTL
+      } else if (xRatio > 0.67) {
+        pageTurn(-1); // Right tap -> Prev page in RTL
+      } else {
+        b.onCenterTap();
+      }
+      return;
+    }
 
     if (state.isPagedMode) {
       if (xRatio < 0.33) {
-        pageTurn(-1);
+        pageTurn(-1); // Left tap -> Prev page in LTR
       } else if (xRatio > 0.67) {
-        pageTurn(1);
+        pageTurn(1); // Right tap -> Next page in LTR
       } else {
         b.onCenterTap();
       }
@@ -668,6 +753,7 @@
     if (e.touches.length === 1) {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
+      touchStartScrollY = window.scrollY;
       touchStartTime = Date.now();
     }
   }, { passive: true });
@@ -685,10 +771,27 @@
     const absY = Math.abs(diffY);
     const dt = Date.now() - touchStartTime;
 
+    // Pull down at top of document to load previous chapter (Continuous / Vertical Tap)
+    if (!state.isPagedMode && touchStartScrollY <= 15 && window.scrollY <= 15 && diffY > 50 && absY > absX * 1.5) {
+      if (state.hasMorePrev && !state.isLoadingPrev) {
+        const first = getFirstChapterInfo();
+        if (first) {
+          state.isLoadingPrev = true;
+          setSentinelState(elements.topSentinel, 'loading', 'Loading previous chapter...');
+          bridge.onRequestPreviousChapter(first.id);
+          return;
+        }
+      }
+    }
+
     // Horizontal swipe gesture in paged mode
     if (state.isPagedMode && absX > 50 && absX > absY * 1.5) {
       lastTouchEndTime = Date.now();
-      pageTurn(diffX < 0 ? 1 : -1);
+      if (state.readingMode === 'PAGED_RTL') {
+        pageTurn(diffX < 0 ? -1 : 1);
+      } else {
+        pageTurn(diffX < 0 ? 1 : -1);
+      }
       return;
     }
 
@@ -700,7 +803,7 @@
       if (sel && sel.toString().trim().length > 0) return;
 
       lastTouchEndTime = Date.now();
-      handleTap(touch.clientX);
+      handleTap(touch.clientX, touch.clientY);
     }
   }, { passive: true });
 
@@ -726,7 +829,7 @@
     const selection = window.getSelection();
     if (selection && selection.toString().trim().length > 0) return;
 
-    handleTap(e.clientX);
+    handleTap(e.clientX, e.clientY);
   });
 
   // ==========================================================================

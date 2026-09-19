@@ -2,7 +2,6 @@ package com.halovoid.bunori.ui.feature.novel.components
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -16,9 +15,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.domain.models.Novel
-import com.halovoid.bunori.ui.core.components.AppBottomSheet
-import com.halovoid.bunori.ui.core.components.AppBottomSheetDivider
-import com.halovoid.bunori.ui.core.components.AppBottomSheetGroup
 import com.halovoid.bunori.ui.core.theme.*
 
 @Composable
@@ -39,8 +35,6 @@ fun NovelTopBar(
     isFilterActive: Boolean,
     onSourceFilterClick: () -> Unit,
     isSourceFilterActive: Boolean,
-    onRefreshMetadata: () -> Unit,
-    onDeleteNovel: () -> Unit,
     onActivityClick: (() -> Unit)? = null
 ) {
     val backgroundColor by animateColorAsState(
@@ -173,73 +167,16 @@ fun NovelTopBar(
                     )
                 }
 
-                var showMenu by remember { mutableStateOf(false) }
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = PrimaryText)
-                }
-
-                if (showMenu) {
-                    NovelActionsBottomSheet(
-                        novel = novel,
-                        onDismiss = { showMenu = false },
-                        onActivityClick = onActivityClick?.let { action ->
-                            {
-                                action()
-                                showMenu = false
-                            }
-                        },
-                        onRefreshMetadata = {
-                            onRefreshMetadata()
-                            showMenu = false
-                        },
-                        onDeleteNovel = {
-                            onDeleteNovel()
-                            showMenu = false
-                        }
-                    )
+                if (onActivityClick != null) {
+                    IconButton(onClick = onActivityClick) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = "Activity History",
+                            tint = PrimaryText
+                        )
+                    }
                 }
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun NovelActionsBottomSheet(
-    novel: Novel,
-    onDismiss: () -> Unit,
-    onActivityClick: (() -> Unit)? = null,
-    onRefreshMetadata: () -> Unit,
-    onDeleteNovel: () -> Unit
-) {
-    AppBottomSheet(
-        onDismiss = onDismiss,
-        title = "Novel Options",
-        subtitle = novel.title
-    ) {
-        AppBottomSheetGroup {
-            if (onActivityClick != null) {
-                ListItem(
-                    headlineContent = { Text("Activity History", color = PrimaryText) },
-                    leadingContent = { Icon(Icons.Default.History, contentDescription = null, tint = PrimaryText) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier.clickable { onActivityClick() }
-                )
-                AppBottomSheetDivider()
-            }
-            ListItem(
-                headlineContent = { Text("Refresh Metadata", color = PrimaryText) },
-                leadingContent = { Icon(Icons.Default.Refresh, contentDescription = null, tint = PrimaryText) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable { onRefreshMetadata() }
-            )
-            AppBottomSheetDivider()
-            ListItem(
-                headlineContent = { Text("Delete Novel", color = ErrorRed) },
-                leadingContent = { Icon(Icons.Default.Delete, contentDescription = null, tint = ErrorRed) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable { onDeleteNovel() }
-            )
         }
     }
 }

@@ -57,15 +57,22 @@ fun TapZoneGuideOverlay(
         exit = fadeOut(animationSpec = tween(durationMillis = 400)),
         modifier = modifier.fillMaxSize()
     ) {
-        val orangeBg = Color(0xFFF97316).copy(alpha = 0.24f)
-        val orangeBorder = Color(0xFFFB923C).copy(alpha = 0.6f)
-        val orangeText = Color(0xFFFED7AA)
 
-        val yellowBg = Color(0xFFEAB308).copy(alpha = 0.24f)
-        val yellowBorder = Color(0xFFFACC15).copy(alpha = 0.6f)
-        val yellowText = Color(0xFFFEF08A)
+        /**
+         * Distinctive background colors
+         * Orange = Navigation (Horizontal)
+         * Blue = Menu / FullScreen
+         * Yellow = Navigation (Vertical)
+         */
+        val horizontalNavigationBg = Color(0xFFF97316).copy(alpha = 0.24f)
+        val horizontalNavigationText = Color(0xFFFFF7ED)
+
+        val centerBg = Color(0xFF3B82F6).copy(alpha = 0.28f)
+        val centerText = Color(0xFFEFF6FF)
 
         val isContinuous = readingMode == ReadingMode.CONTINUOUS
+        val isVerticalTap = readingMode == ReadingMode.VERTICAL_TAP
+        val isRtl = readingMode == ReadingMode.PAGED_RTL
 
         Box(
             modifier = Modifier
@@ -79,59 +86,122 @@ fun TapZoneGuideOverlay(
                     }
                 )
         ) {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 8.dp, vertical = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // Left Zone: Orange
-                TapZoneCard(
-                    weight = if (isContinuous) 0.25f else 0.333f,
-                    bgColor = orangeBg,
-                    borderColor = orangeBorder,
-                    textColor = orangeText,
-                    icon = if (isContinuous) Icons.Default.ArrowUpward else Icons.AutoMirrored.Filled.NavigateBefore,
-                    title = if (isContinuous) "Scroll Up" else "Prev Page",
-                    subtitle = if (isContinuous) "Tap Left (25%)" else "Tap Left (33%)",
-                    onClick = {
-                        Log.d("BunoriReader", "TapZoneGuideOverlay: Left card clicked -> onLeftTap()")
-                        onDismiss()
-                        onLeftTap()
-                    }
-                )
+                    .background(Color.Black.copy(alpha = 0.28f))
+            )
+            if (isVerticalTap) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Top Zone: 30%
+                    TapZoneCardVertical(
+                        weight = 0.30f,
+                        bgColor = horizontalNavigationBg,
+                        textColor = horizontalNavigationText,
+                        icon = Icons.Default.ArrowUpward,
+                        title = "Scroll Up",
+                        subtitle = "Tap Top (30%)",
+                        onClick = {
+                            onDismiss()
+                            onLeftTap()
+                        }
+                    )
 
-                // Center Zone: Yellow
-                TapZoneCard(
-                    weight = if (isContinuous) 0.50f else 0.334f,
-                    bgColor = yellowBg,
-                    borderColor = yellowBorder,
-                    textColor = yellowText,
-                    icon = Icons.Default.TouchApp,
-                    title = "Menu / Fullscreen",
-                    subtitle = if (isContinuous) "Tap Center (50%)" else "Tap Center (34%)",
-                    onClick = {
-                        Log.d("BunoriReader", "TapZoneGuideOverlay: Center card clicked -> onCenterTap()")
-                        onDismiss()
-                        onCenterTap()
-                    }
-                )
+                    // Center Zone: 40%
+                    TapZoneCardVertical(
+                        weight = 0.40f,
+                        bgColor = centerBg,
+                        textColor = centerText,
+                        icon = Icons.Default.TouchApp,
+                        title = "Menu / Fullscreen",
+                        subtitle = "Tap Center (40%)",
+                        onClick = {
+                            onDismiss()
+                            onCenterTap()
+                        }
+                    )
 
-                // Right Zone: Orange
-                TapZoneCard(
-                    weight = if (isContinuous) 0.25f else 0.333f,
-                    bgColor = orangeBg,
-                    borderColor = orangeBorder,
-                    textColor = orangeText,
-                    icon = if (isContinuous) Icons.Default.ArrowDownward else Icons.AutoMirrored.Filled.NavigateNext,
-                    title = if (isContinuous) "Scroll Down" else "Next Page",
-                    subtitle = if (isContinuous) "Tap Right (25%)" else "Tap Right (33%)",
-                    onClick = {
-                        Log.d("BunoriReader", "TapZoneGuideOverlay: Right card clicked -> onRightTap()")
-                        onDismiss()
-                        onRightTap()
-                    }
-                )
+                    // Bottom Zone: 30%
+                    TapZoneCardVertical(
+                        weight = 0.30f,
+                        bgColor = horizontalNavigationBg,
+                        textColor = horizontalNavigationText,
+                        icon = Icons.Default.ArrowDownward,
+                        title = "Scroll Down",
+                        subtitle = "Tap Bottom (30%)",
+                        onClick = {
+                            onDismiss()
+                            onRightTap()
+                        }
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Left Zone: Orange
+                    TapZoneCard(
+                        weight = if (isContinuous) 0.25f else 0.333f,
+                        bgColor = horizontalNavigationBg,
+                        textColor = horizontalNavigationText,
+                        icon = when {
+                            isContinuous -> Icons.Default.ArrowUpward
+                            isRtl -> Icons.AutoMirrored.Filled.NavigateNext
+                            else -> Icons.AutoMirrored.Filled.NavigateBefore
+                        },
+                        title = when {
+                            isContinuous -> "Scroll Up"
+                            isRtl -> "Next Page"
+                            else -> "Prev Page"
+                        },
+                        subtitle = if (isContinuous) "Tap Left (25%)" else "Tap Left (33%)",
+                        onClick = {
+                            Log.d("BunoriReader", "TapZoneGuideOverlay: Left card clicked")
+                            onDismiss()
+                            if (isRtl) onRightTap() else onLeftTap()
+                        }
+                    )
+
+                    // Center Zone: Blue
+                    TapZoneCard(
+                        weight = if (isContinuous) 0.50f else 0.334f,
+                        bgColor = centerBg,
+                        textColor = centerText,
+                        icon = Icons.Default.TouchApp,
+                        title = "Menu / Fullscreen",
+                        subtitle = if (isContinuous) "Tap Center (50%)" else "Tap Center (34%)",
+                        onClick = {
+                            Log.d("BunoriReader", "TapZoneGuideOverlay: Center card clicked -> onCenterTap()")
+                            onDismiss()
+                            onCenterTap()
+                        }
+                    )
+
+                    // Right Zone: Orange
+                    TapZoneCard(
+                        weight = if (isContinuous) 0.25f else 0.333f,
+                        bgColor = horizontalNavigationBg,
+                        textColor = horizontalNavigationText,
+                        icon = when {
+                            isContinuous -> Icons.Default.ArrowDownward
+                            isRtl -> Icons.AutoMirrored.Filled.NavigateBefore
+                            else -> Icons.AutoMirrored.Filled.NavigateNext
+                        },
+                        title = when {
+                            isContinuous -> "Scroll Down"
+                            isRtl -> "Prev Page"
+                            else -> "Next Page"
+                        },
+                        subtitle = if (isContinuous) "Tap Right (25%)" else "Tap Right (33%)",
+                        onClick = {
+                            Log.d("BunoriReader", "TapZoneGuideOverlay: Right card clicked")
+                            onDismiss()
+                            if (isRtl) onLeftTap() else onRightTap()
+                        }
+                    )
+                }
             }
         }
     }
@@ -141,7 +211,6 @@ fun TapZoneGuideOverlay(
 private fun RowScope.TapZoneCard(
     weight: Float,
     bgColor: Color,
-    borderColor: Color,
     textColor: Color,
     icon: ImageVector,
     title: String,
@@ -152,9 +221,7 @@ private fun RowScope.TapZoneCard(
         modifier = Modifier
             .weight(weight)
             .fillMaxHeight()
-            .clip(RoundedCornerShape(16.dp))
             .background(bgColor)
-            .border(BorderStroke(1.5.dp, borderColor), RoundedCornerShape(16.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -193,3 +260,58 @@ private fun RowScope.TapZoneCard(
         }
     }
 }
+
+@Composable
+private fun ColumnScope.TapZoneCardVertical(
+    weight: Float,
+    bgColor: Color,
+    textColor: Color,
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .weight(weight)
+            .fillMaxWidth()
+            .background(bgColor)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .padding(10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                textAlign = TextAlign.Center,
+                lineHeight = 16.sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = textColor.copy(alpha = 0.8f),
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+

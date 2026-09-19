@@ -158,8 +158,8 @@ body {
   align-items: flex-start !important;
   justify-content: flex-start !important;
   text-align: left !important;
-  padding: 0 !important;
-  margin: 24px 0 !important;
+  padding: 24px 0 !important;
+  margin: 16px 0 !important;
   width: 100% !important;
   background: none !important;
   border: none !important;
@@ -171,13 +171,17 @@ body {
 }
 
 .chapter-card-start {
-  margin-top: 16px !important;
-  margin-bottom: 24px !important;
+  padding-top: 48px !important;
+  padding-bottom: 24px !important;
+  margin-top: 0 !important;
+  margin-bottom: 20px !important;
 }
 
 .chapter-card-end {
-  margin-top: 28px !important;
-  margin-bottom: 16px !important;
+  padding-top: 24px !important;
+  padding-bottom: 48px !important;
+  margin-top: 20px !important;
+  margin-bottom: 0 !important;
 }
 
 /* When loading happens do not show End: of the Chapter */
@@ -189,25 +193,28 @@ body.loading-next .chapter-wrapper:last-child .chapter-card-end {
   font-size: 0.85rem;
   font-weight: 700;
   color: #FFFFFF;
-  letter-spacing: 0.02em;
-  margin-bottom: 3px;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
   text-align: left;
+  text-transform: uppercase;
+  opacity: 0.85;
 }
 
 .chapter-card-title {
-  font-size: 1.18rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #FFFFFF;
-  line-height: 1.35;
-  margin-bottom: 3px;
+  line-height: 1.4;
+  margin-bottom: 8px;
   text-align: left;
 }
 
 .chapter-card-scanlator {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 400;
   color: #9CA3AF;
   letter-spacing: 0.01em;
+  margin-top: 2px;
   text-align: left;
 }
 
@@ -231,6 +238,37 @@ body.loading-next .chapter-wrapper:last-child .chapter-card-end {
 #top-sentinel {
   min-height: 0;
   padding: 0;
+  width: 100%;
+}
+
+.prev-chapter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 16px;
+  margin: 16px 0 8px 0;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  color: var(--reader-secondary-text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.prev-chapter-banner:active {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--reader-accent-color);
+  color: #FFFFFF;
+}
+
+body.paged-mode .prev-chapter-banner {
+  display: none !important;
 }
 
 /* Do not show the starting -- FIRST CHAPTER -- thingies over on the top */

@@ -5,36 +5,30 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
-import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.domain.models.CustomFont
 import com.halovoid.bunori.domain.models.ReaderSettings
 import com.halovoid.bunori.domain.models.ReaderTextAlign
@@ -80,8 +74,9 @@ fun ReaderSettingsBottomSheet(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     var showCustomCodeDialog by remember { mutableStateOf(false) }
+    var showFontDialog by remember { mutableStateOf(false) }
 
     val fontPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -119,126 +114,105 @@ fun ReaderSettingsBottomSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // 1. Reading Mode Selection
+            // 1. Reading Mode Selection (Selectable label options, no palettes)
             SectionHeader(title = "Reading Mode")
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                ModeSelectionCard(
-                    title = "Continuous",
-                    subtitle = "Vertical scroll",
-                    icon = Icons.Filled.SwapVert,
-                    isSelected = settings.readingMode == ReadingMode.CONTINUOUS,
-                    onClick = { onUpdateReadingMode(ReadingMode.CONTINUOUS) },
-                    modifier = Modifier.weight(1f)
-                )
-                ModeSelectionCard(
-                    title = "Paged",
-                    subtitle = "Book flip",
-                    icon = Icons.AutoMirrored.Filled.MenuBook,
-                    isSelected = settings.readingMode == ReadingMode.PAGED,
-                    onClick = { onUpdateReadingMode(ReadingMode.PAGED) },
-                    modifier = Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OptionSelectableChip(
+                        label = "Continuous",
+                        isSelected = settings.readingMode == ReadingMode.CONTINUOUS,
+                        onClick = { onUpdateReadingMode(ReadingMode.CONTINUOUS) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OptionSelectableChip(
+                        label = "Paged (left to right)",
+                        isSelected = settings.readingMode == ReadingMode.PAGED,
+                        onClick = { onUpdateReadingMode(ReadingMode.PAGED) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OptionSelectableChip(
+                        label = "Paged (right to left)",
+                        isSelected = settings.readingMode == ReadingMode.PAGED_RTL,
+                        onClick = { onUpdateReadingMode(ReadingMode.PAGED_RTL) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OptionSelectableChip(
+                        label = "Paged (vertical)",
+                        isSelected = settings.readingMode == ReadingMode.VERTICAL_TAP,
+                        onClick = { onUpdateReadingMode(ReadingMode.VERTICAL_TAP) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
-            // 2. Color Themes
+            // 2. Color Themes (Selectable label options, no palettes)
             SectionHeader(title = "Theme")
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                ThemeChip(
-                    name = "OLED",
-                    bgColor = Color(0xFF000000),
-                    textColor = Color(0xFFE4E4E7),
+                OptionSelectableChip(
+                    label = "OLED",
                     isSelected = settings.theme == ReaderTheme.OLED,
-                    onClick = { onUpdateTheme(ReaderTheme.OLED) }
+                    onClick = { onUpdateTheme(ReaderTheme.OLED) },
+                    modifier = Modifier.weight(1f)
                 )
-                ThemeChip(
-                    name = "Dark",
-                    bgColor = Color(0xFF18181B),
-                    textColor = Color(0xFFF4F4F5),
+                OptionSelectableChip(
+                    label = "Dark Slate",
                     isSelected = settings.theme == ReaderTheme.DARK,
-                    onClick = { onUpdateTheme(ReaderTheme.DARK) }
+                    onClick = { onUpdateTheme(ReaderTheme.DARK) },
+                    modifier = Modifier.weight(1f)
                 )
             }
 
-            // 3. Font Family
+            // 3. Font Family (Clean card that opens font selection modal)
             SectionHeader(title = "Font Family")
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                onClick = { showFontDialog = true },
+                shape = RoundedCornerShape(12.dp),
+                color = DarkSurfaceVariant.copy(alpha = 0.4f),
+                border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Bundled OFL Fonts
-                BUNDLED_FONTS.forEach { fontName ->
-                    val isSelected = settings.fontFamily.equals(fontName, ignoreCase = true)
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { onUpdateFontFamily(fontName) },
-                        label = { Text(text = fontName) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = BrandAccent,
-                            selectedLabelColor = Color.White
-                        )
-                    )
-                }
-
-                // Custom User Imported Fonts
-                customFonts.forEach { customFont ->
-                    val isSelected = settings.fontFamily.equals(customFont.name, ignoreCase = true)
-                    InputChip(
-                        selected = isSelected,
-                        onClick = { onUpdateFontFamily(customFont.name) },
-                        label = { Text(text = customFont.name) },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = "Remove font",
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clickable { onRemoveCustomFont(customFont) }
-                            )
-                        },
-                        colors = InputChipDefaults.inputChipColors(
-                            selectedContainerColor = BrandAccent,
-                            selectedLabelColor = Color.White
-                        )
-                    )
-                }
-
-                // Add Custom Font Button
-                OutlinedButton(
-                    onClick = {
-                        fontPickerLauncher.launch(
-                            arrayOf(
-                                "font/ttf",
-                                "font/otf",
-                                "application/x-font-ttf",
-                                "application/x-font-otf",
-                                "application/octet-stream",
-                                "*/*"
-                            )
-                        )
-                    },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier.height(36.dp),
-                    border = BorderStroke(1.dp, BrandAccent)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = settings.fontFamily,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryText
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        val isCustom = customFonts.any { it.name.equals(settings.fontFamily, ignoreCase = true) }
+                        Text(
+                            text = if (isCustom) "Custom font • Tap to change or import" else "Bundled font • Tap to change or import",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SecondaryText
+                        )
+                    }
                     Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = BrandAccent
+                        imageVector = Icons.AutoMirrored.Filled.NavigateNext,
+                        contentDescription = "Select font",
+                        tint = SecondaryText,
+                        modifier = Modifier.size(22.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Import Font", style = MaterialTheme.typography.labelMedium, color = BrandAccent)
                 }
             }
 
@@ -360,6 +334,31 @@ fun ReaderSettingsBottomSheet(
             onDismiss = { showCustomCodeDialog = false }
         )
     }
+
+    if (showFontDialog) {
+        FontSelectionDialog(
+            currentFont = settings.fontFamily,
+            customFonts = customFonts,
+            onSelectFont = { selectedFont ->
+                onUpdateFontFamily(selectedFont)
+                showFontDialog = false
+            },
+            onImportFont = {
+                fontPickerLauncher.launch(
+                    arrayOf(
+                        "font/ttf",
+                        "font/otf",
+                        "application/x-font-ttf",
+                        "application/x-font-otf",
+                        "application/octet-stream",
+                        "*/*"
+                    )
+                )
+            },
+            onRemoveCustomFont = onRemoveCustomFont,
+            onDismiss = { showFontDialog = false }
+        )
+    }
 }
 
 @Composable
@@ -373,42 +372,239 @@ private fun SectionHeader(title: String) {
 }
 
 @Composable
-private fun ModeSelectionCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
+private fun OptionSelectableChip(
+    label: String,
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.height(64.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) BrandAccent.copy(alpha = 0.15f) else DarkSurfaceVariant.copy(alpha = 0.4f),
+        modifier = modifier.height(44.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) BrandAccent.copy(alpha = 0.16f) else DarkSurfaceVariant.copy(alpha = 0.35f),
         border = BorderStroke(
-            1.5.dp,
-            if (isSelected) BrandAccent else BorderColor.copy(alpha = 0.5f)
+            if (isSelected) 1.5.dp else 1.dp,
+            if (isSelected) BrandAccent else BorderColor.copy(alpha = 0.45f)
         )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) BrandAccent else PrimaryText,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun FontSelectionDialog(
+    currentFont: String,
+    customFonts: List<CustomFont>,
+    onSelectFont: (String) -> Unit,
+    onImportFont: () -> Unit,
+    onRemoveCustomFont: (CustomFont) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+
+    val filteredBundled = remember(searchQuery) {
+        if (searchQuery.isBlank()) BUNDLED_FONTS
+        else BUNDLED_FONTS.filter { it.contains(searchQuery, ignoreCase = true) }
+    }
+
+    val filteredCustom = remember(searchQuery, customFonts) {
+        if (searchQuery.isBlank()) customFonts
+        else customFonts.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .fillMaxHeight(0.82f),
+            shape = RoundedCornerShape(20.dp),
+            color = DarkSurface,
+            border = BorderStroke(1.dp, BorderColor)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Select Font Family",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryText
+                    )
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = SecondaryText,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Search fonts...", color = SecondaryText) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = null, tint = SecondaryText)
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = SecondaryText)
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Import Font Button
+                OutlinedButton(
+                    onClick = onImportFont,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, BrandAccent),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandAccent)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = BrandAccent
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Import New Font (.ttf / .otf)", fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Font List
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (filteredBundled.isNotEmpty()) {
+                        Text(
+                            text = "BUNDLED FONTS",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SecondaryText,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                        )
+                        filteredBundled.forEach { fontName ->
+                            val isSelected = fontName.equals(currentFont, ignoreCase = true)
+                            FontRowItem(
+                                name = fontName,
+                                subtitle = "Bundled OFL Font",
+                                isSelected = isSelected,
+                                onSelect = { onSelectFont(fontName) },
+                                onDelete = null
+                            )
+                        }
+                    }
+
+                    if (filteredCustom.isNotEmpty()) {
+                        Text(
+                            text = "CUSTOM FONTS",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SecondaryText,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                        )
+                        filteredCustom.forEach { customFont ->
+                            val isSelected = customFont.name.equals(currentFont, ignoreCase = true)
+                            FontRowItem(
+                                name = customFont.name,
+                                subtitle = "User Imported Font",
+                                isSelected = isSelected,
+                                onSelect = { onSelectFont(customFont.name) },
+                                onDelete = { onRemoveCustomFont(customFont) }
+                            )
+                        }
+                    }
+
+                    if (filteredBundled.isEmpty() && filteredCustom.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("No fonts found matching \"$searchQuery\"", color = SecondaryText, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FontRowItem(
+    name: String,
+    subtitle: String,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    onDelete: (() -> Unit)?
+) {
+    Surface(
+        onClick = onSelect,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) BrandAccent.copy(alpha = 0.12f) else DarkSurfaceVariant.copy(alpha = 0.3f),
+        border = BorderStroke(
+            if (isSelected) 1.5.dp else 0.5.dp,
+            if (isSelected) BrandAccent else BorderColor.copy(alpha = 0.3f)
+        ),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isSelected) BrandAccent else SecondaryText,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
+                    text = name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     color = if (isSelected) BrandAccent else PrimaryText
                 )
                 Text(
@@ -417,44 +613,28 @@ private fun ModeSelectionCard(
                     color = SecondaryText
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun ThemeChip(
-    name: String,
-    bgColor: Color,
-    textColor: Color,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier
-            .width(68.dp)
-            .height(52.dp),
-        shape = RoundedCornerShape(10.dp),
-        color = bgColor,
-        border = BorderStroke(
-            if (isSelected) 2.dp else 1.dp,
-            if (isSelected) BrandAccent else Color(0xFF4B5563)
-        )
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = name,
-                color = textColor,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold
-            )
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                        .size(8.dp)
-                        .background(BrandAccent, CircleShape)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onDelete != null) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Remove font",
+                            tint = SecondaryText.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                RadioButton(
+                    selected = isSelected,
+                    onClick = onSelect,
+                    colors = RadioButtonDefaults.colors(
+                        selectedColor = BrandAccent,
+                        unselectedColor = SecondaryText.copy(alpha = 0.4f)
+                    )
                 )
             }
         }

@@ -71,7 +71,6 @@ import com.halovoid.bunori.ui.feature.novel.components.ActiveRequestCard
 import com.halovoid.bunori.ui.feature.novel.components.ChapterFilterSortSheet
 import com.halovoid.bunori.ui.feature.novel.components.JumpToChapterBottomSheet
 import com.halovoid.bunori.ui.feature.novel.components.NovelActionRow
-import com.halovoid.bunori.ui.feature.novel.components.NovelDetailsBottomSheet
 import com.halovoid.bunori.ui.feature.novel.components.NovelHeroSection
 import com.halovoid.bunori.ui.feature.novel.components.NovelMetadataTable
 import com.halovoid.bunori.ui.feature.novel.components.NovelSynopsisSection
@@ -84,7 +83,6 @@ sealed interface NovelDialogState {
     data object ConfirmDelete : NovelDialogState
     data object DownloadRange : NovelDialogState
     data object FilterSheet : NovelDialogState
-    data object NovelDetails : NovelDialogState
     data object SourceFilterSheet : NovelDialogState
     data object JumpToChapter : NovelDialogState
 }
@@ -226,8 +224,7 @@ fun NovelScreen(
 
                         item {
                             NovelMetadataTable(
-                                novel = currentNovel,
-                                onClick = { activeDialog = NovelDialogState.NovelDetails }
+                                novel = currentNovel
                             )
                         }
 
@@ -328,8 +325,6 @@ fun NovelScreen(
                     isFilterActive = isFilterActive || isSortModified,
                     onSourceFilterClick = { activeDialog = NovelDialogState.SourceFilterSheet },
                     isSourceFilterActive = isSourceFilterActive,
-                    onRefreshMetadata = { viewModel.fetchNovelMetadata(currentNovel) },
-                    onDeleteNovel = { activeDialog = NovelDialogState.ConfirmDelete },
                     onActivityClick = onActivityClick
                 )
             }
@@ -378,12 +373,7 @@ fun NovelScreen(
                         onDismiss = { activeDialog = null }
                     )
                 }
-                is NovelDialogState.NovelDetails -> {
-                    NovelDetailsBottomSheet(
-                        novel = currentNovel,
-                        onDismiss = { activeDialog = null }
-                    )
-                }
+
                 is NovelDialogState.SourceFilterSheet -> {
                     SourceFilterBottomSheet(
                         availableSources = availableSources,

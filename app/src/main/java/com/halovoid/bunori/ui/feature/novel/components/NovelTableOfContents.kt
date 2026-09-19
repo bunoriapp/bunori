@@ -103,7 +103,7 @@ fun ChapterRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "Chapter ${chapter.index}",
-                color = if (chapter.read) SecondaryText else PrimaryText,
+                color = if (chapter.read) SecondaryText.copy(0.5f) else PrimaryText,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold
             )

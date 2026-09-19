@@ -143,14 +143,6 @@ private fun FavoriteActionItem(
                 .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
-            // Animated ECG waveform running behind the heart when activity is running and novel is in library
-            if (isActivityRunning && inLibrary) {
-                EcgWaveformBackground(
-                    modifier = Modifier.fillMaxSize(),
-                    color = BrandAccent
-                )
-            }
-
             Icon(
                 imageVector = icon,
                 contentDescription = if (inLibrary) "In Library" else "Add to Library",
@@ -170,101 +162,6 @@ private fun FavoriteActionItem(
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1
-        )
-    }
-}
-
-/**
- * Animated ECG/heartbeat waveform continuously running horizontally across the canvas.
- */
-@Composable
-fun EcgWaveformBackground(
-    modifier: Modifier = Modifier,
-    color: Color = BrandAccent
-) {
-    val transition = rememberInfiniteTransition(label = "ecgWave")
-    val progress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1400, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "ecgProgress"
-    )
-
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        val centerY = height / 2f
-        val amplitude = height * 0.40f
-        val waveLength = width * 1.25f
-
-        val path = Path()
-        var isFirst = true
-
-        val step = 2f
-        var x = 0f
-        while (x <= width) {
-            val t = (x / waveLength) - progress
-            val normT = (t % 1f + 1f) % 1f
-
-            val offset = when {
-                normT in 0.12f..0.22f -> {
-                    // P wave: small upward bump
-                    val p = (normT - 0.12f) / 0.10f
-                    -Math.sin(p * Math.PI).toFloat() * 0.18f
-                }
-                normT in 0.32f..0.36f -> {
-                    // Q wave: small downward dip
-                    val q = (normT - 0.32f) / 0.04f
-                    Math.sin(q * Math.PI).toFloat() * 0.15f
-                }
-                normT in 0.36f..0.44f -> {
-                    // R wave: tall sharp spike
-                    val r = (normT - 0.36f) / 0.08f
-                    -Math.sin(r * Math.PI).toFloat() * 0.95f
-                }
-                normT in 0.44f..0.50f -> {
-                    // S wave: downward spike
-                    val s = (normT - 0.44f) / 0.06f
-                    Math.sin(s * Math.PI).toFloat() * 0.32f
-                }
-                normT in 0.58f..0.72f -> {
-                    // T wave: medium rounded bump
-                    val tProg = (normT - 0.58f) / 0.14f
-                    -Math.sin(tProg * Math.PI).toFloat() * 0.25f
-                }
-                else -> 0f
-            }
-
-            val y = centerY + offset * amplitude
-
-            if (isFirst) {
-                path.moveTo(x, y)
-                isFirst = false
-            } else {
-                path.lineTo(x, y)
-            }
-            x += step
-        }
-
-        drawPath(
-            path = path,
-            brush = Brush.horizontalGradient(
-                listOf(
-                    color.copy(alpha = 0.15f),
-                    color.copy(alpha = 0.85f),
-                    color,
-                    color.copy(alpha = 0.85f),
-                    color.copy(alpha = 0.15f)
-                )
-            ),
-            style = Stroke(
-                width = 2.dp.toPx(),
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round
-            )
         )
     }
 }

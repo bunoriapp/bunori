@@ -107,7 +107,7 @@ fun ReaderWebView(
         }
     }
 
-    // Live 120 FPS reader settings updates (CSS variables, themes, reading mode)
+    // Live reader settings updates (CSS variables, themes, reading mode)
     LaunchedEffect(readerSettings, primaryHex, isPageReady) {
         val webView = webViewInstance
         if (isPageReady && webView != null) {

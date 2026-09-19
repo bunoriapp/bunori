@@ -199,8 +199,7 @@ fun ReaderScreen(
                 onToggleFullscreen = {
                     Log.d("BunoriReader", "ReaderScreen -> TopBar fullscreen button clicked, hiding controls")
                     isControlsVisible = false
-                },
-                onOpenSettings = { isSettingsVisible = true }
+                }
             )
         }
 
@@ -215,21 +214,12 @@ fun ReaderScreen(
                 progress = readingProgress,
                 currentChapterNumber = currentChapterNumber,
                 totalChapters = totalChapters,
-                readingMode = readerSettings.readingMode,
-                onToggleReadingMode = {
-                    val nextMode = if (readerSettings.readingMode == ReadingMode.CONTINUOUS) {
-                        ReadingMode.PAGED
-                    } else {
-                        ReadingMode.CONTINUOUS
-                    }
-                    viewModel.updateReadingMode(nextMode)
-                },
+                onOpenSettings = { isSettingsVisible = true },
                 onPreviousChapter = {
                     if (currentChapterNumber > 1 && tocChapters.isNotEmpty()) {
                         val prevChapter = tocChapters.getOrNull(currentChapterNumber - 2)
                         if (prevChapter != null) {
-                            val startAtEnd = readerSettings.readingMode == ReadingMode.PAGED
-                            viewModel.jumpToChapter(prevChapter.id, startAtEnd = startAtEnd)
+                            viewModel.jumpToChapter(prevChapter.id, startAtEnd = true)
                         }
                     }
                 },
@@ -367,8 +357,7 @@ private fun ReaderTopBar(
     subtitle: String?,
     onBack: () -> Unit,
     onOpenToc: () -> Unit,
-    onToggleFullscreen: () -> Unit,
-    onOpenSettings: () -> Unit
+    onToggleFullscreen: () -> Unit
 ) {
     Surface(
         color = DarkBackground.copy(alpha = 0.95f),
@@ -417,12 +406,6 @@ private fun ReaderTopBar(
                         contentDescription = "Fullscreen"
                     )
                 }
-                IconButton(onClick = onOpenSettings) {
-                    Icon(
-                        imageVector = Icons.Filled.Tune,
-                        contentDescription = "Reader settings"
-                    )
-                }
             },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = Color.Transparent,
@@ -439,8 +422,7 @@ private fun ReaderBottomBar(
     progress: Float,
     currentChapterNumber: Int,
     totalChapters: Int,
-    readingMode: ReadingMode,
-    onToggleReadingMode: () -> Unit,
+    onOpenSettings: () -> Unit,
     onPreviousChapter: () -> Unit,
     onNextChapter: () -> Unit
 ) {
@@ -498,23 +480,22 @@ private fun ReaderBottomBar(
                     Text("Prev")
                 }
 
-                FilterChip(
-                    selected = false,
-                    onClick = onToggleReadingMode,
-                    label = {
-                        Text(
-                            text = if (readingMode == ReadingMode.CONTINUOUS) "Continuous" else "Paged",
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = if (readingMode == ReadingMode.CONTINUOUS) Icons.Filled.SwapVert else Icons.Filled.AutoStories,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                )
+                OutlinedButton(
+                    onClick = onOpenSettings,
+                    shape = RoundedCornerShape(20.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryText)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Tune,
+                        contentDescription = "Reader settings",
+                        modifier = Modifier.size(16.dp),
+                        tint = PrimaryText
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Settings", style = MaterialTheme.typography.labelMedium)
+                }
 
                 TextButton(
                     onClick = onNextChapter,
