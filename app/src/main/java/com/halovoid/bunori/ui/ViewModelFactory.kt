@@ -67,7 +67,8 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
                     application,
                     ChapterRepository.getInstance(application),
                     NovelRepository.getInstance(application),
-                    ReaderRepository.getInstance(application)
+                    ReaderRepository.getInstance(application),
+                    PreferenceRepository.getInstance(application)
                 ) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class")

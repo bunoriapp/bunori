@@ -45,6 +45,45 @@ class ReaderRepository private constructor(
             html ?: "<p>Couldn't load this chapter. Check your connection and try again</p>"
         }
 
+    suspend fun saveExtractedChapter(
+        novelUrl: String,
+        chapterUrl: String,
+        chapterId: Int,
+        chapterIndex: Int,
+        chapterTitle: String,
+        scanlationSource: String,
+        html: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (html.isBlank()) return@withContext false
+        try {
+            val cacheDir = File(context.cacheDir, "chapter_cache").apply { mkdirs() }
+            val safeFileName = "ch_${novelUrl.hashCode()}_${chapterId}_${System.currentTimeMillis()}.html"
+            val cacheFile = File(cacheDir, safeFileName)
+            cacheFile.writeText(html)
+
+            val novel = novelRepository.getNovelDetails(novelUrl)
+            val novelTitle = novel?.title ?: "Novel"
+
+            val cachedDownload = Download(
+                novelUrl = novelUrl,
+                chapterUrl = chapterUrl,
+                fileLocation = cacheFile.absolutePath,
+                chapterIndex = chapterIndex,
+                chapterTitle = chapterTitle,
+                scanlationSource = scanlationSource,
+                novelTitle = novelTitle,
+                sizeBytes = cacheFile.length(),
+                downloadedAt = System.currentTimeMillis(),
+                isCache = true,
+                expirationTime = System.currentTimeMillis() + 24 * 60 * 60 * 1000L
+            )
+            downloadRepository.saveDownload(cachedDownload)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private suspend fun readDownloaded(download: Download): String? {
         val fileLocation = download.fileLocation
         if (fileLocation.isBlank()) return null

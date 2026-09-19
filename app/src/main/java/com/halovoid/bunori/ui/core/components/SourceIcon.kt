@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.halovoid.bunori.ui.core.theme.BorderColor
 import com.halovoid.bunori.ui.core.theme.BrandAccent
 import com.halovoid.bunori.ui.core.theme.DarkSurfaceVariant
 import java.net.URI
@@ -42,9 +41,10 @@ fun SourceIcon(
     modifier: Modifier = Modifier,
     size: Dp = 40.dp,
     shape: Shape = RoundedCornerShape(8.dp),
-    backgroundColor: Color = DarkSurfaceVariant,
+    backgroundColor: Color = Color.Transparent,
     contentPadding: Dp = 0.dp,
-    contentScale: ContentScale = ContentScale.Crop
+    contentScale: ContentScale = ContentScale.Crop,
+    border: BorderStroke? = null
 ) {
     var errorCount by remember(model) { mutableStateOf(0) }
 
@@ -64,13 +64,20 @@ fun SourceIcon(
         }
     }
 
+    val isImageAvailable = currentData != null && errorCount < 2
+    val containerColor = if (isImageAvailable) {
+        backgroundColor
+    } else {
+        if (backgroundColor == Color.Transparent) DarkSurfaceVariant else backgroundColor
+    }
+
     Surface(
         modifier = modifier.size(size),
         shape = shape,
-        color = backgroundColor,
-        border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.25f))
+        color = containerColor,
+        border = border
     ) {
-        if (currentData != null && errorCount < 2) {
+        if (isImageAvailable) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(currentData)

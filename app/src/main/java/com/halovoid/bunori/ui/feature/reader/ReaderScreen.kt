@@ -1,45 +1,47 @@
 package com.halovoid.bunori.ui.feature.reader
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import android.app.Activity
+import android.content.Intent
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.NavigateBefore
+import androidx.compose.material.icons.automirrored.filled.NavigateNext
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.halovoid.bunori.domain.models.ReadingMode
 import com.halovoid.bunori.ui.core.platform.SystemBarHandler
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.reader.components.TableOfContentsSheet
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.mapNotNull
+import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
+import com.halovoid.bunori.ui.feature.reader.components.ReaderSettingsBottomSheet
+import com.halovoid.bunori.ui.feature.reader.components.ReaderWebView
+import com.halovoid.bunori.ui.feature.reader.components.TableOfContentsDialog
+import com.halovoid.bunori.ui.feature.reader.components.TapZoneGuideOverlay
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Same overall shell and windowing behavior as before (continuous scroll,
- * center-chapter detection, immersive mode), plus:
- * - a Table of Contents button in the top bar (jump-to-chapter),
- * - paragraph/block selection (long-press to start, tap to extend/clear),
- *   as a foundation for future bookmarking/highlighting/notes features.
+ * WebView Reader screen for Bunori.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderScreen(
     novelUrl: String,
@@ -47,158 +49,313 @@ fun ReaderScreen(
     onBack: () -> Unit,
     viewModel: ReaderViewModel
 ) {
-    val window by viewModel.window.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
     val currentChapter by viewModel.currentChapter.collectAsStateWithLifecycle()
+    val currentChapterNumber by viewModel.currentChapterNumber.collectAsStateWithLifecycle()
+    val totalChapters by viewModel.totalChapters.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val tocChapters by viewModel.tocChapters.collectAsStateWithLifecycle()
-    val scrollRequest by viewModel.scrollRequest.collectAsStateWithLifecycle()
-    val selectedBlockIds by viewModel.selectedBlockIds.collectAsStateWithLifecycle()
-    val listState = rememberLazyListState()
+    val readingProgress by viewModel.readingProgress.collectAsStateWithLifecycle()
+    val isBlockedOrEmpty by viewModel.isBlockedOrEmpty.collectAsStateWithLifecycle()
+    val blockedChapter by viewModel.blockedChapter.collectAsStateWithLifecycle()
+    val readerSettings by viewModel.readerSettings.collectAsStateWithLifecycle()
+    val customFonts by viewModel.customFonts.collectAsStateWithLifecycle()
 
     var isControlsVisible by remember { mutableStateOf(true) }
-    var hasScrolledToInitial by remember { mutableStateOf(false) }
     var isTocVisible by remember { mutableStateOf(false) }
+    var isSettingsVisible by remember { mutableStateOf(false) }
+    var isGuideVisible by remember { mutableStateOf(false) }
 
-    val selectionModeActive = selectedBlockIds.isNotEmpty()
+    // Display visual tap zone helper for 2 seconds on initial open and whenever reading mode switches
+    LaunchedEffect(readerSettings.readingMode) {
+        isGuideVisible = true
+        delay(2000L.milliseconds)
+        isGuideVisible = false
+    }
 
+    val extractorLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val chId = blockedChapter?.id
+            if (chId != null) {
+                viewModel.reloadChapter(chId)
+            }
+        }
+    }
+
+    // Controls system status & navigation bar visibility (Mihon pattern)
     SystemBarHandler(isSystemBarsVisible = isControlsVisible)
 
     LaunchedEffect(novelUrl, initialChapterId) {
         viewModel.start(novelUrl, initialChapterId)
     }
 
-    LaunchedEffect(window) {
-        if (window.isNotEmpty() && !hasScrolledToInitial) {
-            val index = window.indexOfFirst { it.chapter.id == initialChapterId }
-            if (index != -1) {
-                listState.scrollToItem(index)
-                hasScrolledToInitial = true
-            }
-        }
+    val containerBgColor = when (readerSettings.theme.id) {
+        "oled" -> Color.Black
+        else -> Color(0xFF18181B)
     }
 
-    // Jumping from the Table of Contents scrolls once the target chapter
-    // has actually loaded into the window.
-    LaunchedEffect(scrollRequest, window) {
-        val request = scrollRequest ?: return@LaunchedEffect
-        val index = window.indexOfFirst { it.chapter.id == request.chapterId }
-        if (index != -1) {
-            listState.scrollToItem(index)
-            viewModel.consumeScrollRequest(request.token)
-        }
-    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(containerBgColor)
+    ) {
+        ReaderWebView(
+            viewModel = viewModel,
+            onToggleControls = {
+                Log.d("BunoriReader", "ReaderScreen -> onToggleControls: toggling isControlsVisible from $isControlsVisible to ${!isControlsVisible}")
+                isControlsVisible = !isControlsVisible
+            },
+            modifier = Modifier.fillMaxSize()
+        )
 
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo }
-            .mapNotNull { visibleItems ->
-                if (visibleItems.isEmpty()) return@mapNotNull null
-                val viewportCenter = (listState.layoutInfo.viewportEndOffset + listState.layoutInfo.viewportStartOffset) / 2
-                val centerItem = visibleItems.minByOrNull {
-                    val itemCenter = it.offset + it.size / 2
-                    kotlin.math.abs(itemCenter - viewportCenter)
+        TapZoneGuideOverlay(
+            visible = isGuideVisible,
+            readingMode = readerSettings.readingMode,
+            onDismiss = { isGuideVisible = false },
+            onLeftTap = {
+                if (readerSettings.readingMode == ReadingMode.PAGED) {
+                    viewModel.turnPage(-1)
                 }
-                centerItem?.key as? Int
+            },
+            onCenterTap = {
+                isControlsVisible = !isControlsVisible
+            },
+            onRightTap = {
+                if (readerSettings.readingMode == ReadingMode.PAGED) {
+                    viewModel.turnPage(1)
+                }
             }
-            .distinctUntilChanged()
-            .collect { chapterId ->
-                viewModel.onCenterChapterChanged(chapterId)
-            }
-    }
+        )
 
-    Scaffold(
-        containerColor = DarkBackground,
-        topBar = {
-            AnimatedVisibility(
-                visible = isControlsVisible,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+        // 3. Loading Spinner & Status Indicator
+        if (isLoading) {
+            Surface(
+                modifier = Modifier.align(Alignment.Center),
+                shape = RoundedCornerShape(16.dp),
+                color = DarkSurface.copy(alpha = 0.95f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
+                shadowElevation = 8.dp
             ) {
-                ReaderTopBar(
-                    title = currentChapter?.title ?: "Reader",
-                    selectionCount = selectedBlockIds.size,
-                    onBack = onBack,
-                    onOpenToc = { isTocVisible = true },
-                    onClearSelection = { viewModel.clearSelection() }
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(26.dp),
+                        color = Color.White,
+                        strokeWidth = 3.dp
+                    )
+                    Text(
+                        text = "Loading chapter...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = PrimaryText,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
-    ) { innerPadding ->
-        Box(
+
+        // 3. Floating Minimal Progress Pill (visible when controls are hidden)
+        AnimatedVisibility(
+            visible = !isControlsVisible && totalChapters > 0 && currentChapterNumber > 0,
+            enter = fadeIn(),
+            exit = fadeOut(),
             modifier = Modifier
-                .fillMaxSize()
-                .padding(top = if (isControlsVisible) innerPadding.calculateTopPadding() else 0.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    if (selectionModeActive) viewModel.clearSelection()
-                    else isControlsVisible = !isControlsVisible
-                }
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(end = 16.dp, bottom = 16.dp)
         ) {
-            if (isLoading && window.isEmpty()) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
-                    color = PrimaryAccent
+            Surface(
+                color = Color.Black.copy(alpha = 0.65f),
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                val pct = (readingProgress * 100).toInt().coerceIn(0, 100)
+                Text(
+                    text = "$currentChapterNumber/$totalChapters  $pct%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    fontWeight = FontWeight.Bold
                 )
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 32.dp,
-                        bottom = 120.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(window, key = { it.chapter.id }) { loadedChapter ->
-                        ChapterContent(
-                            loadedChapter = loadedChapter,
-                            selectedBlockIds = selectedBlockIds,
-                            selectionModeActive = selectionModeActive,
-                            onToggleSelect = viewModel::toggleBlockSelection,
-                            onBackgroundTap = { isControlsVisible = !isControlsVisible },
-                            onReload = viewModel::reloadChapter
-                        )
+            }
+        }
+
+        // 4. Floating Top Bar Overlay
+        AnimatedVisibility(
+            visible = isControlsVisible,
+            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter)
+        ) {
+            ReaderTopBar(
+                title = currentChapter?.title ?: "Reader",
+                subtitle = if (totalChapters > 0) "Chapter $currentChapterNumber of $totalChapters" else null,
+                onBack = onBack,
+                onOpenToc = { isTocVisible = true },
+                onToggleFullscreen = {
+                    Log.d("BunoriReader", "ReaderScreen -> TopBar fullscreen button clicked, hiding controls")
+                    isControlsVisible = false
+                },
+                onOpenSettings = { isSettingsVisible = true }
+            )
+        }
+
+        // 5. Floating Bottom Bar Overlay
+        AnimatedVisibility(
+            visible = isControlsVisible,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            ReaderBottomBar(
+                progress = readingProgress,
+                currentChapterNumber = currentChapterNumber,
+                totalChapters = totalChapters,
+                readingMode = readerSettings.readingMode,
+                onToggleReadingMode = {
+                    val nextMode = if (readerSettings.readingMode == ReadingMode.CONTINUOUS) {
+                        ReadingMode.PAGED
+                    } else {
+                        ReadingMode.CONTINUOUS
+                    }
+                    viewModel.updateReadingMode(nextMode)
+                },
+                onPreviousChapter = {
+                    if (currentChapterNumber > 1 && tocChapters.isNotEmpty()) {
+                        val prevChapter = tocChapters.getOrNull(currentChapterNumber - 2)
+                        if (prevChapter != null) {
+                            val startAtEnd = readerSettings.readingMode == ReadingMode.PAGED
+                            viewModel.jumpToChapter(prevChapter.id, startAtEnd = startAtEnd)
+                        }
+                    }
+                },
+                onNextChapter = {
+                    if (currentChapterNumber < totalChapters && tocChapters.isNotEmpty()) {
+                        val nextChapter = tocChapters.getOrNull(currentChapterNumber)
+                        if (nextChapter != null) viewModel.jumpToChapter(nextChapter.id)
                     }
                 }
-            }
+            )
+        }
 
-            AnimatedVisibility(
-                visible = !isControlsVisible && !selectionModeActive,
-                enter = fadeIn(),
-                exit = fadeOut(),
+        // 6. Dynamic Content / Cloudflare Fallback Dialog Card
+        if (isBlockedOrEmpty && blockedChapter != null) {
+            val chapter = blockedChapter!!
+            Surface(
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 16.dp)
+                    .align(Alignment.Center)
+                    .padding(horizontal = 24.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = DarkSurface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor),
+                shadowElevation = 8.dp
             ) {
-                val currentNum by viewModel.currentChapterNumber.collectAsStateWithLifecycle()
-                val totalNum by viewModel.totalChapters.collectAsStateWithLifecycle()
-                if (totalNum > 0 && currentNum > 0) {
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(4.dp)
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Public,
+                        contentDescription = null,
+                        tint = BrandAccent,
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Dynamic Content / Verification Required",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryText
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "\"${chapter.title}\" could not be scraped directly. The site may require Cloudflare verification or JavaScript DOM extraction.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SecondaryText,
+                        lineHeight = 18.sp
+                    )
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "$currentNum/$totalNum",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryText,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            fontWeight = FontWeight.Bold
-                        )
+                        OutlinedButton(
+                            onClick = { viewModel.reloadChapter(chapter.id) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Retry", color = PrimaryText)
+                        }
+                        Button(
+                            onClick = {
+                                val targetUrl = chapter.sourceUrl?.takeIf { it.isNotBlank() } ?: chapter.url
+                                val intent = Intent(context, WebViewActivity::class.java).apply {
+                                    putExtra("url", targetUrl)
+                                    putExtra("host", targetUrl.toUri().host ?: "")
+                                    putExtra("is_extraction_mode", true)
+                                    putExtra("chapter_id", chapter.id)
+                                    putExtra("chapter_index", chapter.index)
+                                    putExtra("chapter_title", chapter.title)
+                                    putExtra("novel_url", novelUrl)
+                                    putExtra("chapter_url", chapter.url)
+                                    putExtra("scanlation_source", chapter.scanlationSource)
+                                }
+                                extractorLauncher.launch(intent)
+                            },
+                            modifier = Modifier.weight(1.5f),
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandAccent)
+                        ) {
+                            Text("Open in WebView", color = Color.White)
+                        }
+                    }
+                    TextButton(
+                        onClick = { viewModel.dismissBlockedState() },
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Text("Dismiss", color = SecondaryText)
                     }
                 }
             }
         }
     }
 
+    // Center Modal Dialog: Table of Contents with Search & Quick Jump
     if (isTocVisible) {
-        TableOfContentsSheet(
+        TableOfContentsDialog(
             chapters = tocChapters,
             currentChapterId = currentChapter?.id,
-            onChapterSelected = { chapterId -> viewModel.jumpToChapter(chapterId) },
+            onChapterSelected = { chapterId ->
+                viewModel.jumpToChapter(chapterId)
+                isTocVisible = false
+            },
             onDismiss = { isTocVisible = false }
+        )
+    }
+
+    // Reader Settings Bottom Sheet
+    if (isSettingsVisible) {
+        ReaderSettingsBottomSheet(
+            settings = readerSettings,
+            customFonts = customFonts,
+            onUpdateTheme = viewModel::updateTheme,
+            onUpdateReadingMode = viewModel::updateReadingMode,
+            onUpdateFontFamily = viewModel::updateFontFamily,
+            onUpdateFontSize = viewModel::updateFontSize,
+            onUpdateLineHeight = viewModel::updateLineHeight,
+            onUpdatePadding = viewModel::updateHorizontalPadding,
+            onUpdateTextAlign = viewModel::updateTextAlign,
+            onUpdateVolumeKeyTurn = viewModel::updateVolumeKeyPageTurn,
+            onUpdateKeepScreenAwake = viewModel::updateKeepScreenAwake,
+            onUpdateDimImages = viewModel::updateDimImages,
+            onUpdateCustomCss = viewModel::updateCustomCss,
+            onUpdateCustomJs = viewModel::updateCustomJs,
+            onAddCustomFont = viewModel::addCustomFont,
+            onRemoveCustomFont = viewModel::removeCustomFont,
+            onDismiss = { isSettingsVisible = false }
         )
     }
 }
@@ -207,97 +364,170 @@ fun ReaderScreen(
 @Composable
 private fun ReaderTopBar(
     title: String,
-    selectionCount: Int,
+    subtitle: String?,
     onBack: () -> Unit,
     onOpenToc: () -> Unit,
-    onClearSelection: () -> Unit
+    onToggleFullscreen: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
-    TopAppBar(
-        title = {
-            Text(text = if (selectionCount > 0) "$selectionCount selected" else title, maxLines = 1)
-        },
-        navigationIcon = {
-            IconButton(onClick = if (selectionCount > 0) onClearSelection else onBack) {
-                Icon(
-                    imageVector = if (selectionCount > 0) Icons.Filled.Close else Icons.Filled.ArrowBack,
-                    contentDescription = if (selectionCount > 0) "Clear selection" else "Back"
-                )
-            }
-        },
-        actions = {
-            if (selectionCount == 0) {
-                IconButton(onClick = onOpenToc) {
-                    Icon(imageVector = Icons.Filled.List, contentDescription = "Table of contents")
+    Surface(
+        color = DarkBackground.copy(alpha = 0.95f),
+        contentColor = PrimaryText,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        TopAppBar(
+            modifier = Modifier.statusBarsPadding(),
+            title = {
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SecondaryText,
+                            maxLines = 1
+                        )
+                    }
                 }
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = DarkBackground,
-            titleContentColor = PrimaryText,
-            navigationIconContentColor = PrimaryText,
-            actionIconContentColor = PrimaryText
+            },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back"
+                    )
+                }
+            },
+            actions = {
+                IconButton(onClick = onOpenToc) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.List,
+                        contentDescription = "Table of contents"
+                    )
+                }
+                IconButton(onClick = onToggleFullscreen) {
+                    Icon(
+                        imageVector = Icons.Default.Fullscreen,
+                        contentDescription = "Fullscreen"
+                    )
+                }
+                IconButton(onClick = onOpenSettings) {
+                    Icon(
+                        imageVector = Icons.Filled.Tune,
+                        contentDescription = "Reader settings"
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                titleContentColor = PrimaryText,
+                navigationIconContentColor = PrimaryText,
+                actionIconContentColor = PrimaryText
+            )
         )
-    )
+    }
 }
 
 @Composable
-private fun ChapterContent(
-    loadedChapter: LoadedChapter,
-    selectedBlockIds: Set<String>,
-    selectionModeActive: Boolean,
-    onToggleSelect: (String) -> Unit,
-    onBackgroundTap: () -> Unit,
-    onReload: (Int) -> Unit
+private fun ReaderBottomBar(
+    progress: Float,
+    currentChapterNumber: Int,
+    totalChapters: Int,
+    readingMode: ReadingMode,
+    onToggleReadingMode: () -> Unit,
+    onPreviousChapter: () -> Unit,
+    onNextChapter: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-            color = Color.Transparent
+    Surface(
+        color = DarkBackground.copy(alpha = 0.95f),
+        contentColor = PrimaryText,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                HorizontalDivider(
-                    modifier = Modifier.width(60.dp),
-                    color = PrimaryAccent.copy(alpha = 0.3f),
-                    thickness = 2.dp
+            // Scrubber Progress Indicator
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(4.dp),
+                    color = BrandAccent,
+                    trackColor = DarkSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                val pct = (progress * 100).toInt().coerceIn(0, 100)
                 Text(
-                    text = "${loadedChapter.chapter.title} started",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = PrimaryAccent.copy(alpha = 0.7f),
-                    letterSpacing = 2.sp
+                    text = "$pct%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SecondaryText,
+                    fontWeight = FontWeight.Bold
                 )
             }
-        }
 
-        loadedChapter.document.blocks.forEach { block ->
-            BlockItem(
-                block = block,
-                isSelected = block.id in selectedBlockIds,
-                selectionModeActive = selectionModeActive,
-                onToggleSelect = onToggleSelect,
-                onBackgroundTap = onBackgroundTap,
-                onReloadChapter = { onReload(loadedChapter.chapter.id) }
-            )
-        }
+            Spacer(modifier = Modifier.height(4.dp))
 
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-            color = Color.Transparent
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "${loadedChapter.chapter.title} ended",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = SecondaryText.copy(alpha = 0.5f),
-                    letterSpacing = 2.sp
+            // Navigation Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = onPreviousChapter,
+                    enabled = currentChapterNumber > 1
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.NavigateBefore,
+                        contentDescription = "Previous Chapter",
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text("Prev")
+                }
+
+                FilterChip(
+                    selected = false,
+                    onClick = onToggleReadingMode,
+                    label = {
+                        Text(
+                            text = if (readingMode == ReadingMode.CONTINUOUS) "Continuous" else "Paged",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = if (readingMode == ReadingMode.CONTINUOUS) Icons.Filled.SwapVert else Icons.Filled.AutoStories,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(
-                    modifier = Modifier.width(60.dp),
-                    color = SecondaryText.copy(alpha = 0.2f),
-                    thickness = 2.dp
-                )
+
+                TextButton(
+                    onClick = onNextChapter,
+                    enabled = currentChapterNumber < totalChapters
+                ) {
+                    Text("Next")
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.NavigateNext,
+                        contentDescription = "Next Chapter",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }

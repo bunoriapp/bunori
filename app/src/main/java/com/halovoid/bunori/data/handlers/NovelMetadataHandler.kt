@@ -36,10 +36,10 @@ class NovelMetadataHandler(
             ?: return JobResult.Failure(Exception("No Crawler Found for name: $crawlerName"))
 
         return try {
-            // 1. Fetch latest details from the source
+            // Fetch latest details from the source
             val novel = crawler.getNovelDetails(task.novelUrl)
 
-            // 2. Refresh cover image if available and not ignored
+            // Refresh cover image if available and not ignored
             val shouldIgnoreImages = preferenceRepository.ignoreImages.first()
             val coverUri = if (!shouldIgnoreImages) {
                 downloadAndSaveCover(novel.coverUrl, crawler, novel.url)
@@ -47,8 +47,8 @@ class NovelMetadataHandler(
                 null
             }
 
-            // 3. Prepare the updated novel domain model (formats titles)
-            val updatedNovel = crawler.prepareNovel(novel).let {
+            // Prepare the updated novel domain model (formats titles)
+            val updatedNovel = novel.let {
                 val coverLocalUrl = if (coverUri != null) coverUri.toString() else if (shouldIgnoreImages) null else it.coverUrl
                 it.copy(
                     coverUrl = coverLocalUrl,
@@ -56,7 +56,7 @@ class NovelMetadataHandler(
                 )
             }
 
-            // 4. Fetch existing chapters to preserve local state (like downloaded fileLocation)
+            // Fetch existing chapters to preserve local state (like downloaded fileLocation)
             val existingChapters = chapterRepository.getChaptersByNovelUrl(task.novelUrl)
             val existingChapterMap = existingChapters.associateBy { it.url }
 

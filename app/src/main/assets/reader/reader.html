@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Bunori Reader</title>
+  <link rel="stylesheet" href="reader.css">
+  <style id="user-custom-css"></style>
+</head>
+<body class="theme-dark">
+  <div id="reader-root">
+    <!-- Initial Loading State (visible until first chapter loads) -->
+    <div id="initial-loader" class="initial-loader">
+      <div class="sentinel-spinner"></div>
+      <span class="sentinel-text">Loading chapter...</span>
+    </div>
+
+    <!-- Paged Mode Floating Loader (visible when chapter is streaming into DOM) -->
+    <div id="paged-loader" class="paged-loader">
+      <div class="sentinel-spinner"></div>
+      <span>Loading next chapter...</span>
+    </div>
+
+    <!-- Top Sentinel: Preloads previous chapter when scrolling up -->
+    <div id="top-sentinel" class="chapter-sentinel">
+      <div class="sentinel-content">
+        <div class="sentinel-spinner"></div>
+        <span class="sentinel-text">Loading previous chapter...</span>
+      </div>
+    </div>
+
+    <!-- Chapter containers: appended or prepended dynamically -->
+    <div id="chapters-container"></div>
+
+    <!-- Bottom Sentinel: Preloads next chapter when scrolling down -->
+    <div id="bottom-sentinel" class="chapter-sentinel">
+      <div class="sentinel-content">
+        <div class="sentinel-spinner"></div>
+        <span class="sentinel-text">Loading next chapter...</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="reader.js"></script>
+  <script id="user-custom-js"></script>
+</body>
+</html>

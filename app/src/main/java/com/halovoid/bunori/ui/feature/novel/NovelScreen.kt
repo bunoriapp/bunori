@@ -57,6 +57,7 @@ import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.ui.ViewModelFactory
+import com.halovoid.bunori.ui.feature.reader.ReadingPlaylistHolder
 import com.halovoid.bunori.ui.core.components.ConfirmDeleteDialog
 import com.halovoid.bunori.ui.core.theme.BrandAccent
 import com.halovoid.bunori.ui.core.theme.DarkBackground
@@ -300,7 +301,10 @@ fun NovelScreen(
                             onFetchChapter = { viewModel.fetchChapter(currentNovel, it) },
                             onDeleteChapter = { viewModel.deleteChapter(it) },
                             onReplayChapter = { viewModel.replayChapter(currentNovel, it) },
-                            onChapterClick = { onChapterClick(currentNovel.url, it.id) },
+                            onChapterClick = {
+                                ReadingPlaylistHolder.setPlaylist(currentNovel.url, chapters.map { ch -> ch.id })
+                                onChapterClick(currentNovel.url, it.id)
+                            },
                             onChapterLongClick = { viewModel.selectChapter(it.id) },
                             onChapterToggleSelect = { viewModel.toggleChapterSelection(it.id) }
                         )
@@ -392,6 +396,7 @@ fun NovelScreen(
                     JumpToChapterBottomSheet(
                         chapters = chapters,
                         onChapterClick = { chapter ->
+                            ReadingPlaylistHolder.setPlaylist(currentNovel.url, chapters.map { ch -> ch.id })
                             onChapterClick(currentNovel.url, chapter.id)
                         },
                         onScrollToChapter = { chapter ->

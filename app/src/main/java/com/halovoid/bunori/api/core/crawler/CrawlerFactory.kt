@@ -9,10 +9,6 @@ object CrawlerFactory {
 
     )
 
-    private val disabledCrawlers = listOf<DisabledCrawler>(
-        // Add disabled crawlers here
-    )
-
     private var dynamicCrawlers = mutableListOf<Crawler>()
     
     private val _crawlersFlow = MutableStateFlow<List<Crawler>>(emptyList())
@@ -23,8 +19,6 @@ object CrawlerFactory {
     }
 
     fun getCrawlers(): List<Crawler> = staticCrawlers + dynamicCrawlers
-
-    fun getDisabledCrawlers(): List<DisabledCrawler> = disabledCrawlers
 
     fun getCrawler(name: String): Crawler? = getCrawlers().find { it.name == name }
 

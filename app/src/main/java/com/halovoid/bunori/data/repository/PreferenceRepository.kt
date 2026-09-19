@@ -8,6 +8,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
+import com.halovoid.bunori.domain.models.CustomFont
+import com.halovoid.bunori.domain.models.ReaderSettings
+import com.halovoid.bunori.domain.models.ReaderTextAlign
+import com.halovoid.bunori.domain.models.ReaderTheme
+import com.halovoid.bunori.domain.models.ReadingMode
 import kotlinx.coroutines.flow.Flow
 import com.halovoid.bunori.data.preferences.appDataStore
 import kotlinx.coroutines.flow.map
@@ -33,6 +39,24 @@ private val IS_AMOLED_MODE = booleanPreferencesKey("is_amoled_mode")
 private val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
 private val CUSTOM_USER_AGENT = stringPreferencesKey("custom_user_agent")
 const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/extensions/index.min.json"
+
+// Reader Preferences
+private val READER_THEME = stringPreferencesKey("reader_theme")
+private val READER_READING_MODE = stringPreferencesKey("reader_reading_mode")
+private val READER_FONT_FAMILY = stringPreferencesKey("reader_font_family")
+private val READER_FONT_SIZE = intPreferencesKey("reader_font_size")
+private val READER_LINE_HEIGHT = floatPreferencesKey("reader_line_height")
+private val READER_LETTER_SPACING = floatPreferencesKey("reader_letter_spacing")
+private val READER_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
+private val READER_PADDING_H = intPreferencesKey("reader_padding_h")
+private val READER_TEXT_ALIGN = stringPreferencesKey("reader_text_align")
+private val READER_VOLUME_KEY_PAGE_TURN = booleanPreferencesKey("reader_volume_key_page_turn")
+private val READER_KEEP_SCREEN_AWAKE = booleanPreferencesKey("reader_keep_screen_awake")
+private val READER_DIM_IMAGES = booleanPreferencesKey("reader_dim_images")
+private val READER_CUSTOM_CSS = stringPreferencesKey("reader_custom_css")
+private val READER_CUSTOM_JS = stringPreferencesKey("reader_custom_js")
+private val READER_CUSTOM_FONTS = stringSetPreferencesKey("reader_custom_fonts")
+private val CUSTOM_DOMAIN_SELECTORS = stringSetPreferencesKey("custom_domain_selectors")
 
 class PreferenceRepository private constructor(
     private val context: Context
@@ -293,6 +317,136 @@ class PreferenceRepository private constructor(
             } else {
                 preferences[CUSTOM_USER_AGENT] = userAgent.trim()
             }
+        }
+    }
+
+    val readerSettings: Flow<ReaderSettings> =
+        context.appDataStore.data.map { prefs ->
+            val themeStr = prefs[READER_THEME] ?: ReaderTheme.DARK.name
+            val theme = runCatching { ReaderTheme.valueOf(themeStr) }.getOrDefault(ReaderTheme.DARK)
+
+            val modeStr = prefs[READER_READING_MODE] ?: ReadingMode.CONTINUOUS.name
+            val mode = runCatching { ReadingMode.valueOf(modeStr) }.getOrDefault(ReadingMode.CONTINUOUS)
+
+            val alignStr = prefs[READER_TEXT_ALIGN] ?: ReaderTextAlign.LEFT.name
+            val align = runCatching { ReaderTextAlign.valueOf(alignStr) }.getOrDefault(ReaderTextAlign.LEFT)
+
+            ReaderSettings(
+                theme = theme,
+                readingMode = mode,
+                fontFamily = prefs[READER_FONT_FAMILY] ?: "Lora",
+                fontSizeSp = prefs[READER_FONT_SIZE] ?: 19,
+                lineHeight = prefs[READER_LINE_HEIGHT] ?: 1.65f,
+                letterSpacing = prefs[READER_LETTER_SPACING] ?: 0.01f,
+                paragraphSpacingEm = prefs[READER_PARAGRAPH_SPACING] ?: 1.25f,
+                horizontalPaddingDp = prefs[READER_PADDING_H] ?: 18,
+                textAlign = align,
+                volumeKeyPageTurn = prefs[READER_VOLUME_KEY_PAGE_TURN] ?: false,
+                keepScreenAwake = prefs[READER_KEEP_SCREEN_AWAKE] ?: false,
+                dimImagesInDarkMode = prefs[READER_DIM_IMAGES] ?: true,
+                customCss = prefs[READER_CUSTOM_CSS] ?: "",
+                customJs = prefs[READER_CUSTOM_JS] ?: ""
+            )
+        }
+
+    suspend fun updateReaderSettings(settings: ReaderSettings) {
+        context.appDataStore.edit { prefs ->
+            prefs[READER_THEME] = settings.theme.name
+            prefs[READER_READING_MODE] = settings.readingMode.name
+            prefs[READER_FONT_FAMILY] = settings.fontFamily
+            prefs[READER_FONT_SIZE] = settings.fontSizeSp
+            prefs[READER_LINE_HEIGHT] = settings.lineHeight
+            prefs[READER_LETTER_SPACING] = settings.letterSpacing
+            prefs[READER_PARAGRAPH_SPACING] = settings.paragraphSpacingEm
+            prefs[READER_PADDING_H] = settings.horizontalPaddingDp
+            prefs[READER_TEXT_ALIGN] = settings.textAlign.name
+            prefs[READER_VOLUME_KEY_PAGE_TURN] = settings.volumeKeyPageTurn
+            prefs[READER_KEEP_SCREEN_AWAKE] = settings.keepScreenAwake
+            prefs[READER_DIM_IMAGES] = settings.dimImagesInDarkMode
+            prefs[READER_CUSTOM_CSS] = settings.customCss
+            prefs[READER_CUSTOM_JS] = settings.customJs
+        }
+    }
+
+    suspend fun updateReaderTheme(theme: ReaderTheme) {
+        context.appDataStore.edit { it[READER_THEME] = theme.name }
+    }
+
+    suspend fun updateReadingMode(mode: ReadingMode) {
+        context.appDataStore.edit { it[READER_READING_MODE] = mode.name }
+    }
+
+    suspend fun updateReaderFont(fontFamily: String) {
+        context.appDataStore.edit { it[READER_FONT_FAMILY] = fontFamily }
+    }
+
+    suspend fun updateReaderFontSize(sizeSp: Int) {
+        context.appDataStore.edit { it[READER_FONT_SIZE] = sizeSp }
+    }
+
+    suspend fun updateReaderLineHeight(lineHeight: Float) {
+        context.appDataStore.edit { it[READER_LINE_HEIGHT] = lineHeight }
+    }
+
+    suspend fun updateReaderPadding(paddingDp: Int) {
+        context.appDataStore.edit { it[READER_PADDING_H] = paddingDp }
+    }
+
+    suspend fun updateReaderTextAlign(align: ReaderTextAlign) {
+        context.appDataStore.edit { it[READER_TEXT_ALIGN] = align.name }
+    }
+
+    suspend fun updateVolumeKeyPageTurn(enabled: Boolean) {
+        context.appDataStore.edit { it[READER_VOLUME_KEY_PAGE_TURN] = enabled }
+    }
+
+    suspend fun updateKeepScreenAwake(enabled: Boolean) {
+        context.appDataStore.edit { it[READER_KEEP_SCREEN_AWAKE] = enabled }
+    }
+
+    suspend fun updateDimImages(enabled: Boolean) {
+        context.appDataStore.edit { it[READER_DIM_IMAGES] = enabled }
+    }
+
+    suspend fun updateCustomCss(css: String) {
+        context.appDataStore.edit { it[READER_CUSTOM_CSS] = css }
+    }
+
+    suspend fun updateCustomJs(js: String) {
+        context.appDataStore.edit { it[READER_CUSTOM_JS] = js }
+    }
+
+    val customFonts: Flow<List<CustomFont>> =
+        context.appDataStore.data.map { prefs ->
+            val set = prefs[READER_CUSTOM_FONTS] ?: emptySet()
+            set.mapNotNull { CustomFont.fromStorageString(it) }
+        }
+
+    suspend fun addCustomFont(font: CustomFont) {
+        context.appDataStore.edit { prefs ->
+            val current = prefs[READER_CUSTOM_FONTS] ?: emptySet()
+            prefs[READER_CUSTOM_FONTS] = current + font.toStorageString()
+        }
+    }
+
+    suspend fun removeCustomFont(font: CustomFont) {
+        context.appDataStore.edit { prefs ->
+            val current = prefs[READER_CUSTOM_FONTS] ?: emptySet()
+            prefs[READER_CUSTOM_FONTS] = current - font.toStorageString()
+        }
+    }
+
+    fun getDomainSelector(domain: String): Flow<String?> =
+        context.appDataStore.data.map { prefs ->
+            val set = prefs[CUSTOM_DOMAIN_SELECTORS] ?: emptySet()
+            set.firstOrNull { it.startsWith("$domain|") }?.substringAfter('|')
+        }
+
+    suspend fun saveDomainSelector(domain: String, selector: String) {
+        context.appDataStore.edit { prefs ->
+            val current = prefs[CUSTOM_DOMAIN_SELECTORS] ?: emptySet()
+            val filtered = current.filterNot { it.startsWith("$domain|") }.toSet()
+            prefs[CUSTOM_DOMAIN_SELECTORS] = filtered + "$domain|$selector"
         }
     }
 }

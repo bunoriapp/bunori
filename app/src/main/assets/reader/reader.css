@@ -1,0 +1,584 @@
+@charset "UTF-8";
+
+/* ==========================================================================
+   Bundled Font Faces (Offline Assets)
+   ========================================================================== */
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('fonts/lora.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PT Serif';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('fonts/pt-serif.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Domine';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('fonts/domine.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Arbutus Slab';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/arbutus-slab.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('fonts/lato.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('fonts/nunito.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/OpenDyslexic3-Regular.ttf') format('truetype');
+}
+
+/* ==========================================================================
+   CSS Custom Properties & Default Tokens
+   ========================================================================== */
+:root {
+  --reader-bg-color: #18181B;
+  --reader-text-color: #E4E4E7;
+  --reader-secondary-text: #A1A1AA;
+  --reader-accent-color: #7C3AED;
+  --reader-font-family: 'Lora', serif;
+  --reader-font-size: 19px;
+  --reader-line-height: 1.65;
+  --reader-letter-spacing: 0.01em;
+  --reader-paragraph-spacing: 1.25em;
+  --reader-padding-h: 18px;
+  --reader-padding-top: 32px;
+  --reader-padding-bottom: 80px;
+  --reader-text-align: left;
+  --reader-image-opacity: 1;
+  --reader-card-bg: rgba(255, 255, 255, 0.04);
+  --reader-card-border: rgba(255, 255, 255, 0.08);
+}
+
+/* ==========================================================================
+   Base Document & Reset
+   ========================================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  background-color: var(--reader-bg-color);
+  color: var(--reader-text-color);
+  overflow-x: hidden;
+  overflow-anchor: none !important;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-anchor: none !important;
+  background-color: var(--reader-bg-color);
+  color: var(--reader-text-color);
+  font-family: var(--reader-font-family);
+  font-size: var(--reader-font-size);
+  line-height: var(--reader-line-height);
+  letter-spacing: var(--reader-letter-spacing);
+  text-align: var(--reader-text-align);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  transition: background-color 200ms ease, color 200ms ease;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+::selection {
+  background-color: rgba(255, 83, 112, 0.35);
+  color: inherit;
+}
+
+/* ==========================================================================
+   Continuous Scroll Structure
+   ========================================================================== */
+#reader-root {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  overflow-anchor: none !important;
+}
+
+#chapters-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow-anchor: none !important;
+}
+
+.chapter-wrapper {
+  position: relative;
+  width: 100%;
+  padding-left: var(--reader-padding-h);
+  padding-right: var(--reader-padding-h);
+  overflow-anchor: none !important;
+}
+
+.chapter-body {
+  width: 100%;
+}
+
+/* ==========================================================================
+   Chapter Transition Cards (Start & End Metadata)
+   ========================================================================== */
+.chapter-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  padding: 0 !important;
+  margin: 24px 0 !important;
+  width: 100% !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.chapter-card-start {
+  margin-top: 16px !important;
+  margin-bottom: 24px !important;
+}
+
+.chapter-card-end {
+  margin-top: 28px !important;
+  margin-bottom: 16px !important;
+}
+
+/* When loading happens do not show End: of the Chapter */
+body.loading-next .chapter-wrapper:last-child .chapter-card-end {
+  display: none !important;
+}
+
+.chapter-card-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: 0.02em;
+  margin-bottom: 3px;
+  text-align: left;
+}
+
+.chapter-card-title {
+  font-size: 1.18rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1.35;
+  margin-bottom: 3px;
+  text-align: left;
+}
+
+.chapter-card-scanlator {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: #9CA3AF;
+  letter-spacing: 0.01em;
+  text-align: left;
+}
+
+/* ==========================================================================
+   Top and Bottom Sentinels (Infinite Scroll Trigger)
+   ========================================================================== */
+.chapter-sentinel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  min-height: 56px;
+  color: var(--reader-secondary-text);
+  font-size: 0.85em;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow-anchor: none !important;
+}
+
+#top-sentinel {
+  min-height: 0;
+  padding: 0;
+}
+
+/* Do not show the starting -- FIRST CHAPTER -- thingies over on the top */
+#top-sentinel.boundary,
+#top-sentinel.boundary .sentinel-content,
+#top-sentinel.boundary .sentinel-text {
+  display: none !important;
+}
+
+.chapter-sentinel .sentinel-content {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Prominent loading state when fetching next/prev chapter (White Loader, no box) */
+.chapter-sentinel.loading {
+  display: flex !important;
+  min-height: 80px;
+  padding: 24px 16px;
+  background: none !important;
+  border: none !important;
+  margin: 16px auto;
+  width: 100%;
+}
+
+.chapter-sentinel.loading .sentinel-content,
+.chapter-sentinel.boundary .sentinel-content {
+  display: flex !important;
+}
+
+.sentinel-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  animation: sentinel-spin 800ms linear infinite;
+}
+
+/* Boundary state: hide spinner and show clean boundary pill */
+.chapter-sentinel.boundary .sentinel-spinner {
+  display: none;
+}
+
+.sentinel-text {
+  font-size: 0.9em;
+  font-weight: 500;
+  color: #FFFFFF;
+}
+
+.chapter-sentinel.boundary .sentinel-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  background-color: rgba(161, 161, 170, 0.08);
+  border: 1px solid rgba(161, 161, 170, 0.18);
+  color: var(--reader-secondary-text);
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chapter-sentinel.hidden {
+  display: none !important;
+}
+
+@keyframes sentinel-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Paged Mode Floating Loader Pill (White Loader)
+   ========================================================================== */
+#paged-loader {
+  display: none;
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(24, 24, 27, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 9999px;
+  padding: 8px 20px;
+  align-items: center;
+  gap: 10px;
+  z-index: 1000;
+  color: #FFFFFF;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+#paged-loader.visible {
+  display: flex !important;
+}
+
+#paged-loader .sentinel-spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 2.5px;
+  border-color: rgba(255, 255, 255, 0.2);
+  border-top-color: #FFFFFF;
+}
+
+/* ==========================================================================
+   Initial Loader (White Loader)
+   ========================================================================== */
+.initial-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  gap: 16px;
+  color: #FFFFFF;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.initial-loader .sentinel-spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+  border-color: rgba(255, 255, 255, 0.2);
+  border-top-color: #FFFFFF;
+}
+
+.initial-loader .sentinel-text {
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: #FFFFFF;
+}
+
+body.paged-mode .initial-loader {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ==========================================================================
+   Typography & Novel Formatting Inside .chapter-body
+   ========================================================================== */
+.chapter-body p {
+  margin-top: 0;
+  margin-bottom: var(--reader-paragraph-spacing);
+}
+
+.chapter-body p:last-child {
+  margin-bottom: 0;
+}
+
+.chapter-body h1,
+.chapter-body h2,
+.chapter-body h3,
+.chapter-body h4,
+.chapter-body h5,
+.chapter-body h6 {
+  color: var(--reader-text-color);
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.chapter-body blockquote {
+  margin: 1.5em 0;
+  padding: 10px 18px;
+  border-left: 3.5px solid var(--reader-accent-color);
+  background-color: rgba(161, 161, 170, 0.07);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+}
+
+.chapter-body hr {
+  border: none;
+  height: 1.5px;
+  background-color: rgba(161, 161, 170, 0.2);
+  margin: 2.2em auto;
+  width: 50%;
+}
+
+.chapter-body a {
+  color: var(--reader-accent-color);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.chapter-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.5em auto;
+  border-radius: 8px;
+  opacity: var(--reader-image-opacity);
+  transition: opacity 200ms ease;
+}
+
+.chapter-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  overflow-x: auto;
+  display: block;
+}
+
+.chapter-body th,
+.chapter-body td {
+  border: 1px solid rgba(161, 161, 170, 0.25);
+  padding: 8px 12px;
+}
+
+.chapter-body th {
+  background-color: rgba(161, 161, 170, 0.1);
+  font-weight: 600;
+}
+
+.chapter-body ruby {
+  ruby-align: center;
+}
+
+.chapter-body rt {
+  font-size: 0.58em;
+  color: var(--reader-secondary-text);
+  user-select: none;
+}
+
+/* ==========================================================================
+   Theme Overrides
+   ========================================================================== */
+body.theme-oled {
+  --reader-bg-color: #000000;
+  --reader-text-color: #E2E8F0;
+  --reader-secondary-text: #71717A;
+  --reader-card-bg: rgba(255, 255, 255, 0.03);
+  --reader-card-border: rgba(255, 255, 255, 0.06);
+  --reader-image-opacity: 0.85;
+}
+
+body.theme-dark {
+  --reader-bg-color: #18181B;
+  --reader-text-color: #E4E4E7;
+  --reader-secondary-text: #A1A1AA;
+  --reader-card-bg: rgba(255, 255, 255, 0.04);
+  --reader-card-border: rgba(255, 255, 255, 0.08);
+  --reader-image-opacity: 0.9;
+}
+
+body.theme-sepia {
+  --reader-bg-color: #F8F1E3;
+  --reader-text-color: #382D20;
+  --reader-secondary-text: #7E6E5A;
+  --reader-accent-color: #9C5427;
+  --reader-card-bg: #2B2118;
+  --reader-card-border: #423427;
+  --reader-image-opacity: 1;
+}
+
+body.theme-paper {
+  --reader-bg-color: #FAF8F5;
+  --reader-text-color: #2D3748;
+  --reader-secondary-text: #718096;
+  --reader-accent-color: #DD6B20;
+  --reader-card-bg: #262626;
+  --reader-card-border: #404040;
+  --reader-image-opacity: 1;
+}
+
+body.theme-light {
+  --reader-bg-color: #FFFFFF;
+  --reader-text-color: #111827;
+  --reader-secondary-text: #6B7280;
+  --reader-accent-color: #E11D48;
+  --reader-card-bg: #1F2937;
+  --reader-card-border: #374151;
+  --reader-image-opacity: 1;
+}
+
+/* ==========================================================================
+   Paged (E-Reader) Mode
+   ========================================================================== */
+body.paged-mode {
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body.paged-mode #reader-root {
+  height: 100vh !important;
+  height: 100dvh !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body.paged-mode #chapters-container {
+  display: block !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 24px var(--reader-padding-h) 24px var(--reader-padding-h) !important;
+  column-width: calc(100vw - var(--reader-padding-h) * 2) !important;
+  column-gap: calc(var(--reader-padding-h) * 2) !important;
+  column-fill: auto !important;
+  overflow: visible !important;
+  transition: transform 220ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: transform;
+}
+
+body.paged-mode .chapter-wrapper {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  break-inside: auto;
+  break-before: column;
+  page-break-before: always;
+}
+
+body.paged-mode .chapter-wrapper:first-child {
+  break-before: auto;
+  page-break-before: auto;
+}
+
+body.paged-mode .chapter-body {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body.paged-mode .chapter-boundary {
+  margin: 20px auto !important;
+  padding: 10px 0 !important;
+}
+
+body.paged-mode .chapter-sentinel {
+  display: none !important;
+}
