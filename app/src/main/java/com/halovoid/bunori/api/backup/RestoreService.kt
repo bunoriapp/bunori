@@ -64,6 +64,14 @@ class RestoreService(private val context: Context) {
                 novelsDir.copyRecursively(targetNovelsDir, overwrite = true)
             }
 
+            // Restore datastore/
+            val datastoreDir = File(tempDir, "datastore")
+            if (datastoreDir.exists() && datastoreDir.isDirectory) {
+                val targetDatastoreDir = File(context.filesDir, "datastore")
+                targetDatastoreDir.mkdirs()
+                datastoreDir.copyRecursively(targetDatastoreDir, overwrite = true)
+            }
+
             tempDir.deleteRecursively()
             true
         } catch (e: Exception) {

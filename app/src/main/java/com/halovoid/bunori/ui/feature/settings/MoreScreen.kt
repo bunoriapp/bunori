@@ -41,7 +41,8 @@ fun MoreScreen(
     onNavigateToBackupSettings: () -> Unit,
     onNavigateToUpdate: () -> Unit,
     onNavigateToThemeSettings: () -> Unit = {},
-    onNavigateToExtensionSettings: () -> Unit = {}
+    onNavigateToExtensionSettings: () -> Unit = {},
+    onNavigateToReaderSettings: () -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
@@ -100,6 +101,13 @@ fun MoreScreen(
                 subtitle = "Theme mode, color palettes, pure AMOLED",
                 icon = Icons.Outlined.Palette,
                 onClick = onNavigateToThemeSettings
+            )
+
+            SettingsRow(
+                title = "Reader",
+                subtitle = "Reading mode, themes, fonts, volume keys, margins",
+                icon = Icons.Outlined.MenuBook,
+                onClick = onNavigateToReaderSettings
             )
 
             SettingsRow(

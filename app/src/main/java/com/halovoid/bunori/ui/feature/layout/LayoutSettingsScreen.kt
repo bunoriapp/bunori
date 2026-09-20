@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.automirrored.outlined.ViewList
+import androidx.compose.material.icons.outlined.DynamicFeed
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Source
@@ -32,6 +33,7 @@ fun LayoutSettingsScreen(
 ) {
     val searchCompactView by viewModel.searchCompactView.collectAsStateWithLifecycle()
     val libraryCompactView by viewModel.libraryCompactView.collectAsStateWithLifecycle()
+    val activityCompactView by viewModel.activityCompactView.collectAsStateWithLifecycle()
     val defaultChapterDownloadFilter by viewModel.defaultChapterDownloadFilter.collectAsStateWithLifecycle()
     val defaultChapterSortType by viewModel.defaultChapterSortType.collectAsStateWithLifecycle()
     val defaultChapterSortOrder by viewModel.defaultChapterSortOrder.collectAsStateWithLifecycle()
@@ -70,6 +72,13 @@ fun LayoutSettingsScreen(
                 subtitle = if (libraryCompactView) "Compact View" else "Grid View",
                 icon = Icons.AutoMirrored.Outlined.ViewList,
                 onClick = { activeDialog = LayoutDialogState.LibraryViewMode }
+            )
+
+            SettingsRow(
+                title = "Activity View Mode",
+                subtitle = if (activityCompactView) "Compact View" else "Carousel View (Comfortable)",
+                icon = Icons.Outlined.DynamicFeed,
+                onClick = { activeDialog = LayoutDialogState.ActivityViewMode }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -138,6 +147,17 @@ fun LayoutSettingsScreen(
                     selectedIndex = if (libraryCompactView) 1 else 0,
                     onSelect = { index ->
                         viewModel.setLibraryCompactView(index == 1)
+                    },
+                    onDismiss = { activeDialog = null }
+                )
+            }
+            LayoutDialogState.ActivityViewMode -> {
+                AppSelectionBottomSheet(
+                    title = "Activity View Mode",
+                    options = listOf("Carousel View", "Compact View"),
+                    selectedIndex = if (activityCompactView) 1 else 0,
+                    onSelect = { index ->
+                        viewModel.setActivityCompactView(index == 1)
                     },
                     onDismiss = { activeDialog = null }
                 )
@@ -211,6 +231,7 @@ fun LayoutSettingsScreen(
 private enum class LayoutDialogState {
     SearchViewMode,
     LibraryViewMode,
+    ActivityViewMode,
     ChapterFilter,
     ChapterSortType,
     ChapterSortOrder,

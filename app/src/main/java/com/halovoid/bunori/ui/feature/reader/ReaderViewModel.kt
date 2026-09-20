@@ -230,20 +230,6 @@ class ReaderViewModel(
         val chapter = allChapters.getOrNull(pos) ?: return
         _currentChapter.value = chapter
         _currentChapterNumber.value = pos + 1
-
-        if (pos > 0) {
-            viewModelScope.launch(Dispatchers.IO) {
-                val previousChapters = allChapters.subList(0, pos).filter { !it.read }
-                if (previousChapters.isNotEmpty()) {
-                    val previousIds = previousChapters.map { it.id }
-                    chapterRepository.updateChaptersReadStatus(previousIds, true)
-                    allChapters = allChapters.map { ch ->
-                        if (ch.id in previousIds) ch.apply { read = true } else ch
-                    }
-                    _tocChapters.value = allChapters
-                }
-            }
-        }
     }
 
     /**

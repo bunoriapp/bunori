@@ -4,6 +4,8 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.factory.RequestFactory
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.BatchRepository
@@ -51,6 +53,17 @@ data class ChapterSortState(
     val type: SortType = SortType.CHAPTER_NUMBER,
     val order: SortOrder = SortOrder.ASCENDING
 )
+
+data class ChapterActiveStatuses(
+    val byId: Map<Int, JobStatus> = emptyMap(),
+    val byUrl: Map<String, JobStatus> = emptyMap()
+) {
+    fun getStatus(chapterId: Int, url: String, sourceUrl: String?): JobStatus? {
+        return byId[chapterId]
+            ?: byUrl[url]
+            ?: (sourceUrl?.takeIf { it.isNotBlank() }?.let { byUrl[it] })
+    }
+}
 
 class NovelViewModel(
     application: Application,
@@ -213,6 +226,31 @@ class NovelViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
+        )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val chapterStatuses: StateFlow<ChapterActiveStatuses> = novel
+        .filterNotNull()
+        .flatMapLatest { nov ->
+            batchRepository.getActiveTasksByNovelFlow(nov.url).map { tasks ->
+                val idMap = mutableMapOf<Int, JobStatus>()
+                val urlMap = mutableMapOf<String, JobStatus>()
+                tasks.forEach { task ->
+                    val meta = task.parsedMetadata
+                    meta.chapterId?.let { id ->
+                        idMap[id] = task.status
+                    }
+                    task.url?.let { url ->
+                        if (url.isNotBlank()) urlMap[url] = task.status
+                    }
+                }
+                ChapterActiveStatuses(idMap, urlMap)
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ChapterActiveStatuses()
         )
 
     init {

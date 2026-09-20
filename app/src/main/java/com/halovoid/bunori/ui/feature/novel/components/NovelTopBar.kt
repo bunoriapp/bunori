@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.domain.models.Novel
+import com.halovoid.bunori.ui.core.components.AsymptoticProgressRing
 import com.halovoid.bunori.ui.core.theme.*
 
 @Composable
@@ -24,6 +25,8 @@ fun NovelTopBar(
     showTitle: Boolean,
     isSelectionMode: Boolean,
     selectedCount: Int,
+    isActivityRunning: Boolean = false,
+    onActivityClick: () -> Unit = {},
     onBack: () -> Unit,
     onClearSelection: () -> Unit,
     onMarkAsRead: () -> Unit,
@@ -132,6 +135,12 @@ fun NovelTopBar(
                             modifier = Modifier.padding(horizontal = 8.dp)
                         )
                     }
+                }
+
+                if (isActivityRunning) {
+                    AsymptoticProgressRing(
+                        onClick = onActivityClick
+                    )
                 }
 
                 IconButton(onClick = onJumpToChapterClick) {

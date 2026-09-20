@@ -1,5 +1,7 @@
-package com.halovoid.bunori.ui.feature.downloads.components
+package com.halovoid.bunori.ui.feature.activity.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -12,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +33,7 @@ fun CompactJobItem(
     batch: Batch,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
+    showProgressBackground: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -37,77 +41,108 @@ fun CompactJobItem(
         SimpleDateFormat("MMM dd, HH:mm", locale).format(Date(batch.createdAt))
     }
 
-    Column(
+    val brandColor = BrandAccent
+    val progress = if (batch.progressTotal > 0) {
+        (batch.progressSuccess.toFloat() / batch.progressTotal).coerceIn(0f, 1f)
+    } else 0f
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(durationMillis = 300),
+        label = "compact_progress"
+    )
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
+            .drawBehind {
+                if (showProgressBackground && animatedProgress > 0f) {
+                    drawRect(
+                        color = brandColor.copy(alpha = 0.15f),
+                        size = size.copy(width = size.width * animatedProgress)
+                    )
+                }
+            }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 12.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = batch.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = PrimaryText,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(3.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
                 ) {
-                    if (batch.progressTotal > 0) {
+                    Text(
+                        text = batch.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = PrimaryText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(3.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (batch.progressTotal > 0) {
+                            Text(
+                                text = if (batch.progressSuccess > 0) {
+                                    "${batch.progressSuccess}/${batch.progressTotal} tasks"
+                                } else {
+                                    "${batch.progressTotal} tasks"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SecondaryText,
+                                fontSize = 11.sp
+                            )
+
+                            if (showProgressBackground) {
+                                Text(
+                                    text = "(${ (progress * 100).toInt() }%)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = BrandAccent,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+
+                            Text(
+                                text = "·",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SecondaryText.copy(alpha = 0.4f)
+                            )
+                        }
+
                         Text(
-                            text = if (batch.progressSuccess > 0) {
-                                "${batch.progressSuccess}/${batch.progressTotal} tasks"
-                            } else {
-                                "${batch.progressTotal} tasks"
-                            },
+                            text = formattedDate,
                             style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryText,
+                            color = SecondaryText.copy(alpha = 0.6f),
                             fontSize = 11.sp
                         )
-
-                        Text(
-                            text = "·",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryText.copy(alpha = 0.4f)
-                        )
                     }
-
-                    Text(
-                        text = formattedDate,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryText.copy(alpha = 0.6f),
-                        fontSize = 11.sp
-                    )
                 }
+
+                StatusIndicator(batch.status)
             }
 
-            StatusIndicator(batch.status)
+            HorizontalDivider(
+                color = BorderColor.copy(alpha = 0.25f),
+                thickness = 0.5.dp,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
         }
-
-        HorizontalDivider(
-            color = BorderColor.copy(alpha = 0.25f),
-            thickness = 0.5.dp,
-            modifier = Modifier.padding(horizontal = 20.dp)
-        )
     }
 }
 

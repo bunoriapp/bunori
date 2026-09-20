@@ -53,6 +53,9 @@ class BatchRepository private constructor(private val context: Context) {
             list.map { it.toDomain() }
         }
 
+    fun getActiveTasksByNovelFlow(novelUrl: String): Flow<List<TaskEntity>> =
+        taskDao.getActiveTasksByNovelFlow(novelUrl)
+
     suspend fun insertRequests(batches: List<BatchEntity>) = withContext(Dispatchers.IO) {
         for (batch in batches) {
             val task = TaskEntity(
@@ -170,6 +173,33 @@ class BatchRepository private constructor(private val context: Context) {
         }
     }
 
+    suspend fun replayTasks(taskIds: List<String>, batchId: String) = withContext(Dispatchers.IO) {
+        if (taskIds.isEmpty()) return@withContext
+        val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+            ?: taskDao.getTaskById(batchId)?.batchId
+            ?: batchId
+        _activeActionIds.update { it + effectiveBatchId }
+        try {
+            taskDao.resetTasks(taskIds)
+            batchDao.updateStatusWithError(effectiveBatchId, JobStatus.PENDING, null)
+            SchedulerService.startService(context)
+            SchedulerService.resumeJob(context, effectiveBatchId)
+        } finally {
+            _activeActionIds.update { it - effectiveBatchId }
+        }
+    }
+
+    suspend fun cancelTasks(taskIds: List<String>, batchId: String) = withContext(Dispatchers.IO) {
+        if (taskIds.isEmpty()) return@withContext
+        val effectiveBatchId = batchDao.getBatchById(batchId)?.id
+            ?: taskDao.getTaskById(batchId)?.batchId
+            ?: batchId
+        taskDao.cancelTasks(taskIds)
+        for (taskId in taskIds) {
+            SchedulerService.cancelJob(context, taskId)
+        }
+    }
+
     suspend fun deleteRequest(batchId: String) = withContext(Dispatchers.IO) {
         val effectiveBatchId = batchDao.getBatchById(batchId)?.id
             ?: taskDao.getTaskById(batchId)?.batchId
@@ -194,26 +224,44 @@ class BatchRepository private constructor(private val context: Context) {
     }
 }
 
-fun BatchWithStats.toDomain(): Batch = Batch(
-    id = batch.id,
-    name = batch.name,
-    parentNovel = batch.novelUrl,
-    url = null,
-    novelUrl = batch.novelUrl,
-    priority = batch.priority,
-    type = batch.type,
-    createdAt = batch.createdAt,
-    updatedAt = batch.updatedAt,
-    completedAt = batch.completedAt,
-    progressTotal = totalTasks,
-    progressSuccess = completedTasks,
-    progressFailed = failedTasks,
-    progressCancelled = 0,
-    status = batch.status,
-    rstatus = batch.status,
-    metadata = batch.metadata,
-    error = batch.error
-)
+fun BatchWithStats.toDomain(): Batch {
+    val effectiveStatus = when {
+        batch.status == JobStatus.PAUSED -> JobStatus.PAUSED
+        batch.status == JobStatus.CANCELLED -> JobStatus.CANCELLED
+        blockedTasks > 0 && runningTasks == 0 -> JobStatus.BLOCKED
+        runningTasks > 0 -> JobStatus.RUNNING
+        pendingTasks > 0 -> if (batch.status == JobStatus.RUNNING) JobStatus.RUNNING else JobStatus.PENDING
+        totalTasks > 0 && (completedTasks + failedTasks + cancelledTasks >= totalTasks) -> {
+            when {
+                cancelledTasks == totalTasks -> JobStatus.CANCELLED
+                failedTasks > 0 -> JobStatus.FAILED
+                else -> JobStatus.SUCCESS
+            }
+        }
+        else -> batch.status
+    }
+
+    return Batch(
+        id = batch.id,
+        name = batch.name,
+        parentNovel = batch.novelUrl,
+        url = null,
+        novelUrl = batch.novelUrl,
+        priority = batch.priority,
+        type = batch.type,
+        createdAt = batch.createdAt,
+        updatedAt = batch.updatedAt,
+        completedAt = batch.completedAt,
+        progressTotal = totalTasks,
+        progressSuccess = completedTasks,
+        progressFailed = failedTasks,
+        progressCancelled = cancelledTasks,
+        status = effectiveStatus,
+        rstatus = effectiveStatus,
+        metadata = batch.metadata,
+        error = batch.error
+    )
+}
 
 fun TaskEntity.toDomain(): Batch = Batch(
     id = id,

@@ -184,7 +184,7 @@ class CrawlerViewModel(
         checkForUpdates()
     }
 
-    fun refreshCatalog() {
+    fun refreshCatalog(forceNetwork: Boolean = false) {
         viewModelScope.launch {
             _catalogState.value = CatalogState.Loading
             try {
@@ -193,7 +193,7 @@ class CrawlerViewModel(
                     _catalogState.value = CatalogState.Idle
                     return@launch
                 }
-                val result = extensionManager.fetchRepoCatalog(url)
+                val result = extensionManager.fetchRepoCatalog(url, forceNetwork = forceNetwork)
                 result.onSuccess { entries ->
                     _catalogEntries.value = entries
                     _catalogState.value = CatalogState.Success(entries.size)

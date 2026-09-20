@@ -24,9 +24,9 @@ import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
 import com.halovoid.bunori.ui.feature.crawler.CrawlerScreen
 import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
 import com.halovoid.bunori.ui.feature.crawler.ExtensionInfoScreen
-import com.halovoid.bunori.ui.feature.downloads.DownloadScreen
-import com.halovoid.bunori.ui.feature.downloads.DownloadViewModel
-import com.halovoid.bunori.ui.feature.downloads.JobDetailScreen
+import com.halovoid.bunori.ui.feature.activity.ActivityScreen
+import com.halovoid.bunori.ui.feature.activity.ActivityViewModel
+import com.halovoid.bunori.ui.feature.activity.JobDetailScreen
 import com.halovoid.bunori.ui.feature.layout.LayoutSettingsScreen
 import com.halovoid.bunori.ui.feature.library.LibraryScreen
 import com.halovoid.bunori.ui.feature.library.LibraryViewModel
@@ -47,6 +47,7 @@ import com.halovoid.bunori.ui.feature.settings.DownloadPreferencesScreen
 import com.halovoid.bunori.ui.feature.settings.ExtensionSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.ManualCookieScreen
 import com.halovoid.bunori.ui.feature.settings.MoreScreen
+import com.halovoid.bunori.ui.feature.settings.ReaderSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.SettingsViewModel
 import com.halovoid.bunori.ui.feature.settings.SupportSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.ThemeSettingsScreen
@@ -72,9 +73,10 @@ sealed class Screen(val route: String) {
     }
     object Library : Screen("library")
     object History : Screen("history")
-    object Downloads : Screen("downloads")
+    object Activity : Screen("activity")
     object Crawlers : Screen("crawlers")
     object Support : Screen("support")
+    object ReaderSettings : Screen("reader_settings")
     object DownloadPreferences : Screen("download_preferences")
     object LayoutSettings : Screen("layout_settings")
     object ThemeSettings : Screen("theme_settings")
@@ -266,12 +268,12 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
         }
-        composable(Screen.Downloads.route) {
-            val downloadViewModel: DownloadViewModel = viewModel(
+        composable(Screen.Activity.route) {
+            val activityViewModel: ActivityViewModel = viewModel(
                 factory = remember { ViewModelFactory(application) }
             )
-            DownloadScreen(
-                viewModel = downloadViewModel,
+            ActivityScreen(
+                viewModel = activityViewModel,
                 onRequestClick = { requestId: String ->
                     navController.navigate(Screen.JobDetail.createRoute(requestId))
                 }
@@ -286,6 +288,9 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onNavigateToThemeSettings = {
                     navController.navigate(Screen.ThemeSettings.route)
+                },
+                onNavigateToReaderSettings = {
+                    navController.navigate(Screen.ReaderSettings.route)
                 },
                 onNavigateToDownloadsPref = {
                     navController.navigate(Screen.DownloadPreferences.route)
@@ -305,6 +310,13 @@ fun NavGraph(navController: NavHostController) {
                 onNavigateToUpdate = {
                     navController.navigate(Screen.UpdateDetail.route)
                 }
+            )
+        }
+        composable(Screen.ReaderSettings.route) { backStackEntry ->
+            val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
+            ReaderSettingsScreen(
+                viewModel = settingsViewModel,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.DownloadPreferences.route) { backStackEntry ->

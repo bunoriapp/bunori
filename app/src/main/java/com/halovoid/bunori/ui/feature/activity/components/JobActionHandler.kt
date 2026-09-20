@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.downloads.components
+package com.halovoid.bunori.ui.feature.activity.components
 
 import androidx.compose.runtime.*
 import com.halovoid.bunori.domain.models.Batch

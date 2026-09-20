@@ -28,11 +28,16 @@ private val IGNORE_IMAGES = booleanPreferencesKey("ignore_images")
 private val MAX_CONCURRENT_JOBS = intPreferencesKey("max_concurrent_jobs")
 private val SEARCH_COMPACT_VIEW = booleanPreferencesKey("search_compact_view")
 private val LIBRARY_COMPACT_VIEW = booleanPreferencesKey("library_compact_view")
+private val ACTIVITY_COMPACT_VIEW = booleanPreferencesKey("activity_compact_view")
 private val DEFAULT_CHAPTER_DOWNLOAD_FILTER = stringPreferencesKey("default_chapter_download_filter")
 private val DEFAULT_CHAPTER_SORT_TYPE = stringPreferencesKey("default_chapter_sort_type")
 private val DEFAULT_CHAPTER_SORT_ORDER = stringPreferencesKey("default_chapter_sort_order")
 private val DEFAULT_SOURCE_FILTER = stringPreferencesKey("default_source_filter")
 private val BACKUP_FREQUENCY = stringPreferencesKey("backup_frequency")
+private val NOVEL_PRUNE_FREQUENCY = stringPreferencesKey("novel_prune_frequency")
+private val CACHE_CLEAR_FREQUENCY = stringPreferencesKey("cache_clear_frequency")
+private val LAST_NOVEL_PRUNE_TIME = androidx.datastore.preferences.core.longPreferencesKey("last_novel_prune_time")
+private val LAST_CACHE_CLEAR_TIME = androidx.datastore.preferences.core.longPreferencesKey("last_cache_clear_time")
 private val THEME_MODE = stringPreferencesKey("theme_mode")
 private val SELECTED_THEME_ID = stringPreferencesKey("selected_theme_id")
 private val IS_AMOLED_MODE = booleanPreferencesKey("is_amoled_mode")
@@ -118,6 +123,11 @@ class PreferenceRepository private constructor(
             preferences[LIBRARY_COMPACT_VIEW] ?: false
         }
 
+    val activityCompactView: Flow<Boolean> =
+        context.appDataStore.data.map { preferences ->
+            preferences[ACTIVITY_COMPACT_VIEW] ?: false
+        }
+
     val defaultChapterDownloadFilter: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[DEFAULT_CHAPTER_DOWNLOAD_FILTER] ?: "ALL"
@@ -141,6 +151,26 @@ class PreferenceRepository private constructor(
     val backupFrequency: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[BACKUP_FREQUENCY] ?: "Off"
+        }
+
+    val novelPruneFrequency: Flow<String> =
+        context.appDataStore.data.map { preferences ->
+            preferences[NOVEL_PRUNE_FREQUENCY] ?: "Every 10 Days"
+        }
+
+    val cacheClearFrequency: Flow<String> =
+        context.appDataStore.data.map { preferences ->
+            preferences[CACHE_CLEAR_FREQUENCY] ?: "Every 4 Days"
+        }
+
+    val lastNovelPruneTime: Flow<Long> =
+        context.appDataStore.data.map { preferences ->
+            preferences[LAST_NOVEL_PRUNE_TIME] ?: 0L
+        }
+
+    val lastCacheClearTime: Flow<Long> =
+        context.appDataStore.data.map { preferences ->
+            preferences[LAST_CACHE_CLEAR_TIME] ?: 0L
         }
 
     val themeMode: Flow<String> =
@@ -218,6 +248,12 @@ class PreferenceRepository private constructor(
         }
     }
 
+    suspend fun setActivityCompactView(compact: Boolean) {
+        context.appDataStore.edit { preferences ->
+            preferences[ACTIVITY_COMPACT_VIEW] = compact
+        }
+    }
+
     suspend fun setDefaultChapterDownloadFilter(filter: String) {
         context.appDataStore.edit { preferences ->
             preferences[DEFAULT_CHAPTER_DOWNLOAD_FILTER] = filter
@@ -245,6 +281,30 @@ class PreferenceRepository private constructor(
     suspend fun setBackupFrequency(frequency: String) {
         context.appDataStore.edit { preferences ->
             preferences[BACKUP_FREQUENCY] = frequency
+        }
+    }
+
+    suspend fun setNovelPruneFrequency(frequency: String) {
+        context.appDataStore.edit { preferences ->
+            preferences[NOVEL_PRUNE_FREQUENCY] = frequency
+        }
+    }
+
+    suspend fun setCacheClearFrequency(frequency: String) {
+        context.appDataStore.edit { preferences ->
+            preferences[CACHE_CLEAR_FREQUENCY] = frequency
+        }
+    }
+
+    suspend fun setLastNovelPruneTime(timeMs: Long) {
+        context.appDataStore.edit { preferences ->
+            preferences[LAST_NOVEL_PRUNE_TIME] = timeMs
+        }
+    }
+
+    suspend fun setLastCacheClearTime(timeMs: Long) {
+        context.appDataStore.edit { preferences ->
+            preferences[LAST_CACHE_CLEAR_TIME] = timeMs
         }
     }
 

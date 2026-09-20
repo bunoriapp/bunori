@@ -5,12 +5,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +35,7 @@ import com.halovoid.bunori.ui.core.theme.*
 /**
  * The primary entry point Composable for the UI.
  * Manages the [NavGraph] within a Scaffold with a persistent [NavigationBar]:
- * Library | Browse | Downloads | More.
+ * Library | Browse | Activity | More.
  */
 @Composable
 fun MainScreen() {
@@ -47,7 +47,7 @@ fun MainScreen() {
         listOf(
             TabInfo(Screen.Library, "Library", Icons.AutoMirrored.Outlined.LibraryBooks, Icons.AutoMirrored.Filled.LibraryBooks),
             TabInfo(Screen.Browse, "Browse", Icons.Outlined.Explore, Icons.Filled.Explore),
-            TabInfo(Screen.Downloads, "Downloads", Icons.Outlined.Download, Icons.Filled.Download),
+            TabInfo(Screen.Activity, "Activity", Icons.Outlined.Schedule, Icons.Filled.Schedule),
             TabInfo(Screen.Support, "More", Icons.Outlined.MoreHoriz, Icons.Filled.MoreHoriz)
         )
     }
@@ -201,6 +201,15 @@ fun AnimatedTabIcon(
         label = "Rotation"
     )
 
+    val clockRotation by animateFloatAsState(
+        targetValue = if (isSelected && label == "Activity") 360f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "ClockRotation"
+    )
+
     val tilt by animateFloatAsState(
         targetValue = if (isSelected && label == "Library") -10f else 0f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy),
@@ -226,12 +235,20 @@ fun AnimatedTabIcon(
     Box(
         modifier = Modifier
             .scale(scale)
-            .rotate(if (label == "Browse") rotation else tilt)
-            .offset(y = when(label) {
-                "Updates", "History" -> bounce
-                "More" -> if (isSelected) waveOffset.dp else 0.dp
-                else -> 0.dp
-            }),
+            .rotate(
+                when (label) {
+                    "Browse" -> rotation
+                    "Activity" -> clockRotation
+                    else -> tilt
+                }
+            )
+            .offset(
+                y = when (label) {
+                    "Updates", "History" -> bounce
+                    "More" -> if (isSelected) waveOffset.dp else 0.dp
+                    else -> 0.dp
+                }
+            ),
         contentAlignment = Alignment.Center
     ) {
         Icon(

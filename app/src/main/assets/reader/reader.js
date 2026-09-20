@@ -185,12 +185,57 @@
     }
   }, { threshold: 0.05 });
 
+  function getChapterPageBounds(wrapper, clientWidth) {
+    if (!wrapper) return { startPage: 0, endPage: 0, pages: 1 };
+    const w = clientWidth || window.innerWidth || 1;
+
+    // In CSS multi-column layout, calculate absolute X by unshifting container transform
+    const startEl = wrapper.querySelector('.chapter-card-start') || wrapper.firstElementChild || wrapper;
+    const startRect = startEl.getBoundingClientRect();
+    const startX = startRect.left + (state.currentPage * w);
+    const startPage = Math.max(0, Math.floor(startX / w));
+
+    const endEl = wrapper.querySelector('.chapter-card-end') || wrapper.lastElementChild || wrapper;
+    const endRect = endEl.getBoundingClientRect();
+    const endX = endRect.left + (state.currentPage * w);
+    const endPage = Math.max(startPage, Math.round(endX / w));
+    const pages = Math.max(1, endPage - startPage + 1);
+
+    return { startPage, endPage, pages };
+  }
+
   function updateActiveChapterAndProgress() {
-    const centerEl = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-    const currentWrapper = centerEl ? centerEl.closest('.chapter-wrapper') : null;
-    const wrappers = elements.container.querySelectorAll('.chapter-wrapper');
+    const wrappers = Array.from(elements.container.querySelectorAll('.chapter-wrapper'));
     if (!wrappers.length) return;
-    const activeWrapper = currentWrapper || wrappers[0];
+
+    const clientWidth = window.innerWidth || 1;
+    let activeWrapper = null;
+    let activeBounds = null;
+
+    if (state.isPagedMode) {
+      for (const wrapper of wrappers) {
+        const bounds = getChapterPageBounds(wrapper, clientWidth);
+        if (state.currentPage >= bounds.startPage && state.currentPage <= bounds.endPage) {
+          activeWrapper = wrapper;
+          activeBounds = bounds;
+          break;
+        }
+      }
+      if (!activeWrapper) {
+        if (state.currentPage < 0) {
+          activeWrapper = wrappers[0];
+        } else {
+          activeWrapper = wrappers[wrappers.length - 1];
+        }
+        activeBounds = getChapterPageBounds(activeWrapper, clientWidth);
+      }
+    } else {
+      const centerEl = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+      const currentWrapper = centerEl ? centerEl.closest('.chapter-wrapper') : null;
+      activeWrapper = currentWrapper || wrappers[0];
+    }
+
+    if (!activeWrapper) return;
 
     const id = parseInt(activeWrapper.dataset.chapterId, 10);
     const title = activeWrapper.dataset.chapterTitle || '';
@@ -201,15 +246,11 @@
       bridge.onActiveChapterChanged(id, title, idx);
     }
 
-    if (state.isPagedMode) {
-      const clientWidth = window.innerWidth || 1;
-      const chapterStartPage = Math.round(activeWrapper.offsetLeft / clientWidth);
-      const chapterPages = Math.max(1, Math.round(activeWrapper.scrollWidth / clientWidth));
-      const chapterEndPage = chapterStartPage + chapterPages - 1;
-
-      const progress = Math.min(1.0, Math.max(0, (state.currentPage - chapterStartPage + 1) / chapterPages));
+    if (state.isPagedMode && activeBounds) {
+      const { startPage, endPage, pages } = activeBounds;
+      const progress = pages <= 1 ? 1.0 : Math.min(1.0, Math.max(0.0, (state.currentPage - startPage) / (pages - 1)));
       bridge.onProgressUpdate(id, progress);
-      if (state.currentPage >= chapterEndPage) {
+      if (state.currentPage >= endPage) {
         bridge.onChapterCompleted(id);
       }
     } else {
@@ -312,12 +353,9 @@
       const prevTotal = state.totalPages;
       elements.container.removeChild(firstWrapper);
       state.chapters.delete(removedId);
+      recalculatePages();
 
-      const clientWidth = window.innerWidth;
-      const newTotal = Math.max(1, Math.round(elements.container.scrollWidth / clientWidth));
-      state.totalPages = newTotal;
-      const removedPages = prevTotal - newTotal;
-
+      const removedPages = prevTotal - state.totalPages;
       if (removedPages > 0) {
         state.currentPage = Math.max(0, state.currentPage - removedPages);
         elements.container.style.transition = 'none';
@@ -356,8 +394,7 @@
     state.chapters.delete(removedId);
 
     if (state.isPagedMode) {
-      const clientWidth = window.innerWidth;
-      state.totalPages = Math.max(1, Math.round(elements.container.scrollWidth / clientWidth));
+      recalculatePages();
       updateActiveChapterAndProgress();
     }
 
@@ -370,10 +407,25 @@
   // ==========================================================================
   function recalculatePages() {
     if (!state.isPagedMode) return;
-    const scrollWidth = elements.container.scrollWidth;
-    const clientWidth = window.innerWidth;
+    const clientWidth = window.innerWidth || 1;
     if (clientWidth <= 0) return;
-    state.totalPages = Math.max(1, Math.round(scrollWidth / clientWidth));
+
+    const wrappers = Array.from(elements.container.querySelectorAll('.chapter-wrapper'));
+    if (!wrappers.length) {
+      state.totalPages = 1;
+      state.currentPage = 0;
+      applyPageTransform();
+      return;
+    }
+
+    const lastWrapper = wrappers[wrappers.length - 1];
+    const endEl = lastWrapper.querySelector('.chapter-card-end') || lastWrapper.lastElementChild || lastWrapper;
+    const endRect = endEl.getBoundingClientRect();
+    const endX = endRect.left + (state.currentPage * clientWidth);
+    const calculatedTotal = Math.max(1, Math.round(endX / clientWidth) + 1);
+    const containerTotal = Math.max(1, Math.round(elements.container.scrollWidth / clientWidth));
+
+    state.totalPages = Math.max(containerTotal, calculatedTotal);
     if (state.currentPage >= state.totalPages) {
       state.currentPage = Math.max(0, state.totalPages - 1);
     }
@@ -389,7 +441,10 @@
   }
 
   function pageTurn(direction) {
-    if (!state.isPagedMode) return;
+    if (!state.isPagedMode) {
+      window.scrollBy({ top: direction * window.innerHeight * 0.75, behavior: 'smooth' });
+      return;
+    }
     const newPage = state.currentPage + direction;
 
     // Boundary at the start of loaded chapters
@@ -573,10 +628,8 @@
 
       runUserCustomJs();
 
-      const clientWidth = window.innerWidth;
-      const newTotal = Math.max(1, Math.round(elements.container.scrollWidth / clientWidth));
-      state.totalPages = newTotal;
-      const addedPages = newTotal - prevTotal;
+      recalculatePages();
+      const addedPages = state.totalPages - prevTotal;
 
       if (addedPages > 0) {
         if (state.pendingTurnToPrevious) {

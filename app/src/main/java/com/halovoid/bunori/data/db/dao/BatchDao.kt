@@ -9,7 +9,12 @@ data class BatchWithStats(
     @Embedded val batch: BatchEntity,
     val totalTasks: Int,
     val completedTasks: Int,
-    val failedTasks: Int
+    val failedTasks: Int,
+    val cancelledTasks: Int = 0,
+    val runningTasks: Int = 0,
+    val pendingTasks: Int = 0,
+    val blockedTasks: Int = 0,
+    val pausedTasks: Int = 0
 )
 
 @Dao
@@ -31,7 +36,12 @@ interface BatchDao {
             b.*,
             COUNT(t.id) AS totalTasks,
             COUNT(CASE WHEN t.status = 'SUCCESS' THEN 1 END) AS completedTasks,
-            COUNT(CASE WHEN t.status = 'FAILED' THEN 1 END) AS failedTasks
+            COUNT(CASE WHEN t.status = 'FAILED' THEN 1 END) AS failedTasks,
+            COUNT(CASE WHEN t.status = 'CANCELLED' THEN 1 END) AS cancelledTasks,
+            COUNT(CASE WHEN t.status = 'RUNNING' THEN 1 END) AS runningTasks,
+            COUNT(CASE WHEN t.status = 'PENDING' THEN 1 END) AS pendingTasks,
+            COUNT(CASE WHEN t.status = 'BLOCKED' THEN 1 END) AS blockedTasks,
+            COUNT(CASE WHEN t.status = 'PAUSED' THEN 1 END) AS pausedTasks
         FROM batches b
         LEFT JOIN tasks t ON b.id = t.batchId
         WHERE b.id = :id
@@ -44,7 +54,12 @@ interface BatchDao {
             b.*,
             COUNT(t.id) AS totalTasks,
             COUNT(CASE WHEN t.status = 'SUCCESS' THEN 1 END) AS completedTasks,
-            COUNT(CASE WHEN t.status = 'FAILED' THEN 1 END) AS failedTasks
+            COUNT(CASE WHEN t.status = 'FAILED' THEN 1 END) AS failedTasks,
+            COUNT(CASE WHEN t.status = 'CANCELLED' THEN 1 END) AS cancelledTasks,
+            COUNT(CASE WHEN t.status = 'RUNNING' THEN 1 END) AS runningTasks,
+            COUNT(CASE WHEN t.status = 'PENDING' THEN 1 END) AS pendingTasks,
+            COUNT(CASE WHEN t.status = 'BLOCKED' THEN 1 END) AS blockedTasks,
+            COUNT(CASE WHEN t.status = 'PAUSED' THEN 1 END) AS pausedTasks
         FROM batches b
         LEFT JOIN tasks t ON b.id = t.batchId
         GROUP BY b.id
@@ -57,7 +72,12 @@ interface BatchDao {
             b.*,
             COUNT(t.id) AS totalTasks,
             COUNT(CASE WHEN t.status = 'SUCCESS' THEN 1 END) AS completedTasks,
-            COUNT(CASE WHEN t.status = 'FAILED' THEN 1 END) AS failedTasks
+            COUNT(CASE WHEN t.status = 'FAILED' THEN 1 END) AS failedTasks,
+            COUNT(CASE WHEN t.status = 'CANCELLED' THEN 1 END) AS cancelledTasks,
+            COUNT(CASE WHEN t.status = 'RUNNING' THEN 1 END) AS runningTasks,
+            COUNT(CASE WHEN t.status = 'PENDING' THEN 1 END) AS pendingTasks,
+            COUNT(CASE WHEN t.status = 'BLOCKED' THEN 1 END) AS blockedTasks,
+            COUNT(CASE WHEN t.status = 'PAUSED' THEN 1 END) AS pausedTasks
         FROM batches b
         LEFT JOIN tasks t ON b.id = t.batchId
         WHERE b.novelUrl = :novelUrl
@@ -89,7 +109,4 @@ interface BatchDao {
 
     @Query("DELETE FROM batches WHERE id = :id")
     suspend fun deleteById(id: String)
-
-    @Update
-    suspend fun updateBatch(batch: BatchEntity)
 }

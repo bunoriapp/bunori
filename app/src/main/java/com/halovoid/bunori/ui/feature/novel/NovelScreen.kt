@@ -66,8 +66,7 @@ import com.halovoid.bunori.ui.core.theme.PrimaryAccent
 import com.halovoid.bunori.ui.core.theme.PrimaryText
 import com.halovoid.bunori.ui.core.theme.SecondaryText
 import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
-import com.halovoid.bunori.ui.feature.downloads.components.DownloadRangeDialog
-import com.halovoid.bunori.ui.feature.novel.components.ActiveRequestCard
+import com.halovoid.bunori.ui.feature.activity.components.DownloadRangeDialog
 import com.halovoid.bunori.ui.feature.novel.components.ChapterFilterSortSheet
 import com.halovoid.bunori.ui.feature.novel.components.JumpToChapterBottomSheet
 import com.halovoid.bunori.ui.feature.novel.components.NovelActionRow
@@ -136,6 +135,7 @@ fun NovelScreen(
     var isRefreshing by remember { mutableStateOf(false) }
 
     val requestHistory by viewModel.rootRequests.collectAsStateWithLifecycle()
+    val chapterStatuses by viewModel.chapterStatuses.collectAsStateWithLifecycle()
 
     val ongoingStatuses = remember {
         setOf(
@@ -146,24 +146,9 @@ fun NovelScreen(
             JobStatus.BLOCKED
         )
     }
-    
-    val downloadingChapters = remember(requestHistory) {
-        val ids = mutableSetOf<Int>()
-        val ranges = mutableListOf<ClosedRange<Int>>()
-        
-        requestHistory.filter { it.rstatus in ongoingStatuses }.forEach { req ->
-            val meta = req.parsedMetadata
-            if (req.type == JobType.CHAPTER) {
-                meta.chapterId?.let { ids.add(it) }
-            } else if (req.type == JobType.RANGE_DOWNLOAD) {
-                val start = meta.startIndex
-                val end = meta.endIndex
-                if (start != null && end != null) {
-                    ranges.add(start..end)
-                }
-            }
-        }
-        Pair(ids, ranges)
+
+    val activeRequest = remember(requestHistory) {
+        requestHistory.find { it.rstatus in ongoingStatuses }
     }
 
     var activeDialog by remember { mutableStateOf<NovelDialogState?>(null) }
@@ -246,16 +231,6 @@ fun NovelScreen(
                             )
                         }
 
-                        val activeRequest = requestHistory.find { it.rstatus in ongoingStatuses }
-                        if (activeRequest != null) {
-                            item {
-                                ActiveRequestCard(
-                                    batch = activeRequest,
-                                    onClick = { onRequestClick(activeRequest.id) }
-                                )
-                            }
-                        }
-
                         item { Spacer(modifier = Modifier.height(16.dp)) }
 
                         item {
@@ -273,13 +248,6 @@ fun NovelScreen(
                                 .padding(horizontal = 24.dp, vertical = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
-                                    contentDescription = null,
-                                    tint = SecondaryText,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
                                 Text(
                                     text = "${chapters.size} Chapters",
                                     style = MaterialTheme.typography.titleMedium,
@@ -291,7 +259,7 @@ fun NovelScreen(
 
                         novelTableOfContents(
                             chapters = chapters,
-                            downloadingChapters = downloadingChapters,
+                            chapterStatuses = chapterStatuses,
                             isSelectionMode = isSelectionMode,
                             selectedChapterIds = selectedChapterIds,
                             onFetchChapter = { viewModel.fetchChapter(currentNovel, it) },
@@ -313,6 +281,8 @@ fun NovelScreen(
                     showTitle = showTitleInTopBar,
                     isSelectionMode = isSelectionMode,
                     selectedCount = selectedChapterIds.size,
+                    isActivityRunning = activeRequest != null,
+                    onActivityClick = { activeRequest?.let { onRequestClick(it.id) } },
                     onBack = onBack,
                     onClearSelection = { viewModel.clearSelection() },
                     onMarkAsRead = { viewModel.markSelectedChaptersRead(true) },
@@ -388,8 +358,7 @@ fun NovelScreen(
                             onChapterClick(currentNovel.url, chapter.id)
                         },
                         onScrollToChapter = { chapter ->
-                            val activeReq = requestHistory.find { it.rstatus in ongoingStatuses }
-                            val headerItemCount = if (activeReq != null) 7 else 6
+                            val headerItemCount = 6
                             val chapterIndexInList = chapters.indexOf(chapter)
                             if (chapterIndexInList >= 0) {
                                 coroutineScope.launch {

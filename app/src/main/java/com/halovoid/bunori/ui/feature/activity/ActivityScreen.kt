@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.downloads
+package com.halovoid.bunori.ui.feature.activity
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -8,8 +8,10 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.outlined.DownloadForOffline
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.outlined.DynamicFeed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,19 +30,20 @@ import com.halovoid.bunori.ui.core.theme.BrandAccent
 import com.halovoid.bunori.ui.core.theme.DarkBackground
 import com.halovoid.bunori.ui.core.theme.PrimaryText
 import com.halovoid.bunori.ui.core.theme.SecondaryText
-import com.halovoid.bunori.ui.feature.downloads.components.CompactJobItem
-import com.halovoid.bunori.ui.feature.downloads.components.FilterBottomSheet
-import com.halovoid.bunori.ui.feature.downloads.components.JobActionHandler
-import com.halovoid.bunori.ui.feature.downloads.components.JobCard
+import com.halovoid.bunori.ui.feature.activity.components.CompactJobItem
+import com.halovoid.bunori.ui.feature.activity.components.FilterBottomSheet
+import com.halovoid.bunori.ui.feature.activity.components.JobActionHandler
+import com.halovoid.bunori.ui.feature.activity.components.JobCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DownloadScreen(
-    viewModel: DownloadViewModel,
+fun ActivityScreen(
+    viewModel: ActivityViewModel,
     onRequestClick: (String) -> Unit
 ) {
     val requestHistory by viewModel.batchHistory.collectAsStateWithLifecycle()
     val globalStats by viewModel.globalStats.collectAsStateWithLifecycle()
+    val isCompactMode by viewModel.isCompactMode.collectAsStateWithLifecycle()
     val cancellingRequestIds by viewModel.cancellingRequestIds.collectAsStateWithLifecycle()
     val activeActionIds by viewModel.activeActionIds.collectAsStateWithLifecycle()
 
@@ -90,7 +93,7 @@ fun DownloadScreen(
                     .padding(bottom = innerPadding.calculateBottomPadding())
             ) {
                 ScreenHeader(
-                    title = "Downloads",
+                    title = "Activity",
                     subtitle = if (requestHistory.isNotEmpty()) "${filteredHistory.size} items" else null,
                     actions = {
                         if (globalStats.total > 0) {
@@ -103,11 +106,18 @@ fun DownloadScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                         }
+                        IconButton(onClick = { viewModel.setCompactMode(!isCompactMode) }) {
+                            Icon(
+                                imageVector = if (isCompactMode) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
+                                contentDescription = if (isCompactMode) "Carousel View" else "Compact View",
+                                tint = PrimaryText
+                            )
+                        }
                         IconButton(onClick = { showFilterMenu = true }) {
                             Icon(
                                 imageVector = Icons.Default.FilterList,
                                 contentDescription = "Filter",
-                                tint = PrimaryText
+                                tint = if (filterType != null) BrandAccent else PrimaryText
                             )
                         }
                     }
@@ -126,9 +136,9 @@ fun DownloadScreen(
 
                 if (filteredHistory.isEmpty()) {
                     MutedEmptyState(
-                        title = "No Downloads Yet",
-                        description = "Monitor and manage all your background tasks here. From fetching metadata to downloading chapters for offline reading, every request's status can be tracked in real-time.",
-                        icon = Icons.Outlined.DownloadForOffline,
+                        title = "No Activity Yet",
+                        description = "Monitor and manage all your background tasks here. From fetching metadata to downloading chapters for offline reading, every task's status can be tracked in real-time.",
+                        icon = Icons.Outlined.DynamicFeed,
                         modifier = Modifier.weight(1f)
                     )
                 } else {
@@ -154,58 +164,68 @@ fun DownloadScreen(
                                 )
                             }
 
-                            item(key = "active_content") {
-                                if (activeBatches.size == 1) {
-                                    val batch = activeBatches.first()
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 20.dp)
-                                    ) {
-                                        JobCard(
-                                            batch = batch,
-                                            onClick = { onRequestClick(batch.id) },
-                                            allowAction = false
-                                        )
-                                    }
-                                } else {
-                                    val pagerState = rememberPagerState(pageCount = { activeBatches.size })
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 20.dp)
-                                    ) {
-                                        HorizontalPager(
-                                            state = pagerState,
-                                            pageSpacing = 12.dp,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) { page ->
-                                            val batch = activeBatches[page]
+                            if (isCompactMode) {
+                                items(activeBatches, key = { it.id }) { batch ->
+                                    CompactJobItem(
+                                        batch = batch,
+                                        onClick = { onRequestClick(batch.id) },
+                                        showProgressBackground = true
+                                    )
+                                }
+                            } else {
+                                item(key = "active_content") {
+                                    if (activeBatches.size == 1) {
+                                        val batch = activeBatches.first()
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 20.dp)
+                                        ) {
                                             JobCard(
                                                 batch = batch,
                                                 onClick = { onRequestClick(batch.id) },
                                                 allowAction = false
                                             )
                                         }
-
-                                        Spacer(modifier = Modifier.height(10.dp))
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.Center,
-                                            verticalAlignment = Alignment.CenterVertically
+                                    } else {
+                                        val pagerState = rememberPagerState(pageCount = { activeBatches.size })
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 20.dp)
                                         ) {
-                                            repeat(activeBatches.size) { index ->
-                                                val isSelected = pagerState.currentPage == index
-                                                Box(
-                                                    modifier = Modifier
-                                                        .padding(horizontal = 3.dp)
-                                                        .size(if (isSelected) 6.dp else 4.dp)
-                                                        .clip(CircleShape)
-                                                        .background(
-                                                            if (isSelected) BrandAccent else SecondaryText.copy(alpha = 0.3f)
-                                                        )
+                                            HorizontalPager(
+                                                state = pagerState,
+                                                pageSpacing = 12.dp,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) { page ->
+                                                val batch = activeBatches[page]
+                                                JobCard(
+                                                    batch = batch,
+                                                    onClick = { onRequestClick(batch.id) },
+                                                    allowAction = false
                                                 )
+                                            }
+
+                                            Spacer(modifier = Modifier.height(10.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.Center,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                repeat(activeBatches.size) { index ->
+                                                    val isSelected = pagerState.currentPage == index
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .padding(horizontal = 3.dp)
+                                                            .size(if (isSelected) 6.dp else 4.dp)
+                                                            .clip(CircleShape)
+                                                            .background(
+                                                                if (isSelected) BrandAccent else SecondaryText.copy(alpha = 0.3f)
+                                                            )
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -217,7 +237,7 @@ fun DownloadScreen(
                         if (recentBatches.isNotEmpty()) {
                             if (activeBatches.isNotEmpty()) {
                                 item(key = "spacing_after_active") {
-                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(if (isCompactMode) 8.dp else 16.dp))
                                 }
                             }
 
@@ -260,3 +280,10 @@ fun DownloadScreen(
         }
     }
 }
+
+// Backward compatibility alias
+@Composable
+fun DownloadScreen(
+    viewModel: ActivityViewModel,
+    onRequestClick: (String) -> Unit
+) = ActivityScreen(viewModel = viewModel, onRequestClick = onRequestClick)

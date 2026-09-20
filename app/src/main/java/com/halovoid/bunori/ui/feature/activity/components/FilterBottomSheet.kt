@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.downloads.components
+package com.halovoid.bunori.ui.feature.activity.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
@@ -26,7 +26,7 @@ fun FilterBottomSheet(
     ) {
         AppBottomSheetGroup {
             ListItem(
-                headlineContent = { Text("All Downloads", color = PrimaryText) },
+                headlineContent = { Text("All Activity", color = PrimaryText) },
                 trailingContent = {
                     if (currentFilter == null) Icon(Icons.Default.Check, contentDescription = null, tint = BrandAccent)
                 },

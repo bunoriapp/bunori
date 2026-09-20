@@ -39,6 +39,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE status = 'RUNNING'")
     fun getRunningTasksFlow(): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks WHERE novelUrl = :novelUrl AND status != 'SUCCESS'")
+    fun getActiveTasksByNovelFlow(novelUrl: String): Flow<List<TaskEntity>>
+
     @Query("UPDATE tasks SET status = :status, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateStatus(id: String, status: JobStatus, updatedAt: Long = System.currentTimeMillis())
 
@@ -50,9 +53,6 @@ interface TaskDao {
 
     @Query("UPDATE tasks SET status = 'RUNNING', error = :error, attemptCount = :attemptCount, updatedAt = :now WHERE id = :id")
     suspend fun markRetrying(id: String, attemptCount: Int, error: String?, now: Long = System.currentTimeMillis())
-
-    @Query("UPDATE tasks SET status = :newStatus, updatedAt = :now WHERE batchId = :batchId AND status = :oldStatus")
-    suspend fun updateStatusForBatch(batchId: String, oldStatus: JobStatus, newStatus: JobStatus, now: Long = System.currentTimeMillis())
 
     @Query("UPDATE tasks SET status = :newStatus, updatedAt = :now WHERE batchId = :batchId AND status != 'SUCCESS'")
     suspend fun updateUnfinishedStatusForBatch(batchId: String, newStatus: JobStatus, now: Long = System.currentTimeMillis())
@@ -67,12 +67,15 @@ interface TaskDao {
     @Query("UPDATE tasks SET status = 'PENDING', error = NULL, attemptCount = 0, completedAt = NULL, updatedAt = :now WHERE batchId = :batchId")
     suspend fun resetAllTasksForBatch(batchId: String, now: Long = System.currentTimeMillis())
 
+    @Query("UPDATE tasks SET status = 'PENDING', error = NULL, attemptCount = 0, completedAt = NULL, updatedAt = :now WHERE id IN (:taskIds)")
+    suspend fun resetTasks(taskIds: List<String>, now: Long = System.currentTimeMillis())
+
+    @Query("UPDATE tasks SET status = 'CANCELLED', updatedAt = :now WHERE id IN (:taskIds) AND status != 'SUCCESS'")
+    suspend fun cancelTasks(taskIds: List<String>, now: Long = System.currentTimeMillis())
+
     @Query("DELETE FROM tasks WHERE batchId = :batchId")
     suspend fun deleteByBatchId(batchId: String)
 
     @Query("DELETE FROM tasks WHERE id = :id")
     suspend fun deleteTaskById(id: String)
-
-    @Update
-    suspend fun updateTask(task: TaskEntity)
 }

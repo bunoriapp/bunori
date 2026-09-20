@@ -10,8 +10,8 @@ import com.halovoid.bunori.data.repository.ReaderRepository
 import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
 import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
-import com.halovoid.bunori.ui.feature.downloads.DownloadViewModel
-import com.halovoid.bunori.ui.feature.downloads.JobDetailViewModel
+import com.halovoid.bunori.ui.feature.activity.ActivityViewModel
+import com.halovoid.bunori.ui.feature.activity.JobDetailViewModel
 import com.halovoid.bunori.ui.feature.library.LibraryViewModel
 import com.halovoid.bunori.ui.feature.novel.NovelViewModel
 import com.halovoid.bunori.ui.feature.onboarding.FolderViewModel
@@ -55,8 +55,12 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             modelClass.isAssignableFrom(JobDetailViewModel::class.java) -> {
                 JobDetailViewModel(application, BatchRepository.getInstance(application)) as T
             }
-            modelClass.isAssignableFrom(DownloadViewModel::class.java) -> {
-                DownloadViewModel(application, BatchRepository.getInstance(application)) as T
+            modelClass.isAssignableFrom(ActivityViewModel::class.java) -> {
+                ActivityViewModel(
+                    application,
+                    BatchRepository.getInstance(application),
+                    PreferenceRepository.getInstance(application)
+                ) as T
             }
             modelClass.isAssignableFrom(ReaderViewModel::class.java) -> {
                 ReaderViewModel(

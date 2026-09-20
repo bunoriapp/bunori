@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.downloads.components
+package com.halovoid.bunori.ui.feature.activity.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape

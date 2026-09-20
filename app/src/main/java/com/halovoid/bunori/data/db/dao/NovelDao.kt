@@ -35,6 +35,19 @@ interface NovelDao {
     @Upsert
     suspend fun upsertNovel(novel: NovelEntity)
 
+    @Query("""
+        SELECT * FROM novels 
+        WHERE inLibrary = 0 
+          AND url NOT IN (SELECT DISTINCT novelUrl FROM batches WHERE novelUrl IS NOT NULL)
+          AND url NOT IN (SELECT DISTINCT novelUrl FROM tasks WHERE novelUrl IS NOT NULL)
+          AND url NOT IN (SELECT DISTINCT novelUrl FROM downloads WHERE isCache = 0)
+          AND url NOT IN (SELECT DISTINCT novelUrl FROM artifacts WHERE novelUrl IS NOT NULL)
+    """)
+    suspend fun getPrunableNovels(): List<NovelEntity>
+
+    @Query("DELETE FROM novels WHERE url IN (:urls)")
+    suspend fun deleteNovelsByUrl(urls: List<String>)
+
     @Delete
     suspend fun deleteNovel(novel: NovelEntity)
 }

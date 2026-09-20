@@ -18,8 +18,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -30,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.ui.core.components.AppBottomSheet
 import com.halovoid.bunori.ui.core.theme.*
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,13 +38,7 @@ fun JumpToChapterBottomSheet(
     onDismiss: () -> Unit
 ) {
     var chapterNumberText by remember { mutableStateOf("") }
-    val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
-
-    LaunchedEffect(Unit) {
-        delay(150)
-        focusRequester.requestFocus()
-    }
 
     val trimmedText = chapterNumberText.trim()
     val targetIndex = trimmedText.toIntOrNull()
@@ -76,9 +67,7 @@ fun JumpToChapterBottomSheet(
         OutlinedTextField(
             value = chapterNumberText,
             onValueChange = { chapterNumberText = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(focusRequester),
+            modifier = Modifier.fillMaxWidth(),
             placeholder = {
                 Text(
                     "Enter chapter number (e.g. 10)",

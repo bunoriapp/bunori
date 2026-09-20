@@ -47,6 +47,12 @@ interface DownloadDao {
     @Query("DELETE FROM downloads WHERE id = :id")
     suspend fun deleteDownloadById(id: Long)
 
+    @Query("SELECT * FROM downloads WHERE isCache = 1")
+    suspend fun getAllCachedDownloads(): List<DownloadEntity>
+
+    @Query("DELETE FROM downloads WHERE isCache = 1")
+    suspend fun deleteAllCachedDownloads()
+
     @Query("DELETE FROM downloads WHERE novelUrl = :novelUrl")
     suspend fun deleteDownloadsForNovel(novelUrl: String)
 }

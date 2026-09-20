@@ -25,14 +25,12 @@ fun CreateBackupBottomSheet(
     initialDatabase: Boolean = true,
     initialChapters: Boolean = true,
     initialCovers: Boolean = true,
-    initialArtifacts: Boolean = false,
     onDismiss: () -> Unit,
-    onCreateBackup: (backupDatabase: Boolean, backupChapters: Boolean, backupCovers: Boolean, backupArtifacts: Boolean) -> Unit
+    onCreateBackup: (backupDatabase: Boolean, backupChapters: Boolean, backupCovers: Boolean) -> Unit
 ) {
     var backupDatabase by remember { mutableStateOf(initialDatabase) }
     var backupChapters by remember { mutableStateOf(initialChapters) }
     var backupCovers by remember { mutableStateOf(initialCovers) }
-    var backupArtifacts by remember { mutableStateOf(initialArtifacts) }
 
     AppBottomSheet(
         onDismiss = onDismiss,
@@ -63,21 +61,13 @@ fun CreateBackupBottomSheet(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable { backupCovers = !backupCovers }
             )
-            AppBottomSheetDivider()
-            ListItem(
-                headlineContent = { Text("Artifacts (EPUB/PDF)", color = PrimaryText) },
-                supportingContent = { Text("Generated/downloaded EPUB and PDF artifacts", color = SecondaryText) },
-                trailingContent = { Checkbox(checked = backupArtifacts, onCheckedChange = { backupArtifacts = it }) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable { backupArtifacts = !backupArtifacts }
-            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             onClick = {
-                onCreateBackup(backupDatabase, backupChapters, backupCovers, backupArtifacts)
+                onCreateBackup(backupDatabase, backupChapters, backupCovers)
                 onDismiss()
             },
             modifier = Modifier.fillMaxWidth(),

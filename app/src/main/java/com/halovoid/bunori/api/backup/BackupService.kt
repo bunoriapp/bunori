@@ -29,15 +29,14 @@ class BackupService(private val context: Context): JobHandler {
     suspend fun createBackup(
         backupDatabase: Boolean = true,
         backupChapters: Boolean = true,
-        backupCovers: Boolean = true,
-        backupArtifacts: Boolean = false
+        backupCovers: Boolean = true
     ): File? {
         val timestamp = System.currentTimeMillis()
         val fileName = "backup.lnbak"
 
         val tempFile = File(context.cacheDir, fileName)
         FileOutputStream(tempFile).use { fos ->
-            writeBackupToStream(fos, backupDatabase, backupChapters, backupCovers, backupArtifacts, timestamp)
+            writeBackupToStream(fos, backupDatabase, backupChapters, backupCovers, timestamp)
         }
         val bytes = tempFile.readBytes()
         tempFile.delete()
@@ -46,7 +45,6 @@ class BackupService(private val context: Context): JobHandler {
         if (backupDatabase) included.add("Database")
         if (backupChapters) included.add("Chapters")
         if (backupCovers) included.add("Covers")
-        if (backupArtifacts) included.add("Artifacts")
         val summary = included.joinToString(" · ")
         val timeStr = android.text.format.DateFormat.format("MMM dd, yyyy, h:mm a", timestamp).toString()
 
@@ -84,13 +82,20 @@ class BackupService(private val context: Context): JobHandler {
         backupDatabase: Boolean,
         backupChapters: Boolean,
         backupCovers: Boolean,
-        backupArtifacts: Boolean,
         timestamp: Long
     ) {
         val dbFile = context.getDatabasePath("bunori.db")
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
         val appVersion = packageInfo.versionName ?: "1.0"
         val databaseVersion = AppDatabase.getDatabase(context).openHelper.readableDatabase.version
+
+        // Checkpoint SQLite WAL to ensure all tables (novels, chapters, downloads, batches, tasks, artifacts) are synced
+        try {
+            val db = AppDatabase.getDatabase(context).openHelper.writableDatabase
+            db.query("PRAGMA wal_checkpoint(FULL)").use { it.moveToFirst() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         val manifestJson = JSONObject().apply {
             put("formatVersion", 1)
@@ -101,8 +106,8 @@ class BackupService(private val context: Context): JobHandler {
                 put("database", backupDatabase)
                 put("chapters", backupChapters)
                 put("covers", backupCovers)
-                put("artifacts", backupArtifacts)
                 put("downloads", backupDatabase)
+                put("preferences", true)
             })
         }
 
@@ -122,6 +127,11 @@ class BackupService(private val context: Context): JobHandler {
                 if (novelsDir.exists() && novelsDir.isDirectory) {
                     zipDirectory(novelsDir, "novels", zos)
                 }
+            }
+
+            val datastoreDir = File(context.filesDir, "datastore")
+            if (datastoreDir.exists() && datastoreDir.isDirectory) {
+                zipDirectory(datastoreDir, "datastore", zos)
             }
         }
     }

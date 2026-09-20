@@ -6,6 +6,7 @@ import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.crash.CrashActivity
 import com.halovoid.bunori.crash.GlobalExceptionHandler
 import com.halovoid.bunori.data.repository.PreferenceRepository
+import com.halovoid.bunori.data.scheduler.workers.BackgroundMaintenanceScheduler
 import com.halovoid.bunori.extension.manager.ExtensionManager
 import com.halovoid.bunori.ui.feature.crawler.webview.WebViewResolverImpl
 import kotlinx.coroutines.CoroutineScope
@@ -40,5 +41,9 @@ class BunoriApplication : Application() {
                 }
         }
 
+        // Initialize and sync background maintenance schedules (Auto-backup, Novel pruning, Cache clearing)
+        applicationScope.launch {
+            BackgroundMaintenanceScheduler.syncAll(this@BunoriApplication)
+        }
     }
 }

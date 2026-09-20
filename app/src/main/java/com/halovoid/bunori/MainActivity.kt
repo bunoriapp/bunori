@@ -2,6 +2,7 @@ package com.halovoid.bunori
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -10,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import com.halovoid.bunori.data.repository.UpdateRepository
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
 import com.halovoid.bunori.ui.MainScreen
+import com.halovoid.bunori.ui.core.platform.VolumeKeyEventManager
 import com.halovoid.bunori.ui.core.theme.BunoriTheme
 import com.halovoid.bunori.ui.navigation.AppNavigationManager
 import kotlinx.coroutines.launch
@@ -37,6 +39,15 @@ class MainActivity : ComponentActivity() {
                 MainScreen()
             }
         }
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (VolumeKeyEventManager.handleKeyEvent(event)) {
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onNewIntent(intent: Intent) {

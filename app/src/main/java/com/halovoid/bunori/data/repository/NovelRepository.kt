@@ -132,6 +132,16 @@ class NovelRepository private constructor(context: Context) {
         }
     }
 
+    suspend fun getPrunableNovels(): List<Novel> = withContext(Dispatchers.IO) {
+        novelDao.getPrunableNovels().map { it.toDomain() }
+    }
+
+    suspend fun deleteNovelsByUrl(urls: List<String>) = withContext(Dispatchers.IO) {
+        if (urls.isNotEmpty()) {
+            novelDao.deleteNovelsByUrl(urls)
+        }
+    }
+
     /**
      * Deletes a novel and its chapters from the local database.
      * @param novel The novel to delete.

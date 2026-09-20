@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.downloads
+package com.halovoid.bunori.ui.feature.activity
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.repository.BatchRepository
+import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.domain.models.Batch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,9 +14,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class DownloadViewModel(
+class ActivityViewModel(
     application: Application,
-    private val batchRepository: BatchRepository
+    private val batchRepository: BatchRepository,
+    private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
 ) : AndroidViewModel(application) {
 
     val batchHistory: StateFlow<List<Batch>> = batchRepository.getRootRequests()
@@ -25,26 +27,39 @@ class DownloadViewModel(
             initialValue = emptyList()
         )
 
-    data class GlobalDownloadStats(val completed: Int, val total: Int)
+    val isCompactMode: StateFlow<Boolean> = preferenceRepository.activityCompactView
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
 
-    val globalStats: StateFlow<GlobalDownloadStats> = batchHistory.map { list ->
+    data class GlobalActivityStats(val completed: Int, val total: Int)
+
+    val globalStats: StateFlow<GlobalActivityStats> = batchHistory.map { list ->
         val active = list.filter { 
             it.status == JobStatus.RUNNING || 
             it.status == JobStatus.PAUSED || 
             it.status == JobStatus.PENDING 
         }
-        GlobalDownloadStats(
+        GlobalActivityStats(
             completed = active.sumOf { it.progressSuccess },
             total = active.sumOf { it.progressTotal }
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = GlobalDownloadStats(0, 0)
+        initialValue = GlobalActivityStats(0, 0)
     )
 
     val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
     val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
+
+    fun setCompactMode(compact: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setActivityCompactView(compact)
+        }
+    }
 
     fun cancelRequest(requestId: String) {
         viewModelScope.launch {
@@ -73,3 +88,6 @@ class DownloadViewModel(
         }
     }
 }
+
+// Backward compatibility alias
+typealias DownloadViewModel = ActivityViewModel

@@ -37,7 +37,7 @@ import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.crawler.CrawlerScreen
 import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
 import com.halovoid.bunori.ui.feature.crawler.ExtensionUiItem
-import com.halovoid.bunori.ui.feature.downloads.components.JobActionHandler
+import com.halovoid.bunori.ui.feature.activity.components.JobActionHandler
 
 enum class BrowseTab(val title: String) {
     SOURCES("Sources"),

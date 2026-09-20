@@ -21,6 +21,8 @@ interface DownloadRepository {
     suspend fun deleteDownload(novelUrl: String, chapterUrl: String)
     suspend fun deleteDownloadById(id: Long)
     suspend fun deleteDownloadsForNovel(novelUrl: String)
+    suspend fun getAllCachedDownloads(): List<Download>
+    suspend fun deleteAllCachedDownloads()
 }
 
 class DownloadRepositoryImpl private constructor(context: Context) : DownloadRepository {
@@ -87,6 +89,14 @@ class DownloadRepositoryImpl private constructor(context: Context) : DownloadRep
 
     override suspend fun deleteDownloadsForNovel(novelUrl: String) {
         downloadDao.deleteDownloadsForNovel(novelUrl)
+    }
+
+    override suspend fun getAllCachedDownloads(): List<Download> {
+        return downloadDao.getAllCachedDownloads().map { it.toDomain() }
+    }
+
+    override suspend fun deleteAllCachedDownloads() {
+        downloadDao.deleteAllCachedDownloads()
     }
 
     private fun DownloadEntity.toDomain(): Download = Download(

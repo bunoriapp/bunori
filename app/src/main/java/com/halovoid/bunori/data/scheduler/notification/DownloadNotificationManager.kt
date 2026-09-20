@@ -40,7 +40,7 @@ class DownloadNotificationManager(private val context: Context) {
     fun createInitialForegroundNotification(): Notification {
         val openDownloadsPendingIntent = createOpenRoutePendingIntent(
             context = context,
-            route = Screen.Downloads.route,
+            route = Screen.Activity.route,
             requestCode = 100
         )
 
@@ -207,7 +207,7 @@ class DownloadNotificationManager(private val context: Context) {
         } else {
             createOpenRoutePendingIntent(
                 context = context,
-                route = Screen.Downloads.route,
+                route = Screen.Activity.route,
                 requestCode = notificationId
             )
         }

@@ -16,15 +16,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.ui.core.components.AppBottomSheet
 import com.halovoid.bunori.ui.core.components.AppBottomSheetDivider
 import com.halovoid.bunori.ui.core.components.AppBottomSheetGroup
 import com.halovoid.bunori.ui.core.theme.*
+import com.halovoid.bunori.ui.feature.novel.ChapterActiveStatuses
 
 fun LazyListScope.novelTableOfContents(
     chapters: List<Chapter>,
-    downloadingChapters: Pair<Set<Int>, List<ClosedRange<Int>>>,
+    chapterStatuses: ChapterActiveStatuses = ChapterActiveStatuses(),
     isSelectionMode: Boolean,
     selectedChapterIds: Set<Int>,
     onFetchChapter: (Chapter) -> Unit,
@@ -35,10 +37,7 @@ fun LazyListScope.novelTableOfContents(
     onChapterToggleSelect: (Chapter) -> Unit
 ) {
     items(chapters, key = { it.id }) { chapter ->
-        val isDownloading = remember(downloadingChapters, chapter.id, chapter.index) {
-            downloadingChapters.first.contains(chapter.id) ||
-            downloadingChapters.second.any { it.contains(chapter.index) }
-        }
+        val status = chapterStatuses.getStatus(chapter.id, chapter.url, chapter.sourceUrl)
         val isSelected = selectedChapterIds.contains(chapter.id)
         ChapterRow(
             chapter = chapter,
@@ -48,7 +47,7 @@ fun LazyListScope.novelTableOfContents(
             onChapterClick = { onChapterClick(it) },
             onChapterLongClick = { onChapterLongClick(it) },
             onChapterToggleSelect = { onChapterToggleSelect(it) },
-            isDownloading = isDownloading,
+            chapterStatus = status,
             isSelectionMode = isSelectionMode,
             isSelected = isSelected
         )
@@ -69,7 +68,7 @@ fun ChapterRow(
     onChapterClick: (Chapter) -> Unit,
     onChapterLongClick: (Chapter) -> Unit,
     onChapterToggleSelect: (Chapter) -> Unit,
-    isDownloading: Boolean,
+    chapterStatus: JobStatus? = null,
     isSelectionMode: Boolean,
     isSelected: Boolean
 ) {
@@ -161,12 +160,82 @@ fun ChapterRow(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-            } else if (isDownloading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = BrandAccent
-                )
+            } else if (chapterStatus != null) {
+                when (chapterStatus) {
+                    JobStatus.RUNNING -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = BrandAccent
+                        )
+                    }
+                    JobStatus.PENDING -> {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = "Queued",
+                            tint = SecondaryText.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    JobStatus.PAUSED -> {
+                        IconButton(
+                            onClick = { onFetchChapter(chapter) },
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Pause,
+                                contentDescription = "Paused - Tap to Resume",
+                                tint = WarningAmber,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    JobStatus.BLOCKED -> {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = "Blocked - Security Check",
+                            tint = WarningAmber,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    JobStatus.CANCELLING -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = ErrorRed
+                        )
+                    }
+                    JobStatus.FAILED -> {
+                        IconButton(
+                            onClick = { onFetchChapter(chapter) },
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Failed - Tap to Retry",
+                                tint = ErrorRed,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    else -> {
+                        IconButton(
+                            onClick = {
+                                if (!isSelectionMode) {
+                                    onFetchChapter(chapter)
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DownloadForOffline,
+                                contentDescription = "Download Chapter",
+                                tint = SecondaryText.copy(alpha = 0.5f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
             } else {
                 IconButton(
                     onClick = {

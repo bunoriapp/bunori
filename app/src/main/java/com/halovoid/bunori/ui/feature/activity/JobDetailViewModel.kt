@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.downloads
+package com.halovoid.bunori.ui.feature.activity
 
 import android.app.Application
 import android.net.Uri
@@ -51,13 +51,100 @@ class JobDetailViewModel(
         }
     }
 
+    private fun statusPriority(status: JobStatus): Int {
+        return when (status) {
+            JobStatus.BLOCKED -> 0
+            JobStatus.RUNNING -> 1
+            JobStatus.PENDING -> 2
+            JobStatus.PAUSED -> 3
+            JobStatus.CANCELLING -> 4
+            JobStatus.FAILED -> 5
+            JobStatus.CANCELLED -> 6
+            JobStatus.SUCCESS -> 7
+        }
+    }
+
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
+
+    private val _selectedTaskIds = MutableStateFlow<Set<String>>(emptySet())
+    val selectedTaskIds: StateFlow<Set<String>> = _selectedTaskIds.asStateFlow()
+
+    fun selectTask(taskId: String) {
+        _isSelectionMode.value = true
+        _selectedTaskIds.update { it + taskId }
+    }
+
+    fun toggleTaskSelection(taskId: String) {
+        _selectedTaskIds.update { current ->
+            val updated = if (current.contains(taskId)) current - taskId else current + taskId
+            if (updated.isEmpty()) {
+                _isSelectionMode.value = false
+            }
+            updated
+        }
+    }
+
+    fun clearSelection() {
+        _isSelectionMode.value = false
+        _selectedTaskIds.value = emptySet()
+    }
+
+    fun selectAllTasks(tasks: List<Batch>) {
+        _isSelectionMode.value = true
+        _selectedTaskIds.value = tasks.map { it.id }.toSet()
+    }
+
+    fun selectTasksByStatus(status: JobStatus, tasks: List<Batch>) {
+        val matchingIds = tasks.filter { it.status == status }.map { it.id }.toSet()
+        if (matchingIds.isNotEmpty()) {
+            _isSelectionMode.value = true
+            _selectedTaskIds.value = matchingIds
+        }
+    }
+
+    fun selectTasksWithSameStatus(tasks: List<Batch>) {
+        val selected = _selectedTaskIds.value
+        val selectedStatuses = tasks.filter { it.id in selected }.map { it.status }.toSet()
+        if (selectedStatuses.isNotEmpty()) {
+            val matchingIds = tasks.filter { it.status in selectedStatuses }.map { it.id }.toSet()
+            _isSelectionMode.value = true
+            _selectedTaskIds.value = matchingIds
+        }
+    }
+
+    fun replaySelectedTasks(batchId: String) {
+        val selected = _selectedTaskIds.value.toList()
+        if (selected.isNotEmpty()) {
+            viewModelScope.launch {
+                batchRepository.replayTasks(selected, batchId)
+                clearSelection()
+            }
+        }
+    }
+
+    fun cancelSelectedTasks(batchId: String) {
+        val selected = _selectedTaskIds.value.toList()
+        if (selected.isNotEmpty()) {
+            viewModelScope.launch {
+                batchRepository.cancelTasks(selected, batchId)
+                clearSelection()
+            }
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val linkedRequests: StateFlow<List<Batch>> = combine(_requestId.filterNotNull(), _statusFilter) { id, status ->
         id to status
     }
         .flatMapLatest { (id, status) ->
             batchRepository.getRequestsByDependenceFlow(id).map { requests ->
-                if (status == null) requests else requests.filter { it.status == status }
+                val filtered = if (status == null) requests else requests.filter { it.status == status }
+                filtered.sortedWith(
+                    compareBy<Batch> { statusPriority(it.status) }
+                        .thenBy { it.name }
+                        .thenBy { it.id }
+                )
             }
         }
         .stateIn(

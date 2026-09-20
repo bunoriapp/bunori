@@ -7,11 +7,20 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.BuildConfig
 import com.halovoid.bunori.data.scheduler.workers.BackupScheduler
+import com.halovoid.bunori.data.scheduler.workers.BackgroundMaintenanceScheduler
 import com.halovoid.bunori.api.loader.AppUpdateManager
 import com.halovoid.bunori.api.loader.UpdateDownloader
 import com.halovoid.bunori.api.loader.UpdateInstaller
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.UpdateRepository
+import com.halovoid.bunori.data.repository.NovelRepository
+import com.halovoid.bunori.data.repository.DownloadRepositoryImpl
+import java.io.File
+import com.halovoid.bunori.domain.models.CustomFont
+import com.halovoid.bunori.domain.models.ReaderSettings
+import com.halovoid.bunori.domain.models.ReaderTextAlign
+import com.halovoid.bunori.domain.models.ReaderTheme
+import com.halovoid.bunori.domain.models.ReadingMode
 import com.halovoid.bunori.extension.manager.ExtensionManager
 import com.halovoid.bunori.ui.core.theme.ThemeMode
 import com.halovoid.bunori.ui.feature.novel.DownloadFilter
@@ -99,6 +108,12 @@ class SettingsViewModel(
         initialValue = false
     )
 
+    val activityCompactView: StateFlow<Boolean> = preferenceRepository.activityCompactView.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
     val defaultChapterDownloadFilter: StateFlow<DownloadFilter> = preferenceRepository.defaultChapterDownloadFilter
         .map { filterName ->
             runCatching { DownloadFilter.valueOf(filterName) }.getOrDefault(DownloadFilter.ALL)
@@ -139,6 +154,30 @@ class SettingsViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = "Off"
+    )
+
+    val novelPruneFrequency: StateFlow<String> = preferenceRepository.novelPruneFrequency.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "Every 10 Days"
+    )
+
+    val cacheClearFrequency: StateFlow<String> = preferenceRepository.cacheClearFrequency.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "Every 4 Days"
+    )
+
+    val lastNovelPruneTime: StateFlow<Long> = preferenceRepository.lastNovelPruneTime.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0L
+    )
+
+    val lastCacheClearTime: StateFlow<Long> = preferenceRepository.lastCacheClearTime.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0L
     )
 
     val themeMode: StateFlow<ThemeMode> = preferenceRepository.themeMode
@@ -317,6 +356,12 @@ class SettingsViewModel(
         }
     }
 
+    fun setActivityCompactView(compact: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setActivityCompactView(compact)
+        }
+    }
+
     fun setDefaultChapterDownloadFilter(filter: DownloadFilter) {
         viewModelScope.launch {
             preferenceRepository.setDefaultChapterDownloadFilter(filter.name)
@@ -344,7 +389,65 @@ class SettingsViewModel(
     fun setBackupFrequency(frequency: String) {
         viewModelScope.launch {
             preferenceRepository.setBackupFrequency(frequency)
-            BackupScheduler.scheduleBackupWork(getApplication(), frequency)
+            BackgroundMaintenanceScheduler.scheduleBackupWork(getApplication(), frequency)
+        }
+    }
+
+    fun setNovelPruneFrequency(frequency: String) {
+        viewModelScope.launch {
+            preferenceRepository.setNovelPruneFrequency(frequency)
+            BackgroundMaintenanceScheduler.scheduleNovelPruningWork(getApplication(), frequency)
+        }
+    }
+
+    fun setCacheClearFrequency(frequency: String) {
+        viewModelScope.launch {
+            preferenceRepository.setCacheClearFrequency(frequency)
+            BackgroundMaintenanceScheduler.scheduleCacheClearWork(getApplication(), frequency)
+        }
+    }
+
+    fun pruneNovelsNow(onComplete: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                val novelRepo = NovelRepository.getInstance(getApplication())
+                val prunable = novelRepo.getPrunableNovels()
+                if (prunable.isNotEmpty()) {
+                    novelRepo.deleteNovelsByUrl(prunable.map { it.url })
+                }
+                preferenceRepository.setLastNovelPruneTime(System.currentTimeMillis())
+                onComplete(prunable.size)
+            } catch (e: Exception) {
+                onComplete(0)
+            }
+        }
+    }
+
+    fun clearCacheNow(onComplete: (Int) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                val downloadRepo = DownloadRepositoryImpl.getInstance(getApplication())
+                val cached = downloadRepo.getAllCachedDownloads()
+                var count = 0
+                cached.forEach { dl ->
+                    if (dl.fileLocation.isNotBlank() && !dl.fileLocation.startsWith("content://")) {
+                        val path = dl.fileLocation.removePrefix("file://")
+                        val file = File(path)
+                        if (file.exists() && file.delete()) count++
+                    }
+                }
+                val cacheDir = File(getApplication<Application>().cacheDir, "chapter_cache")
+                if (cacheDir.exists() && cacheDir.isDirectory) {
+                    cacheDir.listFiles()?.forEach { file ->
+                        if (file.isFile && file.delete()) count++
+                    }
+                }
+                downloadRepo.deleteAllCachedDownloads()
+                preferenceRepository.setLastCacheClearTime(System.currentTimeMillis())
+                onComplete(cached.size.coerceAtLeast(count))
+            } catch (e: Exception) {
+                onComplete(0)
+            }
         }
     }
 
@@ -390,5 +493,70 @@ class SettingsViewModel(
             com.halovoid.bunori.api.core.network.NetworkClient.currentUserAgent =
                 userAgent?.takeIf { it.isNotBlank() } ?: com.halovoid.bunori.api.core.network.NetworkClient.DEFAULT_USER_AGENT
         }
+    }
+
+    // --- Reader Settings & Custom Fonts ---
+    val readerSettings: StateFlow<ReaderSettings> = preferenceRepository.readerSettings.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ReaderSettings()
+    )
+
+    val customFonts: StateFlow<List<CustomFont>> = preferenceRepository.customFonts.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun updateReaderTheme(theme: ReaderTheme) = viewModelScope.launch {
+        preferenceRepository.updateReaderTheme(theme)
+    }
+
+    fun updateReadingMode(mode: ReadingMode) = viewModelScope.launch {
+        preferenceRepository.updateReadingMode(mode)
+    }
+
+    fun updateFontFamily(fontFamily: String) = viewModelScope.launch {
+        preferenceRepository.updateReaderFont(fontFamily)
+    }
+
+    fun updateFontSize(sizeSp: Int) = viewModelScope.launch {
+        preferenceRepository.updateReaderFontSize(sizeSp)
+    }
+
+    fun updateLineHeight(lineHeight: Float) = viewModelScope.launch {
+        preferenceRepository.updateReaderLineHeight(lineHeight)
+    }
+
+    fun updateHorizontalPadding(paddingDp: Int) = viewModelScope.launch {
+        preferenceRepository.updateReaderPadding(paddingDp)
+    }
+
+    fun updateTextAlign(align: ReaderTextAlign) = viewModelScope.launch {
+        preferenceRepository.updateReaderTextAlign(align)
+    }
+
+    fun updateVolumeKeyPageTurn(enabled: Boolean) = viewModelScope.launch {
+        preferenceRepository.updateVolumeKeyPageTurn(enabled)
+    }
+
+    fun updateKeepScreenAwake(enabled: Boolean) = viewModelScope.launch {
+        preferenceRepository.updateKeepScreenAwake(enabled)
+    }
+
+    fun updateDimImages(enabled: Boolean) = viewModelScope.launch {
+        preferenceRepository.updateDimImages(enabled)
+    }
+
+    fun updateCustomCode(css: String, js: String) = viewModelScope.launch {
+        preferenceRepository.updateCustomCode(css, js)
+    }
+
+    fun addCustomFont(font: CustomFont) = viewModelScope.launch {
+        preferenceRepository.addCustomFont(font)
+    }
+
+    fun removeCustomFont(font: CustomFont) = viewModelScope.launch {
+        preferenceRepository.removeCustomFont(font)
     }
 }

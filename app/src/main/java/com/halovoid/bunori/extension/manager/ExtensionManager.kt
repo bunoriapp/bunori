@@ -90,12 +90,48 @@ class ExtensionManager private constructor(private val context: Context) {
         syncWithCrawlerFactory(loaded)
     }
 
+    private val catalogCacheFile: File
+        get() = File(context.filesDir, "extension_catalog_cache.json")
+
+    /**
+     * Returns locally cached extension repository catalog entries if available.
+     */
+    fun getCachedRepoCatalog(repoUrl: String? = null): List<ExtensionRepoEntry>? {
+        if (!catalogCacheFile.exists() || catalogCacheFile.length() == 0L) return null
+        return try {
+            val jsonString = catalogCacheFile.readText(Charsets.UTF_8)
+            val entries = ExtensionRepoEntry.parseIndex(jsonString)
+            if (repoUrl != null) {
+                entries.map { entry ->
+                    entry.copy(bextUrl = resolveUrl(repoUrl, entry.bextUrl))
+                }
+            } else {
+                entries
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to read cached repository catalog: ${e.message}")
+            null
+        }
+    }
+
     /**
      * Fetches and parses an extension catalog/repository index from [repoUrl].
+     * If [forceNetwork] is false and a local cache is present, returns the cached version.
      * Resolves any relative package URLs to absolute URLs.
      */
-    suspend fun fetchRepoCatalog(repoUrl: String): Result<List<ExtensionRepoEntry>> = withContext(Dispatchers.IO) {
+    suspend fun fetchRepoCatalog(
+        repoUrl: String,
+        forceNetwork: Boolean = false
+    ): Result<List<ExtensionRepoEntry>> = withContext(Dispatchers.IO) {
         try {
+            if (!forceNetwork) {
+                val cached = getCachedRepoCatalog(repoUrl)
+                if (cached != null && cached.isNotEmpty()) {
+                    Log.i(TAG, "Loaded extension catalog from local cache (${cached.size} entries)")
+                    return@withContext Result.success(cached)
+                }
+            }
+
             val jsonString = if (repoUrl.startsWith("file://")) {
                 val localPath = repoUrl.removePrefix("file://")
                 File(localPath).readText(Charsets.UTF_8)
@@ -116,6 +152,13 @@ class ExtensionManager private constructor(private val context: Context) {
                 )
             }
 
+            // Save raw json to cache file
+            try {
+                catalogCacheFile.writeText(jsonString, Charsets.UTF_8)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to write extension catalog cache: ${e.message}")
+            }
+
             val entries = ExtensionRepoEntry.parseIndex(jsonString)
 
             // Resolve relative bextUrl against repoUrl
@@ -127,8 +170,43 @@ class ExtensionManager private constructor(private val context: Context) {
             Result.success(resolvedEntries)
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching repository catalog from $repoUrl", e)
-            Result.failure(e)
+            // Fallback to cache if network request failed
+            val cached = getCachedRepoCatalog(repoUrl)
+            if (cached != null && cached.isNotEmpty()) {
+                Log.i(TAG, "Falling back to cached extension catalog after network failure")
+                Result.success(cached)
+            } else {
+                Result.failure(e)
+            }
         }
+    }
+
+    /**
+     * Checks if any installed extensions have updates in [repoUrl].
+     */
+    suspend fun checkForUpdates(repoUrl: String): List<ExtensionRepoEntry> = withContext(Dispatchers.IO) {
+        val result = fetchRepoCatalog(repoUrl, forceNetwork = true)
+        val catalog = result.getOrNull() ?: return@withContext emptyList()
+        val installed = _installedExtensions.value
+
+        catalog.filter { entry ->
+            val installedExt = installed[entry.id]
+            installedExt != null && isNewerVersion(entry.version, installedExt.manifest.version)
+        }
+    }
+
+    private fun isNewerVersion(remote: String, installed: String): Boolean {
+        if (remote == installed) return false
+        val remoteParts = remote.split(".").mapNotNull { it.toIntOrNull() }
+        val installedParts = installed.split(".").mapNotNull { it.toIntOrNull() }
+        val maxLen = maxOf(remoteParts.size, installedParts.size)
+        for (i in 0 until maxLen) {
+            val r = remoteParts.getOrElse(i) { 0 }
+            val ins = installedParts.getOrElse(i) { 0 }
+            if (r > ins) return true
+            if (r < ins) return false
+        }
+        return remote != installed
     }
 
     /**

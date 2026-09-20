@@ -3,6 +3,7 @@ package com.halovoid.bunori.ui.feature.search
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,6 +41,7 @@ import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.domain.models.SearchItem
 import com.halovoid.bunori.ui.core.theme.*
+import com.halovoid.bunori.ui.core.components.SourceIcon
 import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
 import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
 import com.halovoid.bunori.ui.feature.search.components.CompactSearchResultCard
@@ -67,6 +69,24 @@ fun SearchScreen(
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
     val libraryUrls by browseViewModel.libraryUrls.collectAsStateWithLifecycle()
     val failedExtensions by viewModel.failedExtensions.collectAsStateWithLifecycle()
+
+    val installedCrawlers by CrawlerFactory.crawlersFlow.collectAsStateWithLifecycle()
+    val selectedCrawler = remember(selectedSource, installedCrawlers) {
+        selectedSource?.let { src ->
+            installedCrawlers.find { it.name.equals(src, ignoreCase = true) }
+        }
+    }
+    val selectedSourceIconModel = remember(selectedCrawler) {
+        selectedCrawler?.let { crawler ->
+            when {
+                crawler.iconFile != null && crawler.iconFile?.exists() == true -> crawler.iconFile
+                !crawler.iconUrl.isNullOrBlank() -> crawler.iconUrl
+                crawler.baseUrl.isNotBlank() -> crawler.baseUrl
+                else -> null
+            }
+        }
+    }
+    var showSourceDropdown by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
@@ -199,61 +219,112 @@ fun SearchScreen(
                         }
                     }
 
-                    IconButton(
-                        onClick = {
-                            if (searchQuery.isNotBlank()) {
-                                viewModel.search(searchQuery.trim(), selectedSource)
-                                keyboardController?.hide()
-                            }
-                        },
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.TravelExplore,
-                            contentDescription = "Search",
-                            tint = if (searchQuery.isNotBlank()) BrandAccent else SecondaryText,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-
-            // Filter chip row below the search input
-            selectedSource?.let { source ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Transparent,
-                        border = BorderStroke(1.dp, BrandAccent.copy(alpha = 0.7f)),
-                        modifier = Modifier.clickable {
-                            selectedSource = null
-                            viewModel.setSelectedSource(null)
-                        }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(start = 10.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    Box {
+                        IconButton(
+                            onClick = {
+                                showSourceDropdown = true
+                            },
+                            modifier = Modifier.size(38.dp)
                         ) {
-                            Text(
-                                text = source,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = PrimaryText,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                            if (selectedSource != null) {
+                                SourceIcon(
+                                    model = selectedSourceIconModel,
+                                    fallbackText = selectedSource!!,
+                                    size = 22.dp,
+                                    shape = RoundedCornerShape(6.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.TravelExplore,
+                                    contentDescription = "Select Source",
+                                    tint = if (searchQuery.isNotBlank()) BrandAccent else SecondaryText,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showSourceDropdown,
+                            onDismissRequest = { showSourceDropdown = false },
+                            modifier = Modifier.background(DarkSurfaceVariant)
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.TravelExplore,
+                                            contentDescription = null,
+                                            tint = if (selectedSource == null) BrandAccent else PrimaryText,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = "All Sources",
+                                            color = if (selectedSource == null) BrandAccent else PrimaryText,
+                                            fontWeight = if (selectedSource == null) FontWeight.Bold else FontWeight.Normal,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    showSourceDropdown = false
+                                    selectedSource = null
+                                    viewModel.setSelectedSource(null)
+                                    if (searchQuery.isNotBlank()) {
+                                        viewModel.search(searchQuery.trim(), null)
+                                    }
+                                }
                             )
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Clear source filter",
-                                tint = SecondaryText,
-                                modifier = Modifier.size(14.dp)
-                            )
+
+                            if (installedCrawlers.isNotEmpty()) {
+                                HorizontalDivider(color = BorderColor.copy(alpha = 0.3f))
+
+                                installedCrawlers.forEach { crawler ->
+                                    val isSelected = selectedSource.equals(crawler.name, ignoreCase = true)
+                                    val crawlerIconModel = remember(crawler) {
+                                        when {
+                                            crawler.iconFile != null && crawler.iconFile?.exists() == true -> crawler.iconFile
+                                            !crawler.iconUrl.isNullOrBlank() -> crawler.iconUrl
+                                            crawler.baseUrl.isNotBlank() -> crawler.baseUrl
+                                            else -> null
+                                        }
+                                    }
+
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                SourceIcon(
+                                                    model = crawlerIconModel,
+                                                    fallbackText = crawler.name,
+                                                    size = 20.dp,
+                                                    shape = RoundedCornerShape(5.dp)
+                                                )
+                                                Text(
+                                                    text = crawler.name,
+                                                    color = if (isSelected) BrandAccent else PrimaryText,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                    fontSize = 14.sp,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            showSourceDropdown = false
+                                            selectedSource = crawler.name
+                                            viewModel.setSelectedSource(crawler.name)
+                                            if (searchQuery.isNotBlank()) {
+                                                viewModel.search(searchQuery.trim(), crawler.name)
+                                            }
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }

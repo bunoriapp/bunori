@@ -285,13 +285,12 @@ fun BackupSettingsScreen(
         if (showCreateBottomSheet) {
             CreateBackupBottomSheet(
                 onDismiss = { showCreateBottomSheet = false },
-                onCreateBackup = { db, ch, cov, art ->
+                onCreateBackup = { db, ch, cov ->
                     scope.launch(Dispatchers.IO) {
                         BackupService(context).createBackup(
                             backupDatabase = db,
                             backupChapters = ch,
-                            backupCovers = cov,
-                            backupArtifacts = art
+                            backupCovers = cov
                         )
                         metadata = getLatestBackupMetadata(context)
                         scope.launch {

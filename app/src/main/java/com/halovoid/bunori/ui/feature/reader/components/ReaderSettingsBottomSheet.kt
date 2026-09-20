@@ -72,8 +72,54 @@ fun ReaderSettingsBottomSheet(
     onRemoveCustomFont: (CustomFont) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+
+    AppBottomSheet(
+        onDismiss = onDismiss,
+        sheetState = sheetState,
+        title = "Reader Settings",
+        showCloseButton = true
+    ) {
+        ReaderSettingsContent(
+            settings = settings,
+            customFonts = customFonts,
+            onUpdateTheme = onUpdateTheme,
+            onUpdateReadingMode = onUpdateReadingMode,
+            onUpdateFontFamily = onUpdateFontFamily,
+            onUpdateFontSize = onUpdateFontSize,
+            onUpdateLineHeight = onUpdateLineHeight,
+            onUpdatePadding = onUpdatePadding,
+            onUpdateTextAlign = onUpdateTextAlign,
+            onUpdateVolumeKeyTurn = onUpdateVolumeKeyTurn,
+            onUpdateKeepScreenAwake = onUpdateKeepScreenAwake,
+            onUpdateDimImages = onUpdateDimImages,
+            onUpdateCustomCode = onUpdateCustomCode,
+            onAddCustomFont = onAddCustomFont,
+            onRemoveCustomFont = onRemoveCustomFont
+        )
+    }
+}
+
+@Composable
+fun ReaderSettingsContent(
+    settings: ReaderSettings,
+    customFonts: List<CustomFont>,
+    onUpdateTheme: (ReaderTheme) -> Unit,
+    onUpdateReadingMode: (ReadingMode) -> Unit,
+    onUpdateFontFamily: (String) -> Unit,
+    onUpdateFontSize: (Int) -> Unit,
+    onUpdateLineHeight: (Float) -> Unit,
+    onUpdatePadding: (Int) -> Unit,
+    onUpdateTextAlign: (ReaderTextAlign) -> Unit,
+    onUpdateVolumeKeyTurn: (Boolean) -> Unit,
+    onUpdateKeepScreenAwake: (Boolean) -> Unit,
+    onUpdateDimImages: (Boolean) -> Unit,
+    onUpdateCustomCode: (String, String) -> Unit,
+    onAddCustomFont: (CustomFont) -> Unit,
+    onRemoveCustomFont: (CustomFont) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
     var showCustomCodeDialog by remember { mutableStateOf(false) }
     var showFontDialog by remember { mutableStateOf(false) }
 
@@ -101,18 +147,12 @@ fun ReaderSettingsBottomSheet(
         }
     }
 
-    AppBottomSheet(
-        onDismiss = onDismiss,
-        sheetState = sheetState,
-        title = "Reader Settings",
-        showCloseButton = true
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
             // 1. Reading Mode Selection (Selectable label options, no palettes)
             SectionHeader(title = "Reading Mode")
             Column(
@@ -319,9 +359,8 @@ fun ReaderSettingsBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
         }
-    }
 
-    if (showCustomCodeDialog) {
+        if (showCustomCodeDialog) {
         CustomCodeDialog(
             initialCss = settings.customCss,
             initialJs = settings.customJs,

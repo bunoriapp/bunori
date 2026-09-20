@@ -3,6 +3,7 @@ package com.halovoid.bunori.ui.feature.reader
 import android.app.Activity
 import android.content.Intent
 import android.util.Log
+import android.view.KeyEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -29,6 +30,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.domain.models.ReadingMode
 import com.halovoid.bunori.ui.core.platform.SystemBarHandler
+import com.halovoid.bunori.ui.core.platform.VolumeKeyEventManager
 import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
 import com.halovoid.bunori.ui.feature.reader.components.ReaderSettingsBottomSheet
@@ -86,6 +88,36 @@ fun ReaderScreen(
 
     // Controls system status & navigation bar visibility (Mihon pattern)
     SystemBarHandler(isSystemBarsVisible = isControlsVisible)
+
+    // Volume key page turning / navigation listener
+    DisposableEffect(readerSettings.volumeKeyPageTurn) {
+        if (readerSettings.volumeKeyPageTurn) {
+            VolumeKeyEventManager.setListener { keyCode, event ->
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    when (keyCode) {
+                        KeyEvent.KEYCODE_VOLUME_UP -> {
+                            viewModel.turnPage(-1)
+                            true
+                        }
+                        KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                            viewModel.turnPage(1)
+                            true
+                        }
+                        else -> false
+                    }
+                } else if (event.action == KeyEvent.ACTION_UP) {
+                    keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+                } else {
+                    false
+                }
+            }
+        } else {
+            VolumeKeyEventManager.setListener(null)
+        }
+        onDispose {
+            VolumeKeyEventManager.setListener(null)
+        }
+    }
 
     LaunchedEffect(novelUrl, initialChapterId) {
         viewModel.start(novelUrl, initialChapterId)
