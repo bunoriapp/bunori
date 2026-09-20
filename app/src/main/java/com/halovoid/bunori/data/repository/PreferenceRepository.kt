@@ -58,6 +58,7 @@ private val READER_TEXT_ALIGN = stringPreferencesKey("reader_text_align")
 private val READER_VOLUME_KEY_PAGE_TURN = booleanPreferencesKey("reader_volume_key_page_turn")
 private val READER_KEEP_SCREEN_AWAKE = booleanPreferencesKey("reader_keep_screen_awake")
 private val READER_DIM_IMAGES = booleanPreferencesKey("reader_dim_images")
+private val READER_SHOW_TAP_ZONE_OVERLAY = booleanPreferencesKey("reader_show_tap_zone_overlay")
 private val READER_CUSTOM_CSS = stringPreferencesKey("reader_custom_css")
 private val READER_CUSTOM_JS = stringPreferencesKey("reader_custom_js")
 private val READER_CUSTOM_FONTS = stringSetPreferencesKey("reader_custom_fonts")
@@ -404,6 +405,7 @@ class PreferenceRepository private constructor(
                 volumeKeyPageTurn = prefs[READER_VOLUME_KEY_PAGE_TURN] ?: false,
                 keepScreenAwake = prefs[READER_KEEP_SCREEN_AWAKE] ?: false,
                 dimImagesInDarkMode = prefs[READER_DIM_IMAGES] ?: true,
+                showTapZoneOverlay = prefs[READER_SHOW_TAP_ZONE_OVERLAY] ?: true,
                 customCss = prefs[READER_CUSTOM_CSS] ?: "",
                 customJs = prefs[READER_CUSTOM_JS] ?: ""
             )
@@ -423,6 +425,7 @@ class PreferenceRepository private constructor(
             prefs[READER_VOLUME_KEY_PAGE_TURN] = settings.volumeKeyPageTurn
             prefs[READER_KEEP_SCREEN_AWAKE] = settings.keepScreenAwake
             prefs[READER_DIM_IMAGES] = settings.dimImagesInDarkMode
+            prefs[READER_SHOW_TAP_ZONE_OVERLAY] = settings.showTapZoneOverlay
             prefs[READER_CUSTOM_CSS] = settings.customCss
             prefs[READER_CUSTOM_JS] = settings.customJs
         }
@@ -466,6 +469,10 @@ class PreferenceRepository private constructor(
 
     suspend fun updateDimImages(enabled: Boolean) {
         context.appDataStore.edit { it[READER_DIM_IMAGES] = enabled }
+    }
+
+    suspend fun updateShowTapZoneOverlay(enabled: Boolean) {
+        context.appDataStore.edit { it[READER_SHOW_TAP_ZONE_OVERLAY] = enabled }
     }
 
     suspend fun updateCustomCss(css: String) {

@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ChromeReaderMode
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.outlined.*
@@ -106,19 +108,19 @@ fun MoreScreen(
             SettingsRow(
                 title = "Reader",
                 subtitle = "Reading mode, themes, fonts, volume keys, margins",
-                icon = Icons.Outlined.MenuBook,
+                icon = Icons.AutoMirrored.Outlined.ChromeReaderMode,
                 onClick = onNavigateToReaderSettings
             )
 
             SettingsRow(
                 title = "Layouts",
                 subtitle = "Library layout, search view mode, novel detail defaults",
-                icon = Icons.Outlined.GridView,
+                icon = Icons.Outlined.CollectionsBookmark,
                 onClick = onNavigateToLayout
             )
 
             SettingsRow(
-                title = "Download Preferences",
+                title = "General Preferences",
                 subtitle = "Parallel downloads, data saver, folder path",
                 icon = Icons.Outlined.Download,
                 onClick = onNavigateToDownloadsPref
@@ -127,21 +129,21 @@ fun MoreScreen(
             SettingsRow(
                 title = "Extensions",
                 subtitle = "Repository URL, install local extension packages",
-                icon = Icons.Outlined.Extension,
+                icon = Icons.Outlined.Explore,
                 onClick = onNavigateToExtensionSettings
             )
             
             SettingsRow(
                 title = "Advanced",
-                subtitle = "Beta release channels, system settings",
-                icon = Icons.Outlined.Tune,
+                subtitle = "Beta release channels, Data Pruning, Webviews",
+                icon = Icons.Outlined.Code,
                 onClick = onNavigateToAdvanced
             )
 
             SettingsRow(
                 title = "Support Us",
                 subtitle = "Contribute, star repository, donation",
-                icon = Icons.Outlined.Favorite,
+                icon = Icons.Outlined.VolunteerActivism,
                 onClick = onNavigateToSupportSettings
             )
 

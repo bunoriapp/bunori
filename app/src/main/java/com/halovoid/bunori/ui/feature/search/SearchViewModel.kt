@@ -194,6 +194,46 @@ class SearchViewModel(
         }
     }
 
+    fun retrySource(sourceName: String) {
+        val currentState = _searchState.value as? SearchState.Searching ?: return
+        val query = currentState.query
+        val crawler = try {
+            CrawlerFactory.getCrawlers().find { it.name.equals(sourceName, ignoreCase = true) }
+        } catch (_: Exception) {
+            null
+        } ?: return
+
+        val updatedMap = currentState.sourceStates.toMutableMap().apply {
+            put(crawler.name, SourceSearchStatus.Loading)
+        }
+        _searchState.value = currentState.copy(
+            sourceStates = updatedMap,
+            isComplete = false
+        )
+
+        viewModelScope.launch {
+            try {
+                val results = withContext(Dispatchers.IO) {
+                    crawler.getSearchResults(query)
+                }
+                val searchItems = results.map { novel ->
+                    SearchItem(
+                        title = novel.title,
+                        source = novel.crawlerName,
+                        url = novel.url,
+                        description = novel.description ?: "",
+                        score = 0.0,
+                        imageUrl = novel.coverHttpsUrl ?: novel.coverUrl
+                    )
+                }
+                updateSourceState(crawler.name, SourceSearchStatus.Success(searchItems))
+            } catch (e: Exception) {
+                AppLog.e("SearchViewModel", "Error retrying ${crawler.name}: ${e.message}", e)
+                updateSourceState(crawler.name, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
+            }
+        }
+    }
+
     fun resetState() {
         _searchState.value = SearchState.Idle
     }

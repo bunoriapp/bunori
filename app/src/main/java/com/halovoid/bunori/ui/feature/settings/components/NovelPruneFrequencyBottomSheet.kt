@@ -24,7 +24,7 @@ fun NovelPruneFrequencyBottomSheet(
     AppBottomSheet(
         onDismiss = onDismiss,
         title = "Novel Pruning Frequency",
-        subtitle = "Choose how often unreferenced non-library novels are pruned."
+        subtitle = "Choose how often non-library novels are pruned."
     ) {
         AppBottomSheetGroup {
             options.forEachIndexed { index, option ->

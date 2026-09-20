@@ -5,8 +5,8 @@ import android.content.Context
 import android.net.Uri
 import com.halovoid.bunori.data.db.AppDatabase
 import com.halovoid.bunori.domain.models.Artifact
-import com.halovoid.bunori.domain.models.toDomain
-import com.halovoid.bunori.domain.models.toEntity
+import com.halovoid.bunori.data.db.mappers.toDomain
+import com.halovoid.bunori.data.db.mappers.toEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class DownloadFilter {
-    ALL, DOWNLOADED, NOT_DOWNLOADED
+    ALL, DOWNLOADED, NOT_DOWNLOADED, NONE
 }
 
 enum class SortType {
@@ -189,6 +189,7 @@ class NovelViewModel(
             DownloadFilter.ALL -> rawChapters
             DownloadFilter.DOWNLOADED -> rawChapters.filter { it.isDownloaded }
             DownloadFilter.NOT_DOWNLOADED -> rawChapters.filter { !it.isDownloaded }
+            DownloadFilter.NONE -> emptyList()
         }
 
         val filteredBySource = if (selectedSources.isEmpty()) {
@@ -386,6 +387,26 @@ class NovelViewModel(
             val ids = _selectedChapterIds.value.toList()
             if (ids.isNotEmpty()) {
                 chapterRepository.updateChaptersReadStatus(ids, isRead)
+            }
+            clearSelection()
+        }
+    }
+
+    fun downloadSelectedChapters(novel: Novel) {
+        val selectedIds = _selectedChapterIds.value
+        val toDownload = chapters.value.filter { selectedIds.contains(it.id) }
+        if (toDownload.isNotEmpty()) {
+            downloadChapters(novel, toDownload)
+        }
+        clearSelection()
+    }
+
+    fun deleteSelectedChapters() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val selectedIds = _selectedChapterIds.value
+            val toDelete = chapters.value.filter { selectedIds.contains(it.id) }
+            toDelete.forEach { chapter ->
+                deleteChapterUseCase(chapter)
             }
             clearSelection()
         }

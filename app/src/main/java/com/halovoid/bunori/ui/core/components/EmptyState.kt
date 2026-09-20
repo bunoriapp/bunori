@@ -63,17 +63,3 @@ fun MutedEmptyState(
         )
     }
 }
-
-@Preview
-@Composable
-fun MutedEmptyStatePreview() {
-    BunoriTheme {
-        Surface(color = DarkBackground) {
-            MutedEmptyState(
-                title = "Your Library is Empty",
-                description = "All the novels you've added will appear here. Start by browsing and adding stories you want to follow.",
-                icon = Icons.AutoMirrored.Outlined.LibraryBooks
-            )
-        }
-    }
-}

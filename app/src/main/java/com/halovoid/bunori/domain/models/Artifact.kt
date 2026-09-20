@@ -9,19 +9,3 @@ data class Artifact(
     val artifactDestination: String,
     val artifactName: String
 )
-
-fun ArtifactEntity.toDomain() : Artifact = Artifact(
-    id = id,
-    novelUrl = novelUrl,
-    requestId = requestId,
-    artifactDestination = artifactDestination,
-    artifactName = artifactName
-)
-
-fun Artifact.toEntity() : ArtifactEntity = ArtifactEntity(
-    id = id,
-    novelUrl = novelUrl,
-    requestId = requestId,
-    artifactDestination = artifactDestination,
-    artifactName = artifactName
-)

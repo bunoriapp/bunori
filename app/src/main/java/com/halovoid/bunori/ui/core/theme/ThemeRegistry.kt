@@ -29,55 +29,55 @@ data class AppTheme(
 )
 
 object ThemeRegistry {
-    // 1. Default (Electric Indigo) - Preserved exactly as originally designed
+    // 1. Default (Velvet Dusk / Aether Violet) - Premium Amethyst Violet & Deep Midnight
     val DefaultTheme = AppTheme(
         id = "DEFAULT",
         name = "Default",
-        description = "Signature Electric Indigo & charcoal dark",
+        description = "Signature Velvet Amethyst & deep midnight violet",
         lightColorScheme = lightColorScheme(
-            primary = Color(0xFF7C3AED), // Brand Accent (Electric Indigo)
-            secondary = Color(0xFF94A3B8), // Primary Accent
+            primary = Color(0xFF7C3AED), // Rich Royal Violet
+            secondary = Color(0xFF6D28D9), // Deep Violet Accent
             tertiary = ErrorRed,
-            background = Color(0xFFF8FAFC),
+            background = Color(0xFFF8F7FF), // Soft Lilac Tinted White
             surface = Color(0xFFFFFFFF),
-            surfaceVariant = Color(0xFFE2E8F0),
+            surfaceVariant = Color(0xFFEDE9FE), // Light Periwinkle Container
             onPrimary = Color.White,
             onSecondary = Color.White,
-            onBackground = Color(0xFF0F172A), // Primary Text
-            onSurface = Color(0xFF0F172A), // Primary Text
-            onSurfaceVariant = Color(0xFF64748B), // Secondary Text
-            outline = Color(0xFFCBD5E1),
-            outlineVariant = Color(0xFFE2E8F0)
+            onBackground = Color(0xFF1E1B2E), // Deep Plum Text
+            onSurface = Color(0xFF1E1B2E),
+            onSurfaceVariant = Color(0xFF6C6382), // Muted Purple-Gray Text
+            outline = Color(0xFFDDD6FE),
+            outlineVariant = Color(0xFFEDE9FE)
         ),
         darkColorScheme = darkColorScheme(
-            primary = Color(0xFF7C3AED), // Brand Accent (Electric Indigo)
-            secondary = Color(0xFF94A3B8), // Primary Accent
+            primary = Color(0xFFA78BFA), // Luminous Amethyst Violet
+            secondary = Color(0xFFC4B5FD), // Soft Lavender Accent
             tertiary = ErrorRed,
-            background = Color(0xFF0F0F0F),
-            surface = Color(0xFF1A1A1A),
-            surfaceVariant = Color(0xFF242424),
-            onPrimary = Color.White,
-            onSecondary = Color.White,
+            background = Color(0xFF12111A), // Deep Midnight Velvet
+            surface = Color(0xFF1B1926), // Velvet Card Surface
+            surfaceVariant = Color(0xFF262336), // Velvet Surface Variant
+            onPrimary = Color(0xFF12111A),
+            onSecondary = Color(0xFF12111A),
             onTertiary = Color.White,
-            onBackground = Color(0xFFF8F9FA), // Primary Text
-            onSurface = Color(0xFFF8F9FA), // Primary Text
-            onSurfaceVariant = Color(0xFF9CA3AF), // Secondary Text
-            outline = Color(0xFF262626), // Border Color
-            outlineVariant = Color(0xFF262626)
+            onBackground = Color(0xFFF5F3FF), // Crisp White with Warm Lilac Tint
+            onSurface = Color(0xFFF5F3FF),
+            onSurfaceVariant = Color(0xFFA7ACD9), // Secondary Text with Periwinkle Tint
+            outline = Color(0xFF332F47), // Subtle Violet-Tinted Border
+            outlineVariant = Color(0xFF262336)
         ),
         previewLight = ThemePreviewColors(
             primary = Color(0xFF7C3AED),
-            secondary = Color(0xFF94A3B8),
-            background = Color(0xFFF8FAFC),
+            secondary = Color(0xFF6D28D9),
+            background = Color(0xFFF8F7FF),
             surface = Color(0xFFFFFFFF),
-            text = Color(0xFF0F172A)
+            text = Color(0xFF1E1B2E)
         ),
         previewDark = ThemePreviewColors(
-            primary = Color(0xFF7C3AED),
-            secondary = Color(0xFF94A3B8),
-            background = Color(0xFF0F0F0F),
-            surface = Color(0xFF1A1A1A),
-            text = Color(0xFFF8F9FA)
+            primary = Color(0xFFA78BFA),
+            secondary = Color(0xFFC4B5FD),
+            background = Color(0xFF12111A),
+            surface = Color(0xFF1B1926),
+            text = Color(0xFFF5F3FF)
         )
     )
 

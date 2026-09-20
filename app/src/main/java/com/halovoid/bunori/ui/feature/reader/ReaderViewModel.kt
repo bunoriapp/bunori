@@ -359,6 +359,10 @@ class ReaderViewModel(
         preferenceRepository.updateDimImages(enabled)
     }
 
+    fun updateShowTapZoneOverlay(enabled: Boolean) = viewModelScope.launch {
+        preferenceRepository.updateShowTapZoneOverlay(enabled)
+    }
+
     fun updateCustomCss(css: String) = viewModelScope.launch {
         preferenceRepository.updateCustomCss(css)
     }

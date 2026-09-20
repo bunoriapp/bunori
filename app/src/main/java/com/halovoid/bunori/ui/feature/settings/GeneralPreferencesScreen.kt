@@ -24,7 +24,7 @@ import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.settings.components.CacheClearFrequencyBottomSheet
 
 @Composable
-fun DownloadPreferencesScreen(
+fun GeneralPreferencesScreen(
     viewModel: SettingsViewModel,
     onBack: () -> Unit
 ) {
@@ -45,7 +45,7 @@ fun DownloadPreferencesScreen(
     Scaffold(
         topBar = {
             AppTopBar(
-                title = "Download Preferences",
+                title = "General Preferences",
                 onBack = onBack
             )
         },
@@ -60,7 +60,7 @@ fun DownloadPreferencesScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             SectionHeader(text = "Downloads")
-            
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -84,9 +84,9 @@ fun DownloadPreferencesScreen(
                         color = PrimaryText
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 Slider(
                     value = maxJobs.toFloat(),
                     onValueChange = { viewModel.setMaxConcurrentJobs(it.toInt()) },
@@ -101,9 +101,9 @@ fun DownloadPreferencesScreen(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 Text(
                     text = "Limit parallel download tasks. A lower count reduces crawler network stress and prevents IP temp-bans.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -116,7 +116,7 @@ fun DownloadPreferencesScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             SectionHeader(text = "Data Saver")
-            
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -155,7 +155,7 @@ fun DownloadPreferencesScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             SectionHeader(text = "Storage")
-            
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -185,136 +185,6 @@ fun DownloadPreferencesScreen(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = BorderColor.copy(alpha = 0.2f), thickness = 0.5.dp)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SectionHeader(text = "Maintenance")
-            
-            // Cache Clear Frequency Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showCacheClearSheet = true }
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Cache Clearing Frequency",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = PrimaryText
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Auto-delete temporary chapter cache from online reading",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SecondaryText
-                    )
-                }
-                Text(
-                    text = cacheClearFreq,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = BrandAccent,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            // Clear Cache Now Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        viewModel.clearCacheNow { count ->
-                            Toast.makeText(
-                                context,
-                                if (count > 0) "Cleared $count cached items" else "Reading cache is already clean",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Cached,
-                    contentDescription = null,
-                    tint = BrandAccent,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Clear Reading Cache Now",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = PrimaryText
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Immediately delete temporary online reading cache",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SecondaryText
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showResetDialog = true }
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.RestartAlt,
-                    contentDescription = null,
-                    tint = ErrorRed.copy(alpha = 0.8f),
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Reset onboarding tour",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = ErrorRed
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Clears configuration tour progress, triggering setup next restart.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SecondaryText
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-
-        if (showCacheClearSheet) {
-            CacheClearFrequencyBottomSheet(
-                currentFrequency = cacheClearFreq,
-                onFrequencySelected = { viewModel.setCacheClearFrequency(it) },
-                onDismiss = { showCacheClearSheet = false }
-            )
-        }
-
-        if (showResetDialog) {
-            ConfirmCancelDialog(
-                title = "Reset Onboarding?",
-                message = "This will prompt the setup wizard next time the app launches. Your downloaded novels will not be deleted.",
-                onConfirm = {
-                    viewModel.resetOnboarding()
-                    showResetDialog = false
-                    Toast.makeText(context, "Onboarding reset completed", Toast.LENGTH_LONG).show()
-                },
-                onDismiss = { showResetDialog = false }
-            )
         }
     }
 }

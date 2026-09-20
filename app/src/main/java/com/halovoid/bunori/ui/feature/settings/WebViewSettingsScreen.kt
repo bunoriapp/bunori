@@ -11,10 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.outlined.Cookie
-import androidx.compose.material.icons.outlined.DeleteSweep
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -108,12 +104,6 @@ fun WebViewSettingsScreen(
                         maxLines = 2
                     )
                 }
-                Icon(
-                    imageVector = Icons.Outlined.Edit,
-                    contentDescription = "Edit User Agent",
-                    tint = SecondaryText,
-                    modifier = Modifier.size(20.dp)
-                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -130,13 +120,6 @@ fun WebViewSettingsScreen(
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Cookie,
-                    contentDescription = null,
-                    tint = BrandAccent,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Clear Cookies",
@@ -160,19 +143,12 @@ fun WebViewSettingsScreen(
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.DeleteSweep,
-                    contentDescription = null,
-                    tint = ErrorRed,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Clear WebView Data",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        color = ErrorRed
+                        color = PrimaryText
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
@@ -185,9 +161,6 @@ fun WebViewSettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // -------------------------------------------------------------
-            // Section 3: Manual Cookie Management
-            // -------------------------------------------------------------
             SectionHeader(text = "Cookie Management")
 
             Row(
@@ -197,13 +170,6 @@ fun WebViewSettingsScreen(
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Key,
-                    contentDescription = null,
-                    tint = BrandAccent,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Manually Add Cookies",
@@ -229,9 +195,6 @@ fun WebViewSettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        // -------------------------------------------------------------
-        // Dialogs
-        // -------------------------------------------------------------
         if (showEditUaDialog) {
             AlertDialog(
                 onDismissRequest = { showEditUaDialog = false },

@@ -65,11 +65,12 @@ fun ReaderSettingsBottomSheet(
     onUpdatePadding: (Int) -> Unit,
     onUpdateTextAlign: (ReaderTextAlign) -> Unit,
     onUpdateVolumeKeyTurn: (Boolean) -> Unit,
-    onUpdateKeepScreenAwake: (Boolean) -> Unit,
-    onUpdateDimImages: (Boolean) -> Unit,
-    onUpdateCustomCode: (String, String) -> Unit,
-    onAddCustomFont: (CustomFont) -> Unit,
-    onRemoveCustomFont: (CustomFont) -> Unit,
+    onUpdateKeepScreenAwake: (Boolean) -> Unit = {},
+    onUpdateDimImages: (Boolean) -> Unit = {},
+    onUpdateShowTapZoneOverlay: (Boolean) -> Unit = {},
+    onUpdateCustomCode: (String, String) -> Unit = { _, _ -> },
+    onAddCustomFont: (CustomFont) -> Unit = {},
+    onRemoveCustomFont: (CustomFont) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
@@ -93,6 +94,7 @@ fun ReaderSettingsBottomSheet(
             onUpdateVolumeKeyTurn = onUpdateVolumeKeyTurn,
             onUpdateKeepScreenAwake = onUpdateKeepScreenAwake,
             onUpdateDimImages = onUpdateDimImages,
+            onUpdateShowTapZoneOverlay = onUpdateShowTapZoneOverlay,
             onUpdateCustomCode = onUpdateCustomCode,
             onAddCustomFont = onAddCustomFont,
             onRemoveCustomFont = onRemoveCustomFont
@@ -104,19 +106,20 @@ fun ReaderSettingsBottomSheet(
 fun ReaderSettingsContent(
     settings: ReaderSettings,
     customFonts: List<CustomFont>,
-    onUpdateTheme: (ReaderTheme) -> Unit,
-    onUpdateReadingMode: (ReadingMode) -> Unit,
-    onUpdateFontFamily: (String) -> Unit,
-    onUpdateFontSize: (Int) -> Unit,
-    onUpdateLineHeight: (Float) -> Unit,
-    onUpdatePadding: (Int) -> Unit,
-    onUpdateTextAlign: (ReaderTextAlign) -> Unit,
-    onUpdateVolumeKeyTurn: (Boolean) -> Unit,
-    onUpdateKeepScreenAwake: (Boolean) -> Unit,
-    onUpdateDimImages: (Boolean) -> Unit,
-    onUpdateCustomCode: (String, String) -> Unit,
-    onAddCustomFont: (CustomFont) -> Unit,
-    onRemoveCustomFont: (CustomFont) -> Unit,
+    onUpdateTheme: (ReaderTheme) -> Unit = {},
+    onUpdateReadingMode: (ReadingMode) -> Unit = {},
+    onUpdateFontFamily: (String) -> Unit = {},
+    onUpdateFontSize: (Int) -> Unit = {},
+    onUpdateLineHeight: (Float) -> Unit = {},
+    onUpdatePadding: (Int) -> Unit = {},
+    onUpdateTextAlign: (ReaderTextAlign) -> Unit = {},
+    onUpdateVolumeKeyTurn: (Boolean) -> Unit = {},
+    onUpdateKeepScreenAwake: (Boolean) -> Unit = {},
+    onUpdateDimImages: (Boolean) -> Unit = {},
+    onUpdateShowTapZoneOverlay: (Boolean) -> Unit = {},
+    onUpdateCustomCode: (String, String) -> Unit = { _, _ -> },
+    onAddCustomFont: (CustomFont) -> Unit = {},
+    onRemoveCustomFont: (CustomFont) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -339,6 +342,12 @@ fun ReaderSettingsContent(
                 subtitle = "Reduce image contrast in OLED and Dark themes",
                 checked = settings.dimImagesInDarkMode,
                 onCheckedChange = onUpdateDimImages
+            )
+            PreferenceToggle(
+                title = "Show Tap Zone Overlay",
+                subtitle = "Display visual tap zones guide when opening reader or changing reading mode",
+                checked = settings.showTapZoneOverlay,
+                onCheckedChange = onUpdateShowTapZoneOverlay
             )
 
             // 9. Custom CSS & Scripts

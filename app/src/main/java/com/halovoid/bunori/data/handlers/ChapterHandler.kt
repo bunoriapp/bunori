@@ -61,26 +61,24 @@ class ChapterHandler(
             if (!isExpired) {
                 val cachedContent = try {
                     val fileLoc = existingDownload.fileLocation
-                    if (fileLoc.startsWith("content://")) {
-                        storageRepository.readText(Uri.parse(fileLoc))
+                    val uri = if (fileLoc.startsWith("content://") || fileLoc.startsWith("file://") || fileLoc.startsWith("http")) {
+                        Uri.parse(fileLoc)
                     } else {
-                        val path = fileLoc.removePrefix("file://")
-                        val file = File(path)
-                        if (file.exists()) file.readText() else null
+                        Uri.fromFile(File(fileLoc))
                     }
+                    storageRepository.readText(uri)
                 } catch (_: Exception) {
                     null
                 }
 
                 if (!cachedContent.isNullOrBlank() && cachedContent.trim().length > 50) {
                     val novelKey = crawler.getNovelKey(chapter.novelUrl)
-                    val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html"
+                    val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html.gz"
                     val relativePath = "novels/$novelKey/chapters"
 
-                    val permanentUri = storageRepository.saveText(
+                    val permanentUri = storageRepository.saveCompressedText(
                         relativePath = relativePath,
                         fileName = fileName,
-                        mimeType = "text/html",
                         content = cachedContent
                     )
 
@@ -158,13 +156,12 @@ class ChapterHandler(
         }
 
         val novelKey = crawler.getNovelKey(chapter.novelUrl)
-        val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html"
+        val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html.gz"
         val relativePath = "novels/$novelKey/chapters"
 
-        return storageRepository.saveText(
+        return storageRepository.saveCompressedText(
             relativePath = relativePath,
             fileName = fileName,
-            mimeType = "text/html",
             content = chapterContent
         )
     }

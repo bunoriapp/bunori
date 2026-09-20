@@ -23,6 +23,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Deselect
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.RemoveDone
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -59,6 +65,8 @@ import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.feature.reader.ReadingPlaylistHolder
 import com.halovoid.bunori.ui.core.components.ConfirmDeleteDialog
+import com.halovoid.bunori.ui.core.components.ContextualAction
+import com.halovoid.bunori.ui.core.components.ContextualBottomBar
 import com.halovoid.bunori.ui.core.theme.BrandAccent
 import com.halovoid.bunori.ui.core.theme.DarkBackground
 import com.halovoid.bunori.ui.core.theme.DarkSurface
@@ -163,7 +171,55 @@ fun NovelScreen(
 
     Scaffold(
         containerColor = DarkBackground,
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            ContextualBottomBar(
+                visible = isSelectionMode,
+                selectedCount = selectedChapterIds.size,
+                actions = listOf(
+                    ContextualAction(
+                        title = if (selectedChapterIds.size == chapters.size) "Deselect" else "Select All",
+                        icon = if (selectedChapterIds.size == chapters.size) Icons.Default.Deselect else Icons.Default.SelectAll,
+                        onClick = {
+                            if (selectedChapterIds.size == chapters.size) {
+                                viewModel.clearSelection()
+                            } else {
+                                viewModel.selectAllChapters(chapters)
+                            }
+                        }
+                    ),
+                    ContextualAction(
+                        title = "Download",
+                        icon = Icons.Default.Download,
+                        onClick = {
+                            viewModel.downloadSelectedChapters(novel ?: return@ContextualAction)
+                        }
+                    ),
+                    ContextualAction(
+                        title = "Mark Read",
+                        icon = Icons.Default.DoneAll,
+                        onClick = {
+                            viewModel.markSelectedChaptersRead(true)
+                        }
+                    ),
+                    ContextualAction(
+                        title = "Mark Unread",
+                        icon = Icons.Default.RemoveDone,
+                        onClick = {
+                            viewModel.markSelectedChaptersRead(false)
+                        }
+                    ),
+                    ContextualAction(
+                        title = "Delete",
+                        icon = Icons.Default.Delete,
+                        isDestructive = true,
+                        onClick = {
+                            viewModel.deleteSelectedChapters()
+                        }
+                    )
+                )
+            )
+        }
     ) { innerPadding ->
         if (novel == null) {
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
@@ -171,7 +227,12 @@ fun NovelScreen(
             }
         } else {
             val currentNovel = novel!!
-            Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = innerPadding.calculateBottomPadding())
+                    .background(DarkBackground)
+            ) {
                 val pullRefreshState = rememberPullToRefreshState()
                 PullToRefreshBox(
                     isRefreshing = isRefreshing,
@@ -279,16 +340,9 @@ fun NovelScreen(
                     novel = currentNovel,
                     isOpaque = isTopBarOpaque,
                     showTitle = showTitleInTopBar,
-                    isSelectionMode = isSelectionMode,
-                    selectedCount = selectedChapterIds.size,
                     isActivityRunning = activeRequest != null,
                     onActivityClick = { activeRequest?.let { onRequestClick(it.id) } },
                     onBack = onBack,
-                    onClearSelection = { viewModel.clearSelection() },
-                    onMarkAsRead = { viewModel.markSelectedChaptersRead(true) },
-                    onMarkAsUnread = { viewModel.markSelectedChaptersRead(false) },
-                    onSelectAll = { viewModel.selectAllChapters(chapters) },
-                    onUnselectAll = { viewModel.clearSelection() },
                     onJumpToChapterClick = { activeDialog = NovelDialogState.JumpToChapter },
                     onFilterClick = { activeDialog = NovelDialogState.FilterSheet },
                     isFilterActive = isFilterActive || isSortModified,

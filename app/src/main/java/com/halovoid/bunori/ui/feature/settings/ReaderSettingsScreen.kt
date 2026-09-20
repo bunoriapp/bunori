@@ -39,6 +39,7 @@ fun ReaderSettingsScreen(
             onUpdateVolumeKeyTurn = viewModel::updateVolumeKeyPageTurn,
             onUpdateKeepScreenAwake = viewModel::updateKeepScreenAwake,
             onUpdateDimImages = viewModel::updateDimImages,
+            onUpdateShowTapZoneOverlay = viewModel::updateShowTapZoneOverlay,
             onUpdateCustomCode = viewModel::updateCustomCode,
             onAddCustomFont = viewModel::addCustomFont,
             onRemoveCustomFont = viewModel::removeCustomFont,

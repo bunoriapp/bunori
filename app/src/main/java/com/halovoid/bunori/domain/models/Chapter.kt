@@ -13,12 +13,11 @@ data class Chapter(
     val title: String,
     val index: Int,
     val novelUrl: String,
-    val isDownloaded: Boolean = false
-) {
-    var sourceUrl: String? = null
-    var read: Boolean = false
+    val isDownloaded: Boolean = false,
+    var sourceUrl: String? = null,
+    var read: Boolean = false,
     var scanlationSource: String = "Not Provided"
-
+) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

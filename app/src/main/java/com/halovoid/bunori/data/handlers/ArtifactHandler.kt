@@ -90,7 +90,7 @@ class ArtifactHandler(
                 fileName = fileName,
                 mimeType = mimeType,
                 data = tempFile.readBytes()
-            ) ?: return@withContext JobResult.Failure(Exception("Failed to save artifact"))
+            )
 
             // 5. Insert New Artifact to Database
             val artifact = Artifact(

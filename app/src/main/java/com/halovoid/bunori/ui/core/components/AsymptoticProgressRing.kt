@@ -24,7 +24,6 @@ import kotlinx.coroutines.isActive
 @Composable
 fun AsymptoticProgressRing(
     modifier: Modifier = Modifier,
-    onClick: () -> Unit = {}
 ) {
     var elapsedSeconds by remember { mutableFloatStateOf(0f) }
 
@@ -59,8 +58,7 @@ fun AsymptoticProgressRing(
     Box(
         modifier = modifier
             .size(36.dp)
-            .clip(CircleShape)
-            .clickable(onClick = onClick),
+            .clip(CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.size(20.dp)) {

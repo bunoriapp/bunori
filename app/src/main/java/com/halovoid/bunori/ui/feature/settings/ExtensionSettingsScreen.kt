@@ -13,10 +13,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.Alignment
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.crawler.RepoUrlDialog
 import kotlinx.coroutines.launch
 
 @Composable
@@ -76,7 +79,7 @@ fun ExtensionSettingsScreen(
             SettingsRow(
                 title = "Repository URL",
                 subtitle = if (extensionRepoUrl.isBlank()) "Default repository" else extensionRepoUrl,
-                icon = Icons.Outlined.Link,
+//                icon = Icons.Outlined.Link,
                 onClick = { showRepoDialog = true }
             )
 
@@ -94,4 +97,60 @@ fun ExtensionSettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
+}
+
+@Composable
+fun RepoUrlDialog(
+    initialUrl: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var urlText by remember { mutableStateOf(initialUrl) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Extension Repository",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Enter custom index.min.json repository URL for extensions.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SecondaryText
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = urlText,
+                    onValueChange = { urlText = it },
+                    singleLine = true,
+                    label = { Text("Repository Index URL") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = { urlText = DEFAULT_EXTENSION_REPO_URL },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Reset to Default", fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(urlText.trim()) }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

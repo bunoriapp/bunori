@@ -6,7 +6,6 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.BuildConfig
-import com.halovoid.bunori.data.scheduler.workers.BackupScheduler
 import com.halovoid.bunori.data.scheduler.workers.BackgroundMaintenanceScheduler
 import com.halovoid.bunori.api.loader.AppUpdateManager
 import com.halovoid.bunori.api.loader.UpdateDownloader
@@ -546,6 +545,10 @@ class SettingsViewModel(
 
     fun updateDimImages(enabled: Boolean) = viewModelScope.launch {
         preferenceRepository.updateDimImages(enabled)
+    }
+
+    fun updateShowTapZoneOverlay(enabled: Boolean) = viewModelScope.launch {
+        preferenceRepository.updateShowTapZoneOverlay(enabled)
     }
 
     fun updateCustomCode(css: String, js: String) = viewModelScope.launch {

@@ -37,11 +37,7 @@ interface NovelDao {
 
     @Query("""
         SELECT * FROM novels 
-        WHERE inLibrary = 0 
-          AND url NOT IN (SELECT DISTINCT novelUrl FROM batches WHERE novelUrl IS NOT NULL)
-          AND url NOT IN (SELECT DISTINCT novelUrl FROM tasks WHERE novelUrl IS NOT NULL)
-          AND url NOT IN (SELECT DISTINCT novelUrl FROM downloads WHERE isCache = 0)
-          AND url NOT IN (SELECT DISTINCT novelUrl FROM artifacts WHERE novelUrl IS NOT NULL)
+        WHERE inLibrary = 0
     """)
     suspend fun getPrunableNovels(): List<NovelEntity>
 

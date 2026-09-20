@@ -27,7 +27,6 @@ import com.halovoid.bunori.ui.feature.crawler.ExtensionInfoScreen
 import com.halovoid.bunori.ui.feature.activity.ActivityScreen
 import com.halovoid.bunori.ui.feature.activity.ActivityViewModel
 import com.halovoid.bunori.ui.feature.activity.JobDetailScreen
-import com.halovoid.bunori.ui.feature.layout.LayoutSettingsScreen
 import com.halovoid.bunori.ui.feature.library.LibraryScreen
 import com.halovoid.bunori.ui.feature.library.LibraryViewModel
 import com.halovoid.bunori.ui.feature.novel.NovelArtifactsScreen
@@ -43,8 +42,9 @@ import com.halovoid.bunori.ui.feature.search.SearchScreen
 import com.halovoid.bunori.ui.feature.search.SearchViewModel
 import com.halovoid.bunori.ui.feature.settings.AdvancedSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.BackupSettingsScreen
-import com.halovoid.bunori.ui.feature.settings.DownloadPreferencesScreen
+import com.halovoid.bunori.ui.feature.settings.GeneralPreferencesScreen
 import com.halovoid.bunori.ui.feature.settings.ExtensionSettingsScreen
+import com.halovoid.bunori.ui.feature.settings.LayoutSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.ManualCookieScreen
 import com.halovoid.bunori.ui.feature.settings.MoreScreen
 import com.halovoid.bunori.ui.feature.settings.ReaderSettingsScreen
@@ -77,7 +77,7 @@ sealed class Screen(val route: String) {
     object Crawlers : Screen("crawlers")
     object Support : Screen("support")
     object ReaderSettings : Screen("reader_settings")
-    object DownloadPreferences : Screen("download_preferences")
+    object GeneralPreferences : Screen("general_preferences")
     object LayoutSettings : Screen("layout_settings")
     object ThemeSettings : Screen("theme_settings")
     object ExtensionSettings : Screen("extension_settings")
@@ -224,9 +224,6 @@ fun NavGraph(navController: NavHostController) {
                 viewModel = libraryViewModel,
                 onNovelClick = { crawlerName, novelUrl ->
                     navController.navigate(Screen.Novel.createRoute(crawlerName, novelUrl))
-                },
-                onBackClick = {
-                    navController.popBackStack()
                 }
             )
         }
@@ -293,7 +290,7 @@ fun NavGraph(navController: NavHostController) {
                     navController.navigate(Screen.ReaderSettings.route)
                 },
                 onNavigateToDownloadsPref = {
-                    navController.navigate(Screen.DownloadPreferences.route)
+                    navController.navigate(Screen.GeneralPreferences.route)
                 },
                 onNavigateToExtensionSettings = {
                     navController.navigate(Screen.ExtensionSettings.route)
@@ -319,9 +316,9 @@ fun NavGraph(navController: NavHostController) {
                 onBack = { navController.popBackStack() }
             )
         }
-        composable(Screen.DownloadPreferences.route) { backStackEntry ->
+        composable(Screen.GeneralPreferences.route) { backStackEntry ->
             val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
-            DownloadPreferencesScreen(
+            GeneralPreferencesScreen (
                 viewModel = settingsViewModel,
                 onBack = { navController.popBackStack() }
             )

@@ -1,10 +1,13 @@
 package com.halovoid.bunori.data.db.mappers
 
+import com.halovoid.bunori.data.db.entities.ArtifactEntity
 import com.halovoid.bunori.data.db.entities.ChapterEntity
 import com.halovoid.bunori.data.db.entities.NovelEntity
+import com.halovoid.bunori.domain.models.Artifact
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 
+// Novel Mappings
 fun NovelEntity.toDomain(): Novel = Novel(
     url = url,
     title = title,
@@ -35,7 +38,7 @@ fun Novel.toEntity() = NovelEntity(
     refreshExpiry = refreshExpiry
 )
 
-// --- Chapter Mappings ---
+// Chapter Mappings
 
 fun ChapterEntity.toDomain(): Chapter = Chapter(
     id = id,
@@ -58,4 +61,21 @@ fun Chapter.toEntity(): ChapterEntity = ChapterEntity(
     index = index,
     novelUrl = novelUrl,
     read = read
+)
+
+// Artifact Mappings
+fun ArtifactEntity.toDomain() : Artifact = Artifact(
+    id = id,
+    novelUrl = novelUrl,
+    requestId = requestId,
+    artifactDestination = artifactDestination,
+    artifactName = artifactName
+)
+
+fun Artifact.toEntity() : ArtifactEntity = ArtifactEntity(
+    id = id,
+    novelUrl = novelUrl,
+    requestId = requestId,
+    artifactDestination = artifactDestination,
+    artifactName = artifactName
 )

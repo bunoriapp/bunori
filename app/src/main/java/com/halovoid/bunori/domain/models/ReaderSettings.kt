@@ -53,6 +53,7 @@ data class ReaderSettings(
     val volumeKeyPageTurn: Boolean = false,
     val keepScreenAwake: Boolean = false,
     val dimImagesInDarkMode: Boolean = true,
+    val showTapZoneOverlay: Boolean = true,
     val customCss: String = "",
     val customJs: String = ""
 )

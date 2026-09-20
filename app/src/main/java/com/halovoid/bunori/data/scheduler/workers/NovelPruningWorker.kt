@@ -21,7 +21,7 @@ class NovelPruningWorker(
             if (prunableNovels.isNotEmpty()) {
                 val urls = prunableNovels.map { it.url }
                 novelRepository.deleteNovelsByUrl(urls)
-                Logger.d("[NovelPruningWorker] Successfully pruned ${prunableNovels.size} unreferenced non-library novels.")
+                Logger.d("[NovelPruningWorker] Successfully pruned ${prunableNovels.size} non-library novels.")
             } else {
                 Logger.d("[NovelPruningWorker] No prunable novels found.")
             }

@@ -32,7 +32,6 @@ import com.halovoid.bunori.ui.feature.library.components.NovelCard
 @Composable
 fun LibraryScreen(
     onNovelClick: (String, String) -> Unit,
-    onBackClick: () -> Unit,
     viewModel: LibraryViewModel
 ) {
     val novels by viewModel.novels.collectAsStateWithLifecycle()

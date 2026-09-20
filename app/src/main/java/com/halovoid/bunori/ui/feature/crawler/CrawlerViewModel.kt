@@ -250,7 +250,7 @@ class CrawlerViewModel(
     fun setRepoUrl(url: String) {
         viewModelScope.launch {
             preferenceRepository.setExtensionRepoUrl(url)
-            refreshCatalog()
+            refreshCatalog(forceNetwork = true)
         }
     }
 

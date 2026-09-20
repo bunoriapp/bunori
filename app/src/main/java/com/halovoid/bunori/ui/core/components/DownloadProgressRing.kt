@@ -23,8 +23,7 @@ import com.halovoid.bunori.ui.core.theme.BrandAccent
 fun DownloadProgressRing(
     completed: Int,
     total: Int,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit = {}
+    modifier: Modifier = Modifier
 ) {
     val progress = if (total > 0) (completed.toFloat() / total).coerceIn(0f, 1f) else 0f
     val animatedProgress by animateFloatAsState(
@@ -39,8 +38,7 @@ fun DownloadProgressRing(
     Box(
         modifier = modifier
             .size(36.dp)
-            .clip(CircleShape)
-            .clickable(onClick = onClick),
+            .clip(CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.size(22.dp)) {

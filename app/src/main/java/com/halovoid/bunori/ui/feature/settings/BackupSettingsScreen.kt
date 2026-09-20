@@ -59,8 +59,9 @@ fun getLatestBackupMetadata(context: Context): BackupMetadata {
         } catch (_: Exception) {}
     }
 
-    val backupFile = File(backupDir, "backup.lnbak")
-    if (backupFile.exists()) {
+    val backupFile = File(backupDir, "backup.bbak").takeIf { it.exists() }
+        ?: File(backupDir, "backup.lnbak").takeIf { it.exists() }
+    if (backupFile != null) {
         val timeStr = android.text.format.DateFormat.format("MMM dd, yyyy, h:mm a", backupFile.lastModified()).toString()
         return BackupMetadata(timeStr, "")
     }

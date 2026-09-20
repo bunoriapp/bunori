@@ -100,9 +100,6 @@ fun ActivityScreen(
                             DownloadProgressRing(
                                 completed = globalStats.completed,
                                 total = globalStats.total,
-                                onClick = {
-                                    activeBatches.firstOrNull()?.let { onRequestClick(it.id) }
-                                }
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                         }

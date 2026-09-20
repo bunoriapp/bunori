@@ -13,7 +13,8 @@ import java.io.File
 class ReaderRepository private constructor(
     private val context: Context,
     private val downloadRepository: DownloadRepository = DownloadRepositoryImpl.getInstance(context),
-    private val novelRepository: NovelRepository = NovelRepository.getInstance(context)
+    private val novelRepository: NovelRepository = NovelRepository.getInstance(context),
+    private val storageRepository: StorageRepository = StorageRepositoryImpl.getInstance(context)
 ) {
     companion object {
         @SuppressLint("StaticFieldLeak")
@@ -57,9 +58,9 @@ class ReaderRepository private constructor(
         if (html.isBlank()) return@withContext false
         try {
             val cacheDir = File(context.cacheDir, "chapter_cache").apply { mkdirs() }
-            val safeFileName = "ch_${novelUrl.hashCode()}_${chapterId}_${System.currentTimeMillis()}.html"
+            val safeFileName = "ch_${novelUrl.hashCode()}_${chapterId}_${System.currentTimeMillis()}.html.gz"
             val cacheFile = File(cacheDir, safeFileName)
-            cacheFile.writeText(html)
+            writeCompressed(cacheFile, html)
 
             val novel = novelRepository.getNovelDetails(novelUrl)
             val novelTitle = novel?.title ?: "Novel"
@@ -88,20 +89,12 @@ class ReaderRepository private constructor(
         val fileLocation = download.fileLocation
         if (fileLocation.isBlank()) return null
         return try {
-            when {
-                fileLocation.startsWith("content://") -> {
-                    context.contentResolver.openInputStream(fileLocation.toUri())
-                        ?.bufferedReader()
-                        ?.use { it.readText() }
-                }
-                fileLocation.startsWith("file://") -> {
-                    File(fileLocation.removePrefix("file://")).readText()
-                }
-                else -> {
-                    val file = File(fileLocation)
-                    if (file.exists()) file.readText() else null
-                }
+            val uri = if (fileLocation.startsWith("content://") || fileLocation.startsWith("file://") || fileLocation.startsWith("http")) {
+                fileLocation.toUri()
+            } else {
+                android.net.Uri.fromFile(File(fileLocation))
             }
+            storageRepository.readText(uri)
         } catch (e: Exception) {
             downloadRepository.deleteDownload(download.novelUrl, download.chapterUrl)
             null
@@ -113,9 +106,9 @@ class ReaderRepository private constructor(
         if (html.isNotBlank() && html.trim().length > 50) {
             try {
                 val cacheDir = File(context.cacheDir, "chapter_cache").apply { mkdirs() }
-                val safeFileName = "ch_${chapter.novelUrl.hashCode()}_${chapter.id}_${System.currentTimeMillis()}.html"
+                val safeFileName = "ch_${chapter.novelUrl.hashCode()}_${chapter.id}_${System.currentTimeMillis()}.html.gz"
                 val cacheFile = File(cacheDir, safeFileName)
-                cacheFile.writeText(html)
+                writeCompressed(cacheFile, html)
 
                 val novel = novelRepository.getNovelDetails(chapter.novelUrl)
                 val novelTitle = novel?.title ?: "Novel"
@@ -139,6 +132,12 @@ class ReaderRepository private constructor(
             }
         }
         return html
+    }
+
+    private fun writeCompressed(file: File, text: String) {
+        val bos = java.io.ByteArrayOutputStream()
+        java.util.zip.GZIPOutputStream(bos).use { it.write(text.toByteArray(Charsets.UTF_8)) }
+        file.writeBytes(bos.toByteArray())
     }
 
     private suspend fun fetchLive(chapter: Chapter, crawlerName: String): String? {

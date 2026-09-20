@@ -9,10 +9,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import java.io.BufferedInputStream
+import java.io.ByteArrayOutputStream
+import java.io.FileInputStream
 import java.io.FilterInputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
 
 /**
  * Exception thrown when storage operations fail.
@@ -52,6 +57,12 @@ interface StorageRepository {
         relativePath: String,
         fileName: String,
         mimeType: String,
+        content: String
+    ): Uri
+
+    suspend fun saveCompressedText(
+        relativePath: String,
+        fileName: String,
         content: String
     ): Uri
 
@@ -114,19 +125,39 @@ class StorageRepositoryImpl private constructor(
 
     @SuppressLint("Recycle")
     override suspend fun openInputStream(uri: Uri): InputStream? = withContext(Dispatchers.IO) {
-        when (uri.scheme?.lowercase()) {
-            "content", "file" ->
+        val rawStream = when (uri.scheme?.lowercase()) {
+            "content" ->
                 context.contentResolver.openInputStream(uri)
+
+            "file" ->
+                uri.path?.let { runCatching { FileInputStream(File(it)) }.getOrNull() }
+                    ?: context.contentResolver.openInputStream(uri)
 
             "http", "https" ->
                 openHttpInputStream(uri)
 
-            else -> null
+            else ->
+                uri.path?.let { runCatching { FileInputStream(File(it)) }.getOrNull() }
+        } ?: return@withContext null
+
+        wrapDecompressionIfNeeded(rawStream)
+    }
+
+    private fun wrapDecompressionIfNeeded(rawStream: InputStream): InputStream {
+        val buffered = if (rawStream.markSupported()) rawStream else BufferedInputStream(rawStream)
+        buffered.mark(2)
+        val b1 = buffered.read()
+        val b2 = buffered.read()
+        buffered.reset()
+        return if (b1 == 0x1f && b2 == 0x8b) {
+            GZIPInputStream(buffered)
+        } else {
+            buffered
         }
     }
 
     override suspend fun readText(uri: Uri): String? = withContext(Dispatchers.IO) {
-        openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
     }
 
     override suspend fun getCacheDir(): File {
@@ -163,6 +194,16 @@ class StorageRepositoryImpl private constructor(
         mimeType: String,
         content: String
     ): Uri = saveFile(relativePath, fileName, mimeType, content.toByteArray())
+
+    override suspend fun saveCompressedText(
+        relativePath: String,
+        fileName: String,
+        content: String
+    ): Uri = withContext(Dispatchers.IO) {
+        val byteStream = ByteArrayOutputStream()
+        GZIPOutputStream(byteStream).use { it.write(content.toByteArray(Charsets.UTF_8)) }
+        saveFile(relativePath, fileName, "application/gzip", byteStream.toByteArray())
+    }
 
     override suspend fun delete(uri: Uri) {
         withContext(Dispatchers.IO) {

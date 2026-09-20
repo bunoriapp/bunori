@@ -1,24 +1,17 @@
 package com.halovoid.bunori.ui
 
 import androidx.compose.animation.core.*
+import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
+import androidx.compose.animation.graphics.res.animatedVectorResource
+import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
+import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -26,6 +19,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.halovoid.bunori.R
 import com.halovoid.bunori.data.repository.UpdateRepository
 import com.halovoid.bunori.ui.navigation.NavGraph
 import com.halovoid.bunori.ui.navigation.Screen
@@ -45,10 +39,10 @@ fun MainScreen() {
 
     val mainTabs = remember {
         listOf(
-            TabInfo(Screen.Library, "Library", Icons.AutoMirrored.Outlined.LibraryBooks, Icons.AutoMirrored.Filled.LibraryBooks),
-            TabInfo(Screen.Browse, "Browse", Icons.Outlined.Explore, Icons.Filled.Explore),
-            TabInfo(Screen.Activity, "Activity", Icons.Outlined.Schedule, Icons.Filled.Schedule),
-            TabInfo(Screen.Support, "More", Icons.Outlined.MoreHoriz, Icons.Filled.MoreHoriz)
+            TabInfo(Screen.Library, "Library", R.drawable.anim_library_enter),
+            TabInfo(Screen.Browse, "Browse", R.drawable.anim_browse_enter),
+            TabInfo(Screen.Activity, "Activity", R.drawable.anim_history_enter),
+            TabInfo(Screen.Support, "More", R.drawable.anim_more_enter)
         )
     }
 
@@ -142,9 +136,8 @@ private fun BunoriNavigationBar(
                     ) {
                         AnimatedTabIcon(
                             isSelected = isSelected,
-                            outlinedIcon = tab.outlinedIcon,
-                            filledIcon = tab.filledIcon,
-                            label = tab.label
+                            animResId = tab.animResId,
+                            contentDescription = tab.label
                         )
                     }
                 },
@@ -173,88 +166,33 @@ private fun BunoriNavigationBar(
 data class TabInfo(
     val screen: Screen,
     val label: String,
-    val outlinedIcon: ImageVector,
-    val filledIcon: ImageVector
+    val animResId: Int
 )
 
+@OptIn(ExperimentalAnimationGraphicsApi::class)
 @Composable
 fun AnimatedTabIcon(
     isSelected: Boolean,
-    outlinedIcon: ImageVector,
-    filledIcon: ImageVector,
-    label: String
+    animResId: Int,
+    contentDescription: String? = null
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "TabAnimation")
-    
+    val image = AnimatedImageVector.animatedVectorResource(animResId)
+    val painter = rememberAnimatedVectorPainter(animatedImageVector = image, atEnd = isSelected)
+
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.15f else 1f,
+        targetValue = if (isSelected) 1.12f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
         ),
-        label = "Scale"
+        label = "TabScale"
     )
 
-    val rotation by animateFloatAsState(
-        targetValue = if (isSelected && label == "Browse") 180f else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "Rotation"
-    )
-
-    val clockRotation by animateFloatAsState(
-        targetValue = if (isSelected && label == "Activity") 360f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "ClockRotation"
-    )
-
-    val tilt by animateFloatAsState(
-        targetValue = if (isSelected && label == "Library") -10f else 0f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy),
-        label = "Tilt"
-    )
-
-    val bounce by animateDpAsState(
-        targetValue = if (isSelected && (label == "Updates" || label == "History")) (-3).dp else 0.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy),
-        label = "Bounce"
-    )
-
-    val waveOffset by infiniteTransition.animateFloat(
-        initialValue = -1f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "WaveOffset"
-    )
-
-    Box(
+    Icon(
+        painter = painter,
+        contentDescription = contentDescription,
         modifier = Modifier
+            .size(24.dp)
             .scale(scale)
-            .rotate(
-                when (label) {
-                    "Browse" -> rotation
-                    "Activity" -> clockRotation
-                    else -> tilt
-                }
-            )
-            .offset(
-                y = when (label) {
-                    "Updates", "History" -> bounce
-                    "More" -> if (isSelected) waveOffset.dp else 0.dp
-                    else -> 0.dp
-                }
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = if (isSelected) filledIcon else outlinedIcon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp)
-        )
-    }
+    )
 }

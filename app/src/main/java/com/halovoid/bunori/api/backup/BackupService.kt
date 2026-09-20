@@ -32,7 +32,7 @@ class BackupService(private val context: Context): JobHandler {
         backupCovers: Boolean = true
     ): File? {
         val timestamp = System.currentTimeMillis()
-        val fileName = "backup.lnbak"
+        val fileName = "backup.bbak"
 
         val tempFile = File(context.cacheDir, fileName)
         FileOutputStream(tempFile).use { fos ->
@@ -60,7 +60,7 @@ class BackupService(private val context: Context): JobHandler {
         if (exportUri != null) {
             try {
                 val storageRepository = StorageRepositoryImpl.getInstance(context)
-                storageRepository.saveFile("backup", fileName, "application/zip", bytes)
+                storageRepository.saveFile("backup", fileName, "application/octet-stream", bytes)
                 storageRepository.saveText("backup", "backup_metadata.json", "application/json", metadataJson)
                 return null
             } catch (e: Exception) {

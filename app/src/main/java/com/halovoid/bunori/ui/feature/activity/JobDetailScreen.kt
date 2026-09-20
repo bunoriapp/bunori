@@ -35,6 +35,8 @@ import com.halovoid.bunori.ui.core.components.AppBottomSheetDivider
 import com.halovoid.bunori.ui.core.components.AppBottomSheetGroup
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.components.ConfirmCancelDialog
+import com.halovoid.bunori.ui.core.components.ContextualAction
+import com.halovoid.bunori.ui.core.components.ContextualBottomBar
 import com.halovoid.bunori.ui.core.components.SecurityCheckDialog
 import com.halovoid.bunori.ui.core.platform.rememberFileExportLauncher
 import com.halovoid.bunori.ui.core.theme.*
@@ -201,72 +203,9 @@ fun JobDetailScreen(
         containerColor = DarkBackground,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            if (isSelectionMode) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = DarkBackground,
-                    tonalElevation = 2.dp
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { viewModel.clearSelection() }) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Clear Selection",
-                                tint = PrimaryText
-                            )
-                        }
-
-                        Text(
-                            text = "${selectedTaskIds.size}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryText,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 8.dp)
-                        )
-
-                        IconButton(onClick = { showStatusFilterSheet = true }) {
-                            Icon(
-                                Icons.Default.FilterList,
-                                contentDescription = "Select By State",
-                                tint = PrimaryText
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { record?.let { viewModel.replaySelectedTasks(it.id) } },
-                            enabled = canReplay
-                        ) {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = "Replay Selected",
-                                tint = if (canReplay) PrimaryText else SecondaryText.copy(alpha = 0.35f)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { record?.let { viewModel.cancelSelectedTasks(it.id) } },
-                            enabled = canCancel
-                        ) {
-                            Icon(
-                                Icons.Default.Cancel,
-                                contentDescription = "Cancel Selected",
-                                tint = if (canCancel) PrimaryText else SecondaryText.copy(alpha = 0.35f)
-                            )
-                        }
-                    }
-                }
-            } else {
-                AppTopBar(
-                    title = "Batch",
-                    onBack = onBackClick,
+            AppTopBar(
+                title = "Batch",
+                onBack = onBackClick,
                     actions = {
                         val current = record
                         if (current != null) {
@@ -351,7 +290,43 @@ fun JobDetailScreen(
                         }
                     }
                 )
-            }
+            },
+            bottomBar = {
+            ContextualBottomBar(
+                visible = isSelectionMode,
+                selectedCount = selectedTaskIds.size,
+                actions = listOf(
+                    ContextualAction(
+                        title = if (selectedTaskIds.size == linkedRequests.size) "Deselect" else "Select All",
+                        icon = if (selectedTaskIds.size == linkedRequests.size) Icons.Default.Deselect else Icons.Default.SelectAll,
+                        onClick = {
+                            if (selectedTaskIds.size == linkedRequests.size) {
+                                viewModel.clearSelection()
+                            } else {
+                                viewModel.selectAllTasks(linkedRequests)
+                            }
+                        }
+                    ),
+                    ContextualAction(
+                        title = "Filter",
+                        icon = Icons.Default.FilterList,
+                        onClick = { showStatusFilterSheet = true }
+                    ),
+                    ContextualAction(
+                        title = "Replay",
+                        icon = Icons.Default.Refresh,
+                        enabled = canReplay,
+                        onClick = { record?.let { viewModel.replaySelectedTasks(it.id) } }
+                    ),
+                    ContextualAction(
+                        title = "Cancel",
+                        icon = Icons.Default.Cancel,
+                        isDestructive = true,
+                        enabled = canCancel,
+                        onClick = { record?.let { viewModel.cancelSelectedTasks(it.id) } }
+                    )
+                )
+            )
         }
     ) { innerPadding ->
         if (record == null) {

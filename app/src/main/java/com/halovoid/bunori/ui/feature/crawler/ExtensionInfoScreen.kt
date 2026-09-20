@@ -70,14 +70,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.ui.core.components.SourceIcon
-import com.halovoid.bunori.ui.core.theme.BorderColor
-import com.halovoid.bunori.ui.core.theme.BrandAccent
-import com.halovoid.bunori.ui.core.theme.DarkBackground
-import com.halovoid.bunori.ui.core.theme.DarkSurface
-import com.halovoid.bunori.ui.core.theme.DarkSurfaceVariant
-import com.halovoid.bunori.ui.core.theme.ErrorRed
-import com.halovoid.bunori.ui.core.theme.PrimaryText
-import com.halovoid.bunori.ui.core.theme.SecondaryText
+import com.halovoid.bunori.ui.core.theme.*
+import com.halovoid.bunori.ui.feature.crawler.components.ConfigDivider
+import com.halovoid.bunori.ui.feature.crawler.components.ConfigItemRow
 import java.net.URI
 
 @Composable
@@ -540,62 +535,4 @@ fun ExtensionInfoScreen(
             shape = RoundedCornerShape(16.dp)
         )
     }
-}
-
-@Composable
-private fun ConfigItemRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = SecondaryText,
-            modifier = Modifier.size(20.dp)
-        )
-
-        Spacer(modifier = Modifier.width(14.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = PrimaryText
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = SecondaryText,
-                fontSize = 11.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = PrimaryText
-        )
-    }
-}
-
-@Composable
-private fun ConfigDivider() {
-    HorizontalDivider(
-        color = BorderColor.copy(alpha = 0.2f),
-        thickness = 0.5.dp
-    )
 }

@@ -1,7 +1,10 @@
 package com.halovoid.bunori.extension.loader
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import com.halovoid.bunori.extension.api.IExtension
 import com.halovoid.bunori.extension.api.pkg.BextPackage
 import com.halovoid.bunori.extension.api.pkg.BextUtils
@@ -86,15 +89,42 @@ class BextLoader(private val context: Context) {
             }
         }
 
-        // 3. Instantiate native WamrExtension
-        val mode = if (isAot) "AOT Native Machine Code" else "Fast Interpreter"
-        Log.i(TAG, "Initializing WamrExtension [$mode] for ${pkg.manifest.name} from ${binaryFile.name}")
-        val extensionInstance: IExtension = WamrExtension(
-            manifest = pkg.manifest,
-            binaryBytes = selectedBytes
-        )
+        // 3. Instantiate native WamrExtension with automatic fallback
+        val extensionInstance: IExtension = try {
+            val mode = if (isAot) "AOT Native Machine Code" else "Fast Interpreter"
+            Log.i(TAG, "Initializing WamrExtension [$mode] for ${pkg.manifest.name} from ${binaryFile.name}")
+            WamrExtension(
+                manifest = pkg.manifest,
+                binaryBytes = selectedBytes
+            ).also {
+                Log.i(TAG, "Successfully loaded extension: ${pkg.manifest.name} (v${pkg.manifest.version}) in $mode mode")
+            }
+        } catch (e: Exception) {
+            if (isAot && pkg.wasmBytes.isNotEmpty()) {
+                Log.w(TAG, "AOT binary instantiation failed for ${pkg.manifest.name}. Falling back to portable WASM bytecode.", e)
+                val fallbackFile = File(targetDir, BextUtils.WASM_FILE_NAME)
+                FileOutputStream(fallbackFile).use { fos ->
+                    fos.write(pkg.wasmBytes)
+                }
 
-        Log.i(TAG, "Successfully loaded extension: ${pkg.manifest.name} (v${pkg.manifest.version}) in $mode mode")
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(
+                        context,
+                        "${pkg.manifest.name} entered slow mode due to a version mismatch. It will still work normally, but please report to the developer to resolve.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+
+                WamrExtension(
+                    manifest = pkg.manifest,
+                    binaryBytes = pkg.wasmBytes
+                ).also {
+                    Log.i(TAG, "Successfully loaded extension fallback: ${pkg.manifest.name} (v${pkg.manifest.version}) in Fast Interpreter mode")
+                }
+            } else {
+                throw e
+            }
+        }
 
         return LoadedExtension(
             manifest = pkg.manifest,

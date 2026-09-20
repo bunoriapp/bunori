@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.layout
+package com.halovoid.bunori.ui.feature.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,9 +22,6 @@ import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.novel.DownloadFilter
 import com.halovoid.bunori.ui.feature.novel.SortOrder
 import com.halovoid.bunori.ui.feature.novel.SortType
-import com.halovoid.bunori.ui.feature.settings.SectionHeader
-import com.halovoid.bunori.ui.feature.settings.SettingsRow
-import com.halovoid.bunori.ui.feature.settings.SettingsViewModel
 
 @Composable
 fun LayoutSettingsScreen(
@@ -90,7 +87,7 @@ fun LayoutSettingsScreen(
             SettingsRow(
                 title = "Default Chapter Filter",
                 subtitle = when (defaultChapterDownloadFilter) {
-                    DownloadFilter.ALL -> "All Chapters"
+                    DownloadFilter.ALL, DownloadFilter.NONE -> "All Chapters"
                     DownloadFilter.DOWNLOADED -> "Downloaded Only"
                     DownloadFilter.NOT_DOWNLOADED -> "Not Downloaded Only"
                 },
@@ -167,7 +164,7 @@ fun LayoutSettingsScreen(
                     title = "Default Chapter Filter",
                     options = listOf("All Chapters", "Downloaded Only", "Not Downloaded Only"),
                     selectedIndex = when (defaultChapterDownloadFilter) {
-                        DownloadFilter.ALL -> 0
+                        DownloadFilter.ALL, DownloadFilter.NONE -> 0
                         DownloadFilter.DOWNLOADED -> 1
                         DownloadFilter.NOT_DOWNLOADED -> 2
                     },

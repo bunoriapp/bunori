@@ -102,63 +102,83 @@ private fun FilterSection(
     downloadFilter: DownloadFilter,
     onSetFilter: (DownloadFilter) -> Unit
 ) {
+    val isDownloadedChecked = downloadFilter == DownloadFilter.ALL || downloadFilter == DownloadFilter.DOWNLOADED
+    val isNotDownloadedChecked = downloadFilter == DownloadFilter.ALL || downloadFilter == DownloadFilter.NOT_DOWNLOADED
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable {
-                    val nextFilter = when (downloadFilter) {
-                        DownloadFilter.ALL -> DownloadFilter.DOWNLOADED
-                        DownloadFilter.DOWNLOADED -> DownloadFilter.NOT_DOWNLOADED
-                        DownloadFilter.NOT_DOWNLOADED -> DownloadFilter.ALL
-                    }
-                    onSetFilter(nextFilter)
-                },
-            color = Color.Transparent
-        ) {
-            Row(
-                modifier = Modifier.padding(vertical = 12.dp, horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TriStateDownloadCheckbox(downloadFilter)
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                Text(
-                    text = "Downloaded",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = PrimaryText,
-                    fontWeight = if (downloadFilter != DownloadFilter.ALL) FontWeight.SemiBold else FontWeight.Medium
-                )
+        FilterCheckboxOption(
+            label = "Downloaded",
+            checked = isDownloadedChecked,
+            onToggle = {
+                val newDownloaded = !isDownloadedChecked
+                val nextFilter = when {
+                    newDownloaded && isNotDownloadedChecked -> DownloadFilter.ALL
+                    newDownloaded && !isNotDownloadedChecked -> DownloadFilter.DOWNLOADED
+                    !newDownloaded && isNotDownloadedChecked -> DownloadFilter.NOT_DOWNLOADED
+                    else -> DownloadFilter.NONE
+                }
+                onSetFilter(nextFilter)
             }
-        }
+        )
+
+        FilterCheckboxOption(
+            label = "Not downloaded",
+            checked = isNotDownloadedChecked,
+            onToggle = {
+                val newNotDownloaded = !isNotDownloadedChecked
+                val nextFilter = when {
+                    isDownloadedChecked && newNotDownloaded -> DownloadFilter.ALL
+                    isDownloadedChecked && !newNotDownloaded -> DownloadFilter.DOWNLOADED
+                    !isDownloadedChecked && newNotDownloaded -> DownloadFilter.NOT_DOWNLOADED
+                    else -> DownloadFilter.NONE
+                }
+                onSetFilter(nextFilter)
+            }
+        )
     }
 }
 
 @Composable
-private fun TriStateDownloadCheckbox(state: DownloadFilter) {
-    val icon = when (state) {
-        DownloadFilter.ALL -> Icons.Default.CheckBoxOutlineBlank
-        DownloadFilter.DOWNLOADED -> Icons.Default.CheckBox
-        DownloadFilter.NOT_DOWNLOADED -> Icons.Default.DisabledByDefault
-    }
-    val tint = when (state) {
-        DownloadFilter.ALL -> SecondaryText
-        DownloadFilter.DOWNLOADED -> BrandAccent
-        DownloadFilter.NOT_DOWNLOADED -> ErrorRed
-    }
-
-    Box(
-        modifier = Modifier.size(28.dp),
-        contentAlignment = Alignment.Center
+private fun FilterCheckboxOption(
+    label: String,
+    checked: Boolean,
+    onToggle: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onToggle() },
+        color = Color.Transparent
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = tint,
-            modifier = Modifier.size(24.dp)
-        )
+        Row(
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier.size(28.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Checkbox(
+                    checked = checked,
+                    onCheckedChange = null,
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = BrandAccent,
+                        uncheckedColor = SecondaryText,
+                        checkmarkColor = Color.White
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = PrimaryText,
+                fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Medium
+            )
+        }
     }
 }
 
