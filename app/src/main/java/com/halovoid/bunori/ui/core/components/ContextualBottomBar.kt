@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,7 +48,7 @@ fun ContextualBottomBar(
     modifier: Modifier = Modifier,
     selectedCount: Int? = null,
     actions: List<ContextualAction> = emptyList(),
-    containerColor: Color = DarkSurface,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
     customContent: (@Composable RowScope.() -> Unit)? = null
 ) {
     AnimatedVisibility(
@@ -59,10 +58,14 @@ fun ContextualBottomBar(
         modifier = modifier
     ) {
         Surface(
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            shape = androidx.compose.ui.graphics.RectangleShape,
             color = containerColor,
-            tonalElevation = 6.dp,
+            tonalElevation = 8.dp,
             shadowElevation = 8.dp,
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+            ),
             modifier = Modifier.fillMaxWidth()
         ) {
             val scope = rememberCoroutineScope()
@@ -75,41 +78,13 @@ fun ContextualBottomBar(
                     .windowInsetsPadding(
                         WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
                     )
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 if (customContent != null) {
                     customContent()
                 } else {
-                    if (selectedCount != null && selectedCount > 0) {
-                        Column(
-                            modifier = Modifier
-                                .padding(horizontal = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "$selectedCount",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = BrandAccent
-                            )
-                            Text(
-                                text = "selected",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SecondaryText,
-                                fontSize = 10.sp
-                            )
-                        }
-                        VerticalDivider(
-                            modifier = Modifier
-                                .height(28.dp)
-                                .padding(horizontal = 4.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                        )
-                    }
-
                     actions.forEachIndexed { index, action ->
                         val isConfirming = confirmingIndex == index
                         val animatedWeight by animateFloatAsState(
@@ -117,15 +92,15 @@ fun ContextualBottomBar(
                             label = "action_weight"
                         )
 
-                        val tint = when {
-                            !action.enabled -> SecondaryText.copy(alpha = 0.38f)
-                            action.isDestructive -> ErrorRed
-                            else -> PrimaryText
+                        val tint = if (!action.enabled) {
+                            SecondaryText.copy(alpha = 0.38f)
+                        } else {
+                            PrimaryText
                         }
 
                         Box(
                             modifier = Modifier
-                                .height(52.dp)
+                                .height(48.dp)
                                 .weight(animatedWeight)
                                 .combinedClickable(
                                     enabled = action.enabled,

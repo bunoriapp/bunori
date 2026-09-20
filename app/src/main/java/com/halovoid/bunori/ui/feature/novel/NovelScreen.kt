@@ -3,11 +3,7 @@ package com.halovoid.bunori.ui.feature.novel
 import android.app.Application
 import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,14 +12,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Download
@@ -31,7 +24,6 @@ import androidx.compose.material.icons.filled.RemoveDone
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -55,13 +47,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.halovoid.bunori.data.db.entities.JobStatus
-import com.halovoid.bunori.data.db.entities.JobType
-import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.feature.reader.ReadingPlaylistHolder
 import com.halovoid.bunori.ui.core.components.ConfirmDeleteDialog
@@ -72,7 +61,6 @@ import com.halovoid.bunori.ui.core.theme.DarkBackground
 import com.halovoid.bunori.ui.core.theme.DarkSurface
 import com.halovoid.bunori.ui.core.theme.PrimaryAccent
 import com.halovoid.bunori.ui.core.theme.PrimaryText
-import com.halovoid.bunori.ui.core.theme.SecondaryText
 import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
 import com.halovoid.bunori.ui.feature.activity.components.DownloadRangeDialog
 import com.halovoid.bunori.ui.feature.novel.components.ChapterFilterSortSheet
@@ -211,8 +199,7 @@ fun NovelScreen(
                     ),
                     ContextualAction(
                         title = "Delete",
-                        icon = Icons.Default.Delete,
-                        isDestructive = true,
+                        icon = Icons.Outlined.Delete,
                         onClick = {
                             viewModel.deleteSelectedChapters()
                         }
@@ -341,7 +328,6 @@ fun NovelScreen(
                     isOpaque = isTopBarOpaque,
                     showTitle = showTitleInTopBar,
                     isActivityRunning = activeRequest != null,
-                    onActivityClick = { activeRequest?.let { onRequestClick(it.id) } },
                     onBack = onBack,
                     onJumpToChapterClick = { activeDialog = NovelDialogState.JumpToChapter },
                     onFilterClick = { activeDialog = NovelDialogState.FilterSheet },

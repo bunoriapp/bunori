@@ -11,7 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.outlined.DynamicFeed
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -135,7 +135,7 @@ fun ActivityScreen(
                     MutedEmptyState(
                         title = "No Activity Yet",
                         description = "Monitor and manage all your background tasks here. From fetching metadata to downloading chapters for offline reading, every task's status can be tracked in real-time.",
-                        icon = Icons.Outlined.DynamicFeed,
+                        icon = Icons.Outlined.History,
                         modifier = Modifier.weight(1f)
                     )
                 } else {

@@ -10,32 +10,26 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BatteryFull
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.halovoid.bunori.ui.core.theme.*
+import com.halovoid.bunori.ui.feature.settings.SettingsViewModel
 
 @Composable
 fun PermissionScreen(
-    onNext: () -> Unit
+    viewModel: SettingsViewModel,
+    onNext: () -> Unit,
+    onBack: () -> Unit
 ) {
     val context = LocalContext.current
     
@@ -67,46 +61,74 @@ fun PermissionScreen(
     }
 
     OnboardingStep(
-        title = "Permissions",
-        subtitle = "Bunori works best when it can notify you of updates and run smoothly in the background.",
-        buttonText = "Continue",
-        onNext = onNext
+        title = "App Permissions",
+        subtitle = "Enable system permissions for seamless background chapter downloads, updates, and maintenance.",
+        stepNumber = 3,
+        totalSteps = 4,
+        onBack = onBack,
+        onNext = onNext,
+        nextButtonText = "Next"
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            PermissionItem(
-                icon = Icons.Default.Notifications,
+            PermissionToggleRow(
                 title = "Notifications",
-                description = "Stay updated on download progress.",
-                isGranted = hasNotificationPermission,
-                onClick = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                description = "Show download progress notifications, batch crawler status, and background maintenance alerts.",
+                isChecked = hasNotificationPermission,
+                onToggle = { enabled ->
+                    if (enabled) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    } else {
+                        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            }
+                        } else {
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        }
+                        context.startActivity(intent)
                     }
                 }
             )
 
-            PermissionItem(
-                icon = Icons.Default.BatteryFull,
+            HorizontalDivider(color = BorderColor.copy(alpha = 0.25f), thickness = 0.5.dp)
+
+            PermissionToggleRow(
                 title = "Background Activity",
-                description = "Ensure downloads continue when the app is closed.",
-                isGranted = isIgnoringBatteryOptimizations,
-                onClick = {
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:${context.packageName}")
+                description = "Disable battery optimization so long chapter downloads and background crawlers are not interrupted.",
+                isChecked = isIgnoringBatteryOptimizations,
+                onToggle = { enabled ->
+                    if (enabled) {
+                        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                        }
+                        context.startActivity(intent)
+                    } else {
+                        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        } else {
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        }
+                        context.startActivity(intent)
                     }
-                    context.startActivity(intent)
                 }
             )
 
-            PermissionItem(
-                icon = Icons.Default.SystemUpdate,
-                title = "App Updates",
-                description = "Install the latest app versions directly.",
-                isGranted = canInstallPackages,
-                onClick = {
+            HorizontalDivider(color = BorderColor.copy(alpha = 0.25f), thickness = 0.5.dp)
+
+            PermissionToggleRow(
+                title = "In-App Updates",
+                description = "Allow Bunori to install direct app updates without leaving the application.",
+                isChecked = canInstallPackages,
+                onToggle = {
                     val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
                         data = Uri.parse("package:${context.packageName}")
                     }
@@ -116,8 +138,14 @@ fun PermissionScreen(
         }
         
         LaunchedEffect(Unit) {
-            while(true) {
+            while (true) {
                 kotlinx.coroutines.delay(1000)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    hasNotificationPermission = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED
+                }
                 isIgnoringBatteryOptimizations = isIgnoringBatteryOptimizations(context)
                 canInstallPackages = context.packageManager.canRequestPackageInstalls()
             }
@@ -126,70 +154,49 @@ fun PermissionScreen(
 }
 
 @Composable
-fun PermissionItem(
-    icon: ImageVector,
+private fun PermissionToggleRow(
     title: String,
     description: String,
-    isGranted: Boolean,
-    onClick: () -> Unit
+    isChecked: Boolean,
+    onToggle: (Boolean) -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(DarkSurface)
-            .clickable(enabled = !isGranted) { onClick() }
-            .padding(16.dp),
+            .clickable { onToggle(!isChecked) }
+            .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(if (isGranted) SuccessGreen.copy(alpha = 0.1f) else PrimaryText.copy(alpha = 0.05f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = if (isGranted) Icons.Default.Check else icon,
-                contentDescription = null,
-                tint = if (isGranted) SuccessGreen else PrimaryText.copy(alpha = 0.6f),
-                modifier = Modifier.size(20.dp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = PrimaryText,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = SecondaryText,
+                lineHeight = 18.sp,
+                fontSize = 13.sp
             )
         }
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = if (isGranted) PrimaryText.copy(alpha = 0.7f) else PrimaryText,
-                fontWeight = FontWeight.Bold
+        Switch(
+            checked = isChecked,
+            onCheckedChange = { onToggle(it) },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = BrandAccent,
+                uncheckedThumbColor = SecondaryText,
+                uncheckedTrackColor = DarkSurfaceVariant
             )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = SecondaryText,
-                lineHeight = 16.sp
-            )
-        }
-        
-        if (!isGranted) {
-            Text(
-                text = "Allow",
-                color = BrandAccent,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = null,
-                tint = SuccessGreen.copy(alpha = 0.8f),
-                modifier = Modifier.size(20.dp).padding(start = 8.dp)
-            )
-        }
+        )
     }
 }
 

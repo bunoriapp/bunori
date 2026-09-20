@@ -32,9 +32,11 @@ import com.halovoid.bunori.ui.feature.library.LibraryViewModel
 import com.halovoid.bunori.ui.feature.novel.NovelArtifactsScreen
 import com.halovoid.bunori.ui.feature.novel.NovelScreen
 import com.halovoid.bunori.ui.feature.novel.NovelViewModel
+import com.halovoid.bunori.ui.feature.onboarding.ExtensionRepoScreen
 import com.halovoid.bunori.ui.feature.onboarding.FolderScreen
 import com.halovoid.bunori.ui.feature.onboarding.FolderViewModel
 import com.halovoid.bunori.ui.feature.onboarding.PermissionScreen
+import com.halovoid.bunori.ui.feature.onboarding.ThemeOnboardingScreen
 import com.halovoid.bunori.ui.feature.onboarding.WelcomeScreen
 import com.halovoid.bunori.ui.feature.reader.ReaderScreen
 import com.halovoid.bunori.ui.feature.reader.ReaderViewModel
@@ -60,7 +62,9 @@ import java.net.URLEncoder
 
 sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
+    object OnboardingTheme : Screen("onboarding_theme")
     object Permissions : Screen("permissions")
+    object OnboardingExtensionRepo : Screen("onboarding_extension_repo")
     object FolderSelection: Screen("folder_selection")
     object Browse : Screen("browse")
 
@@ -115,10 +119,8 @@ fun NavGraph(navController: NavHostController) {
     var startRoute by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        val folderUri = preferenceRepository.exportFolderUri.first()
         val onboardingCompleted = preferenceRepository.isOnboardingCompleted.first()
-        
-        startRoute = if (onboardingCompleted && folderUri != null) {
+        startRoute = if (onboardingCompleted) {
             Screen.Library.route
         } else {
             Screen.Welcome.route
@@ -134,13 +136,6 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Welcome.route) {
             WelcomeScreen(
                 onNext = {
-                    navController.navigate(Screen.Permissions.route)
-                }
-            )
-        }
-        composable(Screen.Permissions.route) {
-            PermissionScreen(
-                onNext = {
                     navController.navigate(Screen.FolderSelection.route)
                 }
             )
@@ -152,12 +147,57 @@ fun NavGraph(navController: NavHostController) {
             FolderScreen(
                 viewModel = folderViewModel,
                 onNext = {
+                    navController.navigate(Screen.OnboardingTheme.route)
+                },
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        composable(Screen.OnboardingTheme.route) {
+            val settingsViewModel: SettingsViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            ThemeOnboardingScreen(
+                viewModel = settingsViewModel,
+                onNext = {
+                    navController.navigate(Screen.Permissions.route)
+                },
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        composable(Screen.Permissions.route) {
+            val settingsViewModel: SettingsViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            PermissionScreen(
+                viewModel = settingsViewModel,
+                onNext = {
+                    navController.navigate(Screen.OnboardingExtensionRepo.route)
+                },
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        composable(Screen.OnboardingExtensionRepo.route) {
+            val settingsViewModel: SettingsViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            ExtensionRepoScreen(
+                viewModel = settingsViewModel,
+                onComplete = {
                     scope.launch {
                         preferenceRepository.setOnboardingCompleted(true)
                         navController.navigate(Screen.Library.route) {
                             popUpTo(Screen.Welcome.route) { inclusive = true }
                         }
                     }
+                },
+                onBack = {
+                    navController.popBackStack()
                 }
             )
         }

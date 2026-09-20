@@ -24,7 +24,6 @@ fun NovelTopBar(
     isOpaque: Boolean,
     showTitle: Boolean,
     isActivityRunning: Boolean = false,
-    onActivityClick: () -> Unit = {},
     onBack: () -> Unit,
     onJumpToChapterClick: () -> Unit,
     onFilterClick: () -> Unit,

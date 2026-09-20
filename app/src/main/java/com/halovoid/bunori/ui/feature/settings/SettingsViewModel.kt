@@ -296,12 +296,15 @@ class SettingsViewModel(
     }
 
     fun installUpdate(context: Context, uri: String) {
-        try {
-            _error.value = null
-            UpdateInstaller.installApk(context, uri)
-            _isInstalling.value = true
-        } catch (e: Exception) {
-            _error.value = "Failed to start installation: ${e.message}"
+        viewModelScope.launch {
+            try {
+                _error.value = null
+                UpdateInstaller.installApk(context, uri)
+                _isInstalling.value = false
+            } catch (e: Exception) {
+                _error.value = "Failed to launch installer: ${e.message}"
+                _isInstalling.value = false
+            }
         }
     }
 

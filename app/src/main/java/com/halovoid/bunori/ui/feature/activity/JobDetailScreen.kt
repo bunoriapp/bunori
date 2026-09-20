@@ -321,7 +321,6 @@ fun JobDetailScreen(
                     ContextualAction(
                         title = "Cancel",
                         icon = Icons.Default.Cancel,
-                        isDestructive = true,
                         enabled = canCancel,
                         onClick = { record?.let { viewModel.cancelSelectedTasks(it.id) } }
                     )

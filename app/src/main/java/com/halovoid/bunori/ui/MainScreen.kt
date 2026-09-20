@@ -8,7 +8,6 @@ import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -41,7 +40,7 @@ fun MainScreen() {
         listOf(
             TabInfo(Screen.Library, "Library", R.drawable.anim_library_enter),
             TabInfo(Screen.Browse, "Browse", R.drawable.anim_browse_enter),
-            TabInfo(Screen.Activity, "Activity", R.drawable.anim_history_enter),
+            TabInfo(Screen.Activity, "Activity", R.drawable.anim_activity_enter),
             TabInfo(Screen.Support, "More", R.drawable.anim_more_enter)
         )
     }

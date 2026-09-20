@@ -72,8 +72,6 @@ fun ChapterRow(
     isSelectionMode: Boolean,
     isSelected: Boolean
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
     val backgroundColor = if (isSelected) {
         BrandAccent.copy(alpha = 0.15f)
     } else {
@@ -150,7 +148,7 @@ fun ChapterRow(
         ) {
             if (chapter.isDownloaded) {
                 IconButton(
-                    onClick = { showMenu = true },
+                    onClick = { },
                     modifier = Modifier.fillMaxSize()
                 ) {
                     Icon(
@@ -253,52 +251,6 @@ fun ChapterRow(
                     )
                 }
             }
-        }
-
-        if (showMenu) {
-            ChapterActionsBottomSheet(
-                chapter = chapter,
-                onDismiss = { showMenu = false },
-                onDelete = { onDeleteChapter(chapter) },
-                onReplay = { onReplayChapter(chapter) }
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ChapterActionsBottomSheet(
-    chapter: Chapter,
-    onDismiss: () -> Unit,
-    onDelete: () -> Unit,
-    onReplay: () -> Unit
-) {
-    AppBottomSheet(
-        onDismiss = onDismiss,
-        title = "Chapter ${chapter.index}",
-        subtitle = if (chapter.title.isNotBlank()) chapter.title else null
-    ) {
-        AppBottomSheetGroup {
-            ListItem(
-                headlineContent = { Text("Replay Chapter", color = PrimaryText) },
-                leadingContent = { Icon(Icons.Default.Refresh, contentDescription = null, tint = PrimaryText) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable {
-                    onReplay()
-                    onDismiss()
-                }
-            )
-            AppBottomSheetDivider()
-            ListItem(
-                headlineContent = { Text("Delete Chapter", color = ErrorRed) },
-                leadingContent = { Icon(Icons.Default.Delete, contentDescription = null, tint = ErrorRed) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable {
-                    onDelete()
-                    onDismiss()
-                }
-            )
         }
     }
 }

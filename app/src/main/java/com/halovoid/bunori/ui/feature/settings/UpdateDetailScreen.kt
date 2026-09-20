@@ -1,6 +1,5 @@
 package com.halovoid.bunori.ui.feature.settings
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,7 +9,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,12 +19,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.halovoid.bunori.ui.core.components.FlowingSineWave
 import com.halovoid.bunori.ui.core.components.MarkdownContent
 import com.halovoid.bunori.ui.core.theme.*
 import java.time.ZonedDateTime
@@ -57,7 +59,7 @@ fun UpdateDetailScreen(
         }
     ) { innerPadding ->
         val state = updateState
-        if (state is AppUpdateState.UpdateAvailable || state is AppUpdateState.Downloading || state is AppUpdateState.ReadyToInstall) {
+        if (state is AppUpdateState.UpdateAvailable || state is AppUpdateState.Downloading || state is AppUpdateState.ReadyToInstall || state is AppUpdateState.Installing) {
             val availableState = when (state) {
                 is AppUpdateState.UpdateAvailable -> state
                 else -> null
@@ -146,84 +148,129 @@ fun UpdateDetailScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(52.dp),
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = RoundedCornerShape(26.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = BrandAccent,
                                         contentColor = Color.White
                                     )
                                 ) {
-                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = Color.White
+                                    )
                                     Spacer(modifier = Modifier.width(10.dp))
-                                    Text("Download Update", fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text(
+                                        text = "Download Update",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = Color.White
+                                    )
                                 }
                             }
-                            is AppUpdateState.Downloading, is AppUpdateState.ReadyToInstall, is AppUpdateState.Installing -> {
-                                val context = androidx.compose.ui.platform.LocalContext.current
-                                val isReadyOrInstalling = state is AppUpdateState.ReadyToInstall || state is AppUpdateState.Installing
-                                
-                                val waveColor1 by animateColorAsState(
-                                    targetValue = if (isReadyOrInstalling) SuccessGreen.copy(alpha = 0.2f) else BrandAccent.copy(alpha = 0.2f),
-                                    animationSpec = tween(1000),
-                                    label = "waveColor1"
+                            is AppUpdateState.Downloading -> {
+                                val infiniteTransition = rememberInfiniteTransition(label = "downloadShimmer")
+                                val shimmerTranslate by infiniteTransition.animateFloat(
+                                    initialValue = 0f,
+                                    targetValue = 1200f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(1600, easing = LinearEasing),
+                                        repeatMode = RepeatMode.Restart
+                                    ),
+                                    label = "shimmerTranslate"
                                 )
-                                val waveColor2 by animateColorAsState(
-                                    targetValue = if (isReadyOrInstalling) SuccessGreen.copy(alpha = 0.4f) else BrandAccent.copy(alpha = 0.4f),
-                                    animationSpec = tween(1000),
-                                    label = "waveColor2"
+                                val shimmerBrush = Brush.linearGradient(
+                                    colors = listOf(
+                                        BrandAccent.copy(alpha = 0.6f),
+                                        BrandAccent.copy(alpha = 0.95f),
+                                        BrandAccent.copy(alpha = 0.6f)
+                                    ),
+                                    start = Offset(shimmerTranslate - 400f, 0f),
+                                    end = Offset(shimmerTranslate, 60f)
                                 )
-                                
-                                val fillProgress by animateFloatAsState(
-                                    targetValue = if (isReadyOrInstalling) 0.8f else 0.5f,
-                                    animationSpec = tween(1200, easing = FastOutSlowInEasing),
-                                    label = "fillProgress"
-                                )
-                                
-                                val text = when (state) {
-                                    is AppUpdateState.Downloading -> "Downloading Update..."
-                                    is AppUpdateState.ReadyToInstall -> "Install Now"
-                                    is AppUpdateState.Installing -> "Installing..."
-                                    else -> ""
-                                }
-                                
-                                val clickableModifier = if (state is AppUpdateState.ReadyToInstall) {
-                                    Modifier.clickable { viewModel.installUpdate(context, state.uri) }
-                                } else {
-                                    Modifier
-                                }
 
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(52.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(DarkSurfaceVariant)
-                                        .then(clickableModifier),
+                                        .clip(RoundedCornerShape(26.dp))
+                                        .background(shimmerBrush),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    FlowingSineWave(
-                                        modifier = Modifier.fillMaxSize(),
-                                        color = waveColor1,
-                                        amplitude = 12f,
-                                        wavelength = 240f,
-                                        durationMillis = 2000,
-                                        reverse = false,
-                                        fillProgress = fillProgress
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            color = Color.White,
+                                            strokeWidth = 2.5.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "Downloading Update...",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                            is AppUpdateState.ReadyToInstall -> {
+                                val context = androidx.compose.ui.platform.LocalContext.current
+                                Button(
+                                    onClick = { viewModel.installUpdate(context, state.uri) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
+                                    shape = RoundedCornerShape(26.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = SuccessGreen,
+                                        contentColor = Color.White
                                     )
-                                    FlowingSineWave(
-                                        modifier = Modifier.fillMaxSize(),
-                                        color = waveColor2,
-                                        amplitude = 8f,
-                                        wavelength = 180f,
-                                        durationMillis = 1500,
-                                        reverse = true,
-                                        fillProgress = fillProgress
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = Color.White
                                     )
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Text(
-                                        text = text,
+                                        text = "Install Now",
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.bodyLarge
+                                        fontSize = 16.sp,
+                                        color = Color.White
                                     )
+                                }
+                            }
+                            is AppUpdateState.Installing -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp)
+                                        .clip(RoundedCornerShape(26.dp))
+                                        .background(DarkSurfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            color = BrandAccent,
+                                            strokeWidth = 2.5.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = "Installing Update...",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = PrimaryText
+                                        )
+                                    }
                                 }
                             }
                             else -> {}
@@ -238,3 +285,4 @@ fun UpdateDetailScreen(
         }
     }
 }
+

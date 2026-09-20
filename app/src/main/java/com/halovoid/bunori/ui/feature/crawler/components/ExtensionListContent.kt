@@ -91,7 +91,7 @@ fun ExtensionListContent(
                             imageVector = Icons.Outlined.Extension,
                             contentDescription = null,
                             modifier = Modifier.padding(16.dp),
-                            tint = SecondaryText
+                            tint = BrandAccent
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -106,19 +106,22 @@ fun ExtensionListContent(
                         text = if (searchQuery.isNotEmpty())
                             "Try searching with a different keyword"
                         else
-                            "Add the source from the extension settings",
+                            "Please add a supported repository URL",
                         style = MaterialTheme.typography.bodyMedium,
                         color = SecondaryText,
                         textAlign = TextAlign.Center
                     )
                     if (searchQuery.isEmpty() && onNavigateToExtensionSettings != null) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
                         Button(
                             onClick = onNavigateToExtensionSettings,
-                            colors = ButtonDefaults.buttonColors(containerColor = BrandAccent),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = BrandAccent,
+                                contentColor = Color.White
+                            )
                         ) {
-                            Text("Extension settings", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            Text("Extension Settings", fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }

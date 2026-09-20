@@ -17,7 +17,7 @@
                 android:pathData="M 180.45 270.69 C 180.45 270.69 90.53 270.69 90.53 270.69 C 90.53 270.69 90.53 900.15 90.53 900.15 C 90.53 949.61 131 990.08 180.45 990.08 C 180.45 990.08 809.92 990.08 809.92 990.08 C 809.92 990.08 809.92 900.15 809.92 900.15 C 809.92 900.15 180.45 900.15 180.45 900.15 C 180.45 900.15 180.45 270.69 180.45 270.69" />
         </vector>
     </aapt:attr>
-    <target android:name="book_group">
+    <target android:name="bookmark">
         <aapt:attr name="android:animation">
             <objectAnimator
                 android:duration="300"

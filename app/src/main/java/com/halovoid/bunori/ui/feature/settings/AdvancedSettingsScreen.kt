@@ -97,6 +97,8 @@ fun AdvancedSettingsScreen(
             HorizontalDivider(color = BorderColor.copy(alpha = 0.2f), thickness = 0.5.dp)
             Spacer(modifier = Modifier.height(12.dp))
 
+
+
             SectionHeader(text = "Maintenance & Automation")
 
             // Novel Prune Frequency Row
