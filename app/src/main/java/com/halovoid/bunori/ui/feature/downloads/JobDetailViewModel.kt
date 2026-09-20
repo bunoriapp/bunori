@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.browse
+package com.halovoid.bunori.ui.feature.downloads
 
 import android.app.Application
 import android.net.Uri
@@ -17,7 +17,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-class BatchDetailViewModel(
+class JobDetailViewModel(
     application: Application,
     private val batchRepository: BatchRepository
 ) : AndroidViewModel(application) {
@@ -41,11 +41,11 @@ class BatchDetailViewModel(
 
     fun resolveWebView(requestId: String, url: String) {
         viewModelScope.launch {
-            AppLog.i("BatchDetailViewModel", "Starting WebView resolution for $requestId at $url")
+            AppLog.i("RequestDetailViewModel", "Starting WebView resolution for $requestId at $url")
             val success = com.halovoid.bunori.api.core.scrapper.Scrapper.globalResolver?.resolve(url) ?: false
-            AppLog.i("BatchDetailViewModel", "Resolution result: $success")
+            AppLog.i("RequestDetailViewModel", "Resolution result: $success")
             if (success) {
-                AppLog.i("BatchDetailViewModel", "Resuming request $requestId")
+                AppLog.i("RequestDetailViewModel", "Resuming request $requestId")
                 batchRepository.resumeRequest(requestId)
             }
         }
@@ -145,6 +145,3 @@ class BatchDetailViewModel(
         }
     }
 }
-
-// Alias for compatibility
-typealias RequestDetailViewModel = BatchDetailViewModel

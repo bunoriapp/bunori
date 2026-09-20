@@ -1,7 +1,6 @@
 package com.halovoid.bunori.ui.navigation
 
 import android.app.Application
-import androidx.compose.animation.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,10 +17,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.ui.ViewModelFactory
-import com.halovoid.bunori.ui.feature.browse.BatchDetailScreen
 import com.halovoid.bunori.ui.feature.browse.BrowseScreen
 import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
 import com.halovoid.bunori.ui.feature.crawler.CrawlerScreen
@@ -29,8 +26,7 @@ import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
 import com.halovoid.bunori.ui.feature.crawler.ExtensionInfoScreen
 import com.halovoid.bunori.ui.feature.downloads.DownloadScreen
 import com.halovoid.bunori.ui.feature.downloads.DownloadViewModel
-import com.halovoid.bunori.ui.feature.downloads.GroupedBatchScreen
-import com.halovoid.bunori.ui.feature.downloads.GroupedBatchViewModel
+import com.halovoid.bunori.ui.feature.downloads.JobDetailScreen
 import com.halovoid.bunori.ui.feature.layout.LayoutSettingsScreen
 import com.halovoid.bunori.ui.feature.library.LibraryScreen
 import com.halovoid.bunori.ui.feature.library.LibraryViewModel
@@ -65,8 +61,7 @@ sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
     object Permissions : Screen("permissions")
     object FolderSelection: Screen("folder_selection")
-    object Browse : Screen("request")
-    val Request: Screen get() = Browse
+    object Browse : Screen("browse")
 
     object Search : Screen("search?source={source}") {
         fun createRoute(source: String? = null) = if (source != null) {
@@ -93,11 +88,8 @@ sealed class Screen(val route: String) {
     object SupportSettings : Screen("support_settings")
     object BackupSettings : Screen("backup_settings")
     object UpdateDetail : Screen("update_detail")
-    object BatchDetail : Screen("request_detail/{requestId}") {
-        fun createRoute(requestId: String) = "request_detail/${URLEncoder.encode(requestId, "UTF-8")}"
-    }
-    object RequestDetail {
-        fun createRoute(requestId: String) = BatchDetail.createRoute(requestId)
+    object JobDetail : Screen("job_detail/{batchId}") {
+        fun createRoute(batchId: String) = "job_detail/${URLEncoder.encode(batchId, "UTF-8")}"
     }
 
     object Novel : Screen("novel/{crawlerName}/{novelUrl}") {
@@ -105,10 +97,6 @@ sealed class Screen(val route: String) {
     }
     object NovelArtifacts : Screen("novel_artifacts/{novelUrl}") {
         fun createRoute(novelUrl: String) = "novel_artifacts/${URLEncoder.encode(novelUrl, "UTF-8")}"
-    }
-    object GroupedBatches : Screen("grouped_requests/{contextType}/{contextValue}/{type}") {
-        fun createRoute(contextType: String, contextValue: String, type: String) = 
-            "grouped_requests/$contextType/${URLEncoder.encode(contextValue, "UTF-8")}/$type"
     }
     object Reader : Screen("reader/{novelUrl}/{initialChapterId}") {
         fun createRoute(novelUrl: String, initialChapterId: Int) = 
@@ -207,7 +195,7 @@ fun NavGraph(navController: NavHostController) {
             )
         ) { backStackEntry ->
             val sourceParam = backStackEntry.arguments?.getString("source")?.let {
-                try { URLDecoder.decode(it, "UTF-8") } catch (e: Exception) { it }
+                try { URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
             }
             val searchViewModel: SearchViewModel = viewModel(
                 factory = remember { ViewModelFactory(application) }
@@ -267,6 +255,17 @@ fun NavGraph(navController: NavHostController) {
                 onBack = { navController.popBackStack() }
             )
         }
+        composable(Screen.JobDetail.route) { backStackEntry ->
+            val encodedId = backStackEntry.arguments?.getString("batchId") ?: ""
+            val batchId = URLDecoder.decode(encodedId, "UTF-8")
+
+            JobDetailScreen (
+                batchId = batchId,
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
         composable(Screen.Downloads.route) {
             val downloadViewModel: DownloadViewModel = viewModel(
                 factory = remember { ViewModelFactory(application) }
@@ -274,10 +273,7 @@ fun NavGraph(navController: NavHostController) {
             DownloadScreen(
                 viewModel = downloadViewModel,
                 onRequestClick = { requestId: String ->
-                    navController.navigate(Screen.BatchDetail.createRoute(requestId))
-                },
-                onGroupClick = { type: JobType ->
-                    navController.navigate(Screen.GroupedBatches.createRoute("ALL", "all", type.name))
+                    navController.navigate(Screen.JobDetail.createRoute(requestId))
                 }
             )
         }
@@ -383,23 +379,6 @@ fun NavGraph(navController: NavHostController) {
                 onBack = { navController.popBackStack() }
             )
         }
-        composable(Screen.BatchDetail.route) { backStackEntry ->
-            val encodedId = backStackEntry.arguments?.getString("requestId") ?: ""
-            val requestId = URLDecoder.decode(encodedId, "UTF-8")
-
-            BatchDetailScreen(
-                requestId = requestId,
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onGroupClick = { type ->
-                    navController.navigate(Screen.GroupedBatches.createRoute("DEPENDENCY", requestId, type.name))
-                },
-                onRequestClick = { id ->
-                    navController.navigate(Screen.BatchDetail.createRoute(id))
-                }
-            )
-        }
         composable(Screen.Novel.route) { backStackEntry ->
             val novelUrl = URLDecoder.decode(
                 backStackEntry.arguments?.getString("novelUrl") ?: "",
@@ -408,7 +387,7 @@ fun NavGraph(navController: NavHostController) {
             NovelScreen(
                 novelUrl = novelUrl,
                 onRequestClick = { requestId ->
-                    navController.navigate(Screen.BatchDetail.createRoute(requestId))
+                    navController.navigate(Screen.JobDetail.createRoute(requestId))
                 },
                 onChapterClick = { url, chapterId ->
                     navController.navigate(Screen.Reader.createRoute(url, chapterId))
@@ -441,50 +420,6 @@ fun NavGraph(navController: NavHostController) {
                 onBack = { navController.popBackStack() },
                 onDownload = { _ -> },
                 viewModel = viewModel
-            )
-        }
-        composable(Screen.GroupedBatches.route) { backStackEntry ->
-            val contextType = backStackEntry.arguments?.getString("contextType") ?: ""
-            val contextValue = URLDecoder.decode(
-                backStackEntry.arguments?.getString("contextValue") ?: "",
-                "UTF-8"
-            )
-            val typeName = backStackEntry.arguments?.getString("type") ?: ""
-            val type = JobType.valueOf(typeName)
-
-            val viewModel: GroupedBatchViewModel = viewModel(
-                factory = remember { ViewModelFactory(application) }
-            )
-
-            LaunchedEffect(contextType, contextValue) {
-                viewModel.loadRequests(contextType, contextValue)
-            }
-
-            val requests by viewModel.requests.collectAsStateWithLifecycle()
-            val allRequests by viewModel.allRequests.collectAsStateWithLifecycle()
-            val cancellingRequestIds by viewModel.cancellingRequestIds.collectAsStateWithLifecycle()
-            val activeActionIds by viewModel.activeActionIds.collectAsStateWithLifecycle()
-            val statusFilters by viewModel.statusFilters.collectAsStateWithLifecycle()
-
-            GroupedBatchScreen(
-                type = type,
-                batches = requests,
-                allBatches = allRequests,
-                statusFilters = statusFilters,
-                onStatusFilterChange = { status, state -> viewModel.setStatusFilter(status, state) },
-                onBack = { navController.popBackStack() },
-                onRequestClick = { requestId ->
-                    navController.navigate(Screen.BatchDetail.createRoute(requestId))
-                },
-                onReplay = { viewModel.replayRequest(it) },
-                onCancel = { viewModel.cancelRequest(it) },
-                onContinue = { viewModel.resumeRequest(it) },
-                onResolveWebview = { requestId, url ->
-                    viewModel.resolveWebView(requestId, url)
-                },
-                cancellingRequestIds = cancellingRequestIds,
-                activeActionIds = activeActionIds,
-                allowAction = contextType == "ALL" || contextType == "DEPENDENCY"
             )
         }
         composable(Screen.Reader.route) { backStackEntry ->

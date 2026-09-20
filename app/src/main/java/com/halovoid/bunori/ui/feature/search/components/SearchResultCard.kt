@@ -1,5 +1,6 @@
-package com.halovoid.bunori.ui.feature.browse.components
+package com.halovoid.bunori.ui.feature.search.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -38,7 +39,7 @@ fun SearchResultCard(
                 .aspectRatio(0.7f),
             shape = RoundedCornerShape(8.dp),
             colors = CardDefaults.cardColors(containerColor = DarkSurface),
-            border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor.copy(alpha = 0.5f))
+            border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.5f))
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 AsyncImage(

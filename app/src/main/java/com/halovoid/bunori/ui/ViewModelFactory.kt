@@ -8,11 +8,10 @@ import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.ReaderRepository
 import com.halovoid.bunori.data.repository.BatchRepository
-import com.halovoid.bunori.ui.feature.browse.BatchDetailViewModel
 import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
 import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
 import com.halovoid.bunori.ui.feature.downloads.DownloadViewModel
-import com.halovoid.bunori.ui.feature.downloads.GroupedBatchViewModel
+import com.halovoid.bunori.ui.feature.downloads.JobDetailViewModel
 import com.halovoid.bunori.ui.feature.library.LibraryViewModel
 import com.halovoid.bunori.ui.feature.novel.NovelViewModel
 import com.halovoid.bunori.ui.feature.onboarding.FolderViewModel
@@ -29,9 +28,6 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             }
             modelClass.isAssignableFrom(SearchViewModel::class.java) -> {
                 SearchViewModel(application) as T
-            }
-            modelClass.isAssignableFrom(BatchDetailViewModel::class.java) -> {
-                BatchDetailViewModel(application, BatchRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(NovelViewModel::class.java) -> {
                 NovelViewModel(
@@ -56,8 +52,8 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> {
                 SettingsViewModel(application) as T
             }
-            modelClass.isAssignableFrom(GroupedBatchViewModel::class.java) -> {
-                GroupedBatchViewModel(application, BatchRepository.getInstance(application)) as T
+            modelClass.isAssignableFrom(JobDetailViewModel::class.java) -> {
+                JobDetailViewModel(application, BatchRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(DownloadViewModel::class.java) -> {
                 DownloadViewModel(application, BatchRepository.getInstance(application)) as T

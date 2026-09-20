@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.browse.components
+package com.halovoid.bunori.ui.feature.downloads.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -26,7 +26,7 @@ import java.util.*
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun CompactBatchItem(
+fun CompactJobItem(
     batch: Batch,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
@@ -110,16 +110,6 @@ fun CompactBatchItem(
         )
     }
 }
-
-// Aliases for compatibility
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun CompactRequestItem(
-    batch: Batch,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
-) = CompactBatchItem(batch, onClick, onLongClick, modifier)
 
 @Composable
 fun StatusIndicator(
@@ -207,7 +197,7 @@ fun StatusIndicator(
 }
 
 @Composable
-fun BatchCard(
+fun JobCard(
     batch: Batch,
     onClick: (() -> Unit)? = null,
     onReplay: (() -> Unit)? = null,
@@ -388,8 +378,8 @@ fun BatchCard(
                 trackColor = DarkSurfaceVariant
             )
 
-            val isCompleted = batch.rstatus == JobStatus.SUCCESS || 
-                (batch.progressTotal > 0 && batch.progressSuccess >= batch.progressTotal)
+            val isCompleted = batch.rstatus == JobStatus.SUCCESS ||
+                    (batch.progressTotal > 0 && batch.progressSuccess >= batch.progressTotal)
 
             if (!batch.error.isNullOrBlank() && !isCompleted) {
                 Spacer(modifier = Modifier.height(10.dp))
@@ -489,29 +479,3 @@ fun BatchCard(
         }
     }
 }
-
-// Alias for compatibility
-@Composable
-fun RequestCard(
-    batch: Batch,
-    onClick: (() -> Unit)? = null,
-    onReplay: (() -> Unit)? = null,
-    onCancel: (() -> Unit)? = null,
-    onContinue: (() -> Unit)? = null,
-    onSecurityClick: (() -> Unit)? = null,
-    allowAction: Boolean = false,
-    isCancelling: Boolean = false,
-    isActionPending: Boolean = false,
-    modifier: Modifier = Modifier
-) = BatchCard(
-    batch = batch,
-    onClick = onClick,
-    onReplay = onReplay,
-    onCancel = onCancel,
-    onContinue = onContinue,
-    onSecurityClick = onSecurityClick,
-    allowAction = allowAction,
-    isCancelling = isCancelling,
-    isActionPending = isActionPending,
-    modifier = modifier
-)

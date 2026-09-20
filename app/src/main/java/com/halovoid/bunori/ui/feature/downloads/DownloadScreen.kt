@@ -28,17 +28,16 @@ import com.halovoid.bunori.ui.core.theme.BrandAccent
 import com.halovoid.bunori.ui.core.theme.DarkBackground
 import com.halovoid.bunori.ui.core.theme.PrimaryText
 import com.halovoid.bunori.ui.core.theme.SecondaryText
-import com.halovoid.bunori.ui.feature.browse.components.CompactRequestItem
-import com.halovoid.bunori.ui.feature.browse.components.FilterBottomSheet
-import com.halovoid.bunori.ui.feature.browse.components.RequestActionHandler
-import com.halovoid.bunori.ui.feature.browse.components.RequestCard
+import com.halovoid.bunori.ui.feature.downloads.components.CompactJobItem
+import com.halovoid.bunori.ui.feature.downloads.components.FilterBottomSheet
+import com.halovoid.bunori.ui.feature.downloads.components.JobActionHandler
+import com.halovoid.bunori.ui.feature.downloads.components.JobCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadScreen(
     viewModel: DownloadViewModel,
-    onRequestClick: (String) -> Unit,
-    onGroupClick: (JobType) -> Unit
+    onRequestClick: (String) -> Unit
 ) {
     val requestHistory by viewModel.batchHistory.collectAsStateWithLifecycle()
     val globalStats by viewModel.globalStats.collectAsStateWithLifecycle()
@@ -48,7 +47,7 @@ fun DownloadScreen(
     var filterType by remember { mutableStateOf<JobType?>(null) }
     var showFilterMenu by remember { mutableStateOf(false) }
 
-    RequestActionHandler(
+    JobActionHandler(
         onResolveWebview = { id, url -> viewModel.resolveWebView(id, url) }
     ) { onSecurityClick ->
         Scaffold(
@@ -163,7 +162,7 @@ fun DownloadScreen(
                                             .fillMaxWidth()
                                             .padding(horizontal = 20.dp)
                                     ) {
-                                        RequestCard(
+                                        JobCard(
                                             batch = batch,
                                             onClick = { onRequestClick(batch.id) },
                                             allowAction = false
@@ -182,7 +181,7 @@ fun DownloadScreen(
                                             modifier = Modifier.fillMaxWidth()
                                         ) { page ->
                                             val batch = activeBatches[page]
-                                            RequestCard(
+                                            JobCard(
                                                 batch = batch,
                                                 onClick = { onRequestClick(batch.id) },
                                                 allowAction = false
@@ -223,7 +222,7 @@ fun DownloadScreen(
                             }
 
                             items(recentBatches, key = { it.id }) { batch ->
-                                CompactRequestItem(
+                                CompactJobItem(
                                     batch = batch,
                                     onClick = { onRequestClick(batch.id) }
                                 )
@@ -249,7 +248,7 @@ fun DownloadScreen(
                             }
 
                             items(historyBatches, key = { it.id }) { batch ->
-                                CompactRequestItem(
+                                CompactJobItem(
                                     batch = batch,
                                     onClick = { onRequestClick(batch.id) }
                                 )

@@ -92,7 +92,7 @@ class DownloadNotificationManager(private val context: Context) {
 
         val openDetailPendingIntent = createOpenRoutePendingIntent(
             context = context,
-            route = Screen.RequestDetail.createRoute(batch.id),
+            route = Screen.JobDetail.createRoute(batch.id),
             requestCode = (batch.id.hashCode() and 0xFFFF) + 200
         )
 
@@ -251,7 +251,7 @@ class DownloadNotificationManager(private val context: Context) {
         val notificationId = FAILED_NOTIFICATION_ID_BASE + (batch.id.hashCode() and 0x7FFF)
         val detailIntent = createOpenRoutePendingIntent(
             context = context,
-            route = Screen.RequestDetail.createRoute(batch.id),
+            route = Screen.JobDetail.createRoute(batch.id),
             requestCode = notificationId
         )
 

@@ -3,7 +3,6 @@ package com.halovoid.bunori.ui.feature.search
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,9 +42,9 @@ import com.halovoid.bunori.domain.models.SearchItem
 import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
 import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
-import com.halovoid.bunori.ui.feature.browse.components.CompactSearchResultCard
-import com.halovoid.bunori.ui.feature.browse.components.SearchResultCard
-import com.halovoid.bunori.ui.feature.browse.components.SourceHeader
+import com.halovoid.bunori.ui.feature.search.components.CompactSearchResultCard
+import com.halovoid.bunori.ui.feature.search.components.SearchResultCard
+import com.halovoid.bunori.ui.feature.search.components.SourceHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

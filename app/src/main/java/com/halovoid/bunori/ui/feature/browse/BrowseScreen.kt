@@ -32,14 +32,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.components.SourceIcon
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.browse.components.BatchActionHandler
-import com.halovoid.bunori.ui.feature.browse.components.ManualCrawlForm
 import com.halovoid.bunori.ui.feature.crawler.CrawlerScreen
 import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
 import com.halovoid.bunori.ui.feature.crawler.ExtensionUiItem
+import com.halovoid.bunori.ui.feature.downloads.components.JobActionHandler
 
 enum class BrowseTab(val title: String) {
     SOURCES("Sources"),
@@ -81,7 +79,7 @@ fun BrowseScreen(
         extensionItems.filter { it.isInstalled }.sortedBy { it.name.lowercase() }
     }
 
-    BatchActionHandler(
+    JobActionHandler (
         onResolveWebview = { id, url -> viewModel.resolveWebView(id, url) }
     ) {
         Scaffold(
@@ -462,42 +460,3 @@ private fun SourcesTabContent(
         }
     }
 }
-
-// Legacy request fallback
-@Composable
-fun ManualCrawlScreen(
-    viewModel: BrowseViewModel,
-    searchUrl: String?,
-    onBack: () -> Unit,
-    onNavigateToDetail: (String, String) -> Unit
-) {
-    val libraryUrls by viewModel.libraryUrls.collectAsStateWithLifecycle()
-
-    Scaffold(
-        topBar = {
-            AppTopBar(
-                title = "Batch Novel",
-                onBack = onBack
-            )
-        },
-        containerColor = DarkBackground
-    ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
-            ManualCrawlForm(
-                viewModel = viewModel,
-                searchUrl = searchUrl,
-                libraryUrls = libraryUrls,
-                onNavigateToDetail = onNavigateToDetail
-            )
-        }
-    }
-}
-
-// Alias for compatibility
-@Composable
-fun ManualRequestScreen(
-    viewModel: BrowseViewModel,
-    searchUrl: String?,
-    onBack: () -> Unit,
-    onNavigateToDetail: (String, String) -> Unit
-) = ManualCrawlScreen(viewModel, searchUrl, onBack, onNavigateToDetail)

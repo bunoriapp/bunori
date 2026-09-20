@@ -1,5 +1,6 @@
-package com.halovoid.bunori.ui.feature.browse.components
+package com.halovoid.bunori.ui.feature.search.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -69,7 +70,7 @@ fun CompactSearchResultCard(
                         shape = CircleShape,
                         modifier = Modifier.size(10.dp),
                         shadowElevation = 2.dp,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
                     ) {}
                 }
             }
