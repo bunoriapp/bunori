@@ -46,7 +46,7 @@ fun MainScreen() {
     val mainTabs = remember {
         listOf(
             TabInfo(Screen.Library, "Library", Icons.AutoMirrored.Outlined.LibraryBooks, Icons.AutoMirrored.Filled.LibraryBooks),
-            TabInfo(Screen.Request, "Browse", Icons.Outlined.Explore, Icons.Filled.Explore),
+            TabInfo(Screen.Browse, "Browse", Icons.Outlined.Explore, Icons.Filled.Explore),
             TabInfo(Screen.Downloads, "Downloads", Icons.Outlined.Download, Icons.Filled.Download),
             TabInfo(Screen.Support, "More", Icons.Outlined.MoreHoriz, Icons.Filled.MoreHoriz)
         )

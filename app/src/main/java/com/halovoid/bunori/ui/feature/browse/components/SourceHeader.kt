@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.request.components
+package com.halovoid.bunori.ui.feature.browse.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme

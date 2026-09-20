@@ -67,8 +67,7 @@ fun ReaderSettingsBottomSheet(
     onUpdateVolumeKeyTurn: (Boolean) -> Unit,
     onUpdateKeepScreenAwake: (Boolean) -> Unit,
     onUpdateDimImages: (Boolean) -> Unit,
-    onUpdateCustomCss: (String) -> Unit,
-    onUpdateCustomJs: (String) -> Unit,
+    onUpdateCustomCode: (String, String) -> Unit,
     onAddCustomFont: (CustomFont) -> Unit,
     onRemoveCustomFont: (CustomFont) -> Unit,
     onDismiss: () -> Unit
@@ -327,8 +326,7 @@ fun ReaderSettingsBottomSheet(
             initialCss = settings.customCss,
             initialJs = settings.customJs,
             onSave = { css, js ->
-                onUpdateCustomCss(css)
-                onUpdateCustomJs(js)
+                onUpdateCustomCode(css, js)
                 showCustomCodeDialog = false
             },
             onDismiss = { showCustomCodeDialog = false }

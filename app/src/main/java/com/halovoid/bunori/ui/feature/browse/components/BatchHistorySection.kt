@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.request.components
+package com.halovoid.bunori.ui.feature.browse.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,7 +21,7 @@ import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.SecurityCheckDialog
 import com.halovoid.bunori.ui.core.theme.*
 
-fun LazyListScope.requestHistorySection(
+fun LazyListScope.batchHistorySection(
     batchHistory: List<Batch>,
     onRequestClick: (String) -> Unit,
     onGroupClick: (JobType) -> Unit,
@@ -40,7 +40,7 @@ fun LazyListScope.requestHistorySection(
     if (forceUngrouped) {
         items(batchHistory, key = { it.id }) { request ->
             Box(modifier = Modifier.padding(horizontal = horizontalPadding).padding(bottom = 12.dp)) {
-                RequestCard(
+                BatchCard(
                     batch = request,
                     onClick = { onRequestClick(request.id) },
                     onReplay = { onReplay(request.id) },
@@ -60,7 +60,7 @@ fun LazyListScope.requestHistorySection(
             if (requests.size > 1) {
                 item(key = "group_$type") {
                     Box(modifier = Modifier.padding(horizontal = horizontalPadding).padding(bottom = 12.dp)) {
-                        RequestGroupCard(
+                        BatchGroupCard(
                             type = type,
                             batches = requests,
                             onClick = { onGroupClick(type) }
@@ -70,7 +70,7 @@ fun LazyListScope.requestHistorySection(
             } else {
                 items(requests, key = { it.id }) { request ->
                     Box(modifier = Modifier.padding(horizontal = horizontalPadding).padding(bottom = 12.dp)) {
-                        RequestCard(
+                        BatchCard(
                             batch = request,
                             onClick = { onRequestClick(request.id) },
                             onReplay = { onReplay(request.id) },
@@ -88,8 +88,37 @@ fun LazyListScope.requestHistorySection(
     }
 }
 
+// Aliases for compatibility
+fun LazyListScope.requestHistorySection(
+    batchHistory: List<Batch>,
+    onRequestClick: (String) -> Unit,
+    onGroupClick: (JobType) -> Unit,
+    onReplay: (String) -> Unit = {},
+    onCancel: (String) -> Unit = {},
+    onContinue: (String) -> Unit = {},
+    onSecurityClick: (Batch) -> Unit = {},
+    cancellingRequestIds: Set<String> = emptySet(),
+    activeActionIds: Set<String> = emptySet(),
+    horizontalPadding: androidx.compose.ui.unit.Dp = 0.dp,
+    allowAction: Boolean = false,
+    forceUngrouped: Boolean = false
+) = batchHistorySection(
+    batchHistory = batchHistory,
+    onRequestClick = onRequestClick,
+    onGroupClick = onGroupClick,
+    onReplay = onReplay,
+    onCancel = onCancel,
+    onContinue = onContinue,
+    onSecurityClick = onSecurityClick,
+    cancellingRequestIds = cancellingRequestIds,
+    activeActionIds = activeActionIds,
+    horizontalPadding = horizontalPadding,
+    allowAction = allowAction,
+    forceUngrouped = forceUngrouped
+)
+
 @Composable
-fun RequestActionHandler(
+fun BatchActionHandler(
     onResolveWebview: (String, String) -> Unit,
     content: @Composable (onSecurityClick: (Batch) -> Unit) -> Unit
 ) {
@@ -110,8 +139,15 @@ fun RequestActionHandler(
     content { securityDialogBatch = it }
 }
 
+// Alias for compatibility
 @Composable
-fun RequestGroupCard(
+fun RequestActionHandler(
+    onResolveWebview: (String, String) -> Unit,
+    content: @Composable (onSecurityClick: (Batch) -> Unit) -> Unit
+) = BatchActionHandler(onResolveWebview, content)
+
+@Composable
+fun BatchGroupCard(
     type: JobType,
     batches: List<Batch>,
     onClick: () -> Unit

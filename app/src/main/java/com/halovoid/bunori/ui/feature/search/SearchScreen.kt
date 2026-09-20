@@ -42,18 +42,18 @@ import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.domain.models.SearchItem
 import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
-import com.halovoid.bunori.ui.feature.request.RequestViewModel
-import com.halovoid.bunori.ui.feature.request.components.CompactSearchResultCard
-import com.halovoid.bunori.ui.feature.request.components.SearchResultCard
-import com.halovoid.bunori.ui.feature.request.components.SourceHeader
+import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
+import com.halovoid.bunori.ui.feature.browse.components.CompactSearchResultCard
+import com.halovoid.bunori.ui.feature.browse.components.SearchResultCard
+import com.halovoid.bunori.ui.feature.browse.components.SourceHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
-    requestViewModel: RequestViewModel,
+    browseViewModel: BrowseViewModel,
     onBack: () -> Unit,
-    onNavigateToRequest: () -> Unit,
+    onNavigateToRequest: () -> Unit = {},
     onNavigateToDetail: (String, String) -> Unit,
     initialSource: String? = null,
     modifier: Modifier = Modifier
@@ -66,7 +66,7 @@ fun SearchScreen(
     var isSearchFocused by remember { mutableStateOf(false) }
     val isCompactMode by viewModel.searchCompactView.collectAsStateWithLifecycle()
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
-    val libraryUrls by requestViewModel.libraryUrls.collectAsStateWithLifecycle()
+    val libraryUrls by browseViewModel.libraryUrls.collectAsStateWithLifecycle()
     val failedExtensions by viewModel.failedExtensions.collectAsStateWithLifecycle()
 
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -562,7 +562,7 @@ fun SearchScreen(
                                                                     item = item,
                                                                     isInLibrary = isInLibrary,
                                                                     onNavigateToDetail = onNavigateToDetail,
-                                                                    requestViewModel = requestViewModel
+                                                                    browseViewModel = browseViewModel
                                                                 )
                                                             }
                                                         )
@@ -583,7 +583,7 @@ fun SearchScreen(
                                                                             item = item,
                                                                             isInLibrary = isInLibrary,
                                                                             onNavigateToDetail = onNavigateToDetail,
-                                                                            requestViewModel = requestViewModel
+                                                                            browseViewModel = browseViewModel
                                                                         )
                                                                     }
                                                                 )
@@ -716,7 +716,7 @@ private fun handleSearchResultClick(
     item: SearchItem,
     isInLibrary: Boolean,
     onNavigateToDetail: (String, String) -> Unit,
-    requestViewModel: RequestViewModel
+    browseViewModel: BrowseViewModel
 ) {
     if (isInLibrary) {
         onNavigateToDetail(item.source, item.url)
@@ -731,7 +731,7 @@ private fun handleSearchResultClick(
             inLibrary = false,
             refreshExpiry = 0L
         )
-        requestViewModel.saveNovelStub(novel) {
+        browseViewModel.saveNovelStub(novel) {
             onNavigateToDetail(item.source, item.url)
         }
     }

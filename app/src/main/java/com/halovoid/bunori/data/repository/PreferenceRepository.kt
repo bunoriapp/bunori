@@ -416,6 +416,13 @@ class PreferenceRepository private constructor(
         context.appDataStore.edit { it[READER_CUSTOM_JS] = js }
     }
 
+    suspend fun updateCustomCode(css: String, js: String) {
+        context.appDataStore.edit {
+            it[READER_CUSTOM_CSS] = css
+            it[READER_CUSTOM_JS] = js
+        }
+    }
+
     val customFonts: Flow<List<CustomFont>> =
         context.appDataStore.data.map { prefs ->
             val set = prefs[READER_CUSTOM_FONTS] ?: emptySet()

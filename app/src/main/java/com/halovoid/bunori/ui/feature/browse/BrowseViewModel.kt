@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.request
+package com.halovoid.bunori.ui.feature.browse
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class RequestViewModel(
+class BrowseViewModel(
     application: Application,
     private val batchRepository: BatchRepository,
     private val novelRepository: NovelRepository = NovelRepository.getInstance(application),
@@ -46,7 +46,7 @@ class RequestViewModel(
     private val _addSuccess = MutableSharedFlow<Unit>()
     val addSuccess = _addSuccess.asSharedFlow()
 
-    private val _uiEvents = Channel<RequestUiEvent>()
+    private val _uiEvents = Channel<BrowseUiEvent>()
     val uiEvents = _uiEvents.receiveAsFlow()
 
     val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
@@ -54,11 +54,11 @@ class RequestViewModel(
 
     fun resolveWebView(requestId: String, url: String) {
         viewModelScope.launch {
-            AppLog.i("RequestViewModel", "Starting WebView resolution for $requestId at $url")
+            AppLog.i("BrowseViewModel", "Starting WebView resolution for $requestId at $url")
             val success = Scrapper.globalResolver?.resolve(url) ?: false
-            AppLog.i("RequestViewModel", "Resolution result: $success")
+            AppLog.i("BrowseViewModel", "Resolution result: $success")
             if (success) {
-                AppLog.i("RequestViewModel", "Resuming request $requestId")
+                AppLog.i("BrowseViewModel", "Resuming request $requestId")
                 batchRepository.resumeRequest(requestId)
             }
         }
@@ -95,7 +95,7 @@ class RequestViewModel(
             try {
                 saveNovelUseCase.saveDirectly(novel)
                 _addSuccess.emit(Unit)
-                _uiEvents.send(RequestUiEvent.NavigateToDetail(novel.crawlerName, novel.url))
+                _uiEvents.send(BrowseUiEvent.NavigateToDetail(novel.crawlerName, novel.url))
             } catch (e: Exception) {
                 _error.value = "Failed to add to library: ${e.message}"
             } finally {
@@ -136,3 +136,6 @@ class RequestViewModel(
         }
     }
 }
+
+// Alias for compatibility
+typealias RequestViewModel = BrowseViewModel

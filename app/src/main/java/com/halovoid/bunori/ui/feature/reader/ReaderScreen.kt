@@ -313,8 +313,7 @@ fun ReaderScreen(
             onUpdateVolumeKeyTurn = viewModel::updateVolumeKeyPageTurn,
             onUpdateKeepScreenAwake = viewModel::updateKeepScreenAwake,
             onUpdateDimImages = viewModel::updateDimImages,
-            onUpdateCustomCss = viewModel::updateCustomCss,
-            onUpdateCustomJs = viewModel::updateCustomJs,
+            onUpdateCustomCode = viewModel::updateCustomCode,
             onAddCustomFont = viewModel::addCustomFont,
             onRemoveCustomFont = viewModel::removeCustomFont,
             onDismiss = { isSettingsVisible = false }

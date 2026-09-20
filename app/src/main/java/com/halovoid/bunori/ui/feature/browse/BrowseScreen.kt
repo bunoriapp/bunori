@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.request
+package com.halovoid.bunori.ui.feature.browse
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -35,11 +35,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.components.SourceIcon
 import com.halovoid.bunori.ui.core.theme.*
+import com.halovoid.bunori.ui.feature.browse.components.BatchActionHandler
+import com.halovoid.bunori.ui.feature.browse.components.ManualCrawlForm
 import com.halovoid.bunori.ui.feature.crawler.CrawlerScreen
 import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
 import com.halovoid.bunori.ui.feature.crawler.ExtensionUiItem
-import com.halovoid.bunori.ui.feature.request.components.ManualRequestContent
-import com.halovoid.bunori.ui.feature.request.components.RequestActionHandler
 
 enum class BrowseTab(val title: String) {
     SOURCES("Sources"),
@@ -54,11 +54,11 @@ enum class BrowseTab(val title: String) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RequestScreen(
+fun BrowseScreen(
     onNavigateToSearch: (String?) -> Unit = {},
     onNavigateToExtensionSettings: () -> Unit = {},
     onNavigateToExtensionInfo: ((String) -> Unit)? = null,
-    viewModel: RequestViewModel,
+    viewModel: BrowseViewModel,
     crawlerViewModel: CrawlerViewModel
 ) {
     var selectedTabOrdinal by rememberSaveable {
@@ -81,7 +81,7 @@ fun RequestScreen(
         extensionItems.filter { it.isInstalled }.sortedBy { it.name.lowercase() }
     }
 
-    RequestActionHandler(
+    BatchActionHandler(
         onResolveWebview = { id, url -> viewModel.resolveWebView(id, url) }
     ) {
         Scaffold(
@@ -280,6 +280,23 @@ fun RequestScreen(
     }
 }
 
+// Alias for compatibility
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RequestScreen(
+    onNavigateToSearch: (String?) -> Unit = {},
+    onNavigateToExtensionSettings: () -> Unit = {},
+    onNavigateToExtensionInfo: ((String) -> Unit)? = null,
+    viewModel: BrowseViewModel,
+    crawlerViewModel: CrawlerViewModel
+) = BrowseScreen(
+    onNavigateToSearch = onNavigateToSearch,
+    onNavigateToExtensionSettings = onNavigateToExtensionSettings,
+    onNavigateToExtensionInfo = onNavigateToExtensionInfo,
+    viewModel = viewModel,
+    crawlerViewModel = crawlerViewModel
+)
+
 @Composable
 private fun SourcesTabContent(
     installedSources: List<ExtensionUiItem>,
@@ -336,7 +353,6 @@ private fun SourcesTabContent(
             modifier = modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
         ) {
-            // Small Note at top if any source failed to load (NOT IN RED)
             if (failedExtensions.isNotEmpty()) {
                 item(key = "failed_note") {
                     Surface(
@@ -391,7 +407,6 @@ private fun SourcesTabContent(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Source icon: 42dp rounded with image loading and fallback
                     SourceIcon(
                         model = source.iconModel,
                         fallbackText = source.name,
@@ -450,8 +465,8 @@ private fun SourcesTabContent(
 
 // Legacy request fallback
 @Composable
-fun ManualRequestScreen(
-    viewModel: RequestViewModel,
+fun ManualCrawlScreen(
+    viewModel: BrowseViewModel,
     searchUrl: String?,
     onBack: () -> Unit,
     onNavigateToDetail: (String, String) -> Unit
@@ -468,7 +483,7 @@ fun ManualRequestScreen(
         containerColor = DarkBackground
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
-            ManualRequestContent(
+            ManualCrawlForm(
                 viewModel = viewModel,
                 searchUrl = searchUrl,
                 libraryUrls = libraryUrls,
@@ -477,3 +492,12 @@ fun ManualRequestScreen(
         }
     }
 }
+
+// Alias for compatibility
+@Composable
+fun ManualRequestScreen(
+    viewModel: BrowseViewModel,
+    searchUrl: String?,
+    onBack: () -> Unit,
+    onNavigateToDetail: (String, String) -> Unit
+) = ManualCrawlScreen(viewModel, searchUrl, onBack, onNavigateToDetail)

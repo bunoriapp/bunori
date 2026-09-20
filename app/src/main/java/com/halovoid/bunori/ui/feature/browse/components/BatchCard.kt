@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.request.components
+package com.halovoid.bunori.ui.feature.browse.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -26,7 +26,7 @@ import java.util.*
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun CompactRequestItem(
+fun CompactBatchItem(
     batch: Batch,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
@@ -110,6 +110,16 @@ fun CompactRequestItem(
         )
     }
 }
+
+// Aliases for compatibility
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun CompactRequestItem(
+    batch: Batch,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) = CompactBatchItem(batch, onClick, onLongClick, modifier)
 
 @Composable
 fun StatusIndicator(
@@ -197,7 +207,7 @@ fun StatusIndicator(
 }
 
 @Composable
-fun RequestCard(
+fun BatchCard(
     batch: Batch,
     onClick: (() -> Unit)? = null,
     onReplay: (() -> Unit)? = null,
@@ -479,3 +489,29 @@ fun RequestCard(
         }
     }
 }
+
+// Alias for compatibility
+@Composable
+fun RequestCard(
+    batch: Batch,
+    onClick: (() -> Unit)? = null,
+    onReplay: (() -> Unit)? = null,
+    onCancel: (() -> Unit)? = null,
+    onContinue: (() -> Unit)? = null,
+    onSecurityClick: (() -> Unit)? = null,
+    allowAction: Boolean = false,
+    isCancelling: Boolean = false,
+    isActionPending: Boolean = false,
+    modifier: Modifier = Modifier
+) = BatchCard(
+    batch = batch,
+    onClick = onClick,
+    onReplay = onReplay,
+    onCancel = onCancel,
+    onContinue = onContinue,
+    onSecurityClick = onSecurityClick,
+    allowAction = allowAction,
+    isCancelling = isCancelling,
+    isActionPending = isActionPending,
+    modifier = modifier
+)

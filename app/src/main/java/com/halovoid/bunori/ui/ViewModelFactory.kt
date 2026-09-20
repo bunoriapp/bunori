@@ -8,15 +8,15 @@ import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.ReaderRepository
 import com.halovoid.bunori.data.repository.BatchRepository
+import com.halovoid.bunori.ui.feature.browse.BatchDetailViewModel
+import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
 import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
 import com.halovoid.bunori.ui.feature.downloads.DownloadViewModel
+import com.halovoid.bunori.ui.feature.downloads.GroupedBatchViewModel
 import com.halovoid.bunori.ui.feature.library.LibraryViewModel
-import com.halovoid.bunori.ui.feature.novel.GroupedRequestsViewModel
 import com.halovoid.bunori.ui.feature.novel.NovelViewModel
 import com.halovoid.bunori.ui.feature.onboarding.FolderViewModel
 import com.halovoid.bunori.ui.feature.reader.ReaderViewModel
-import com.halovoid.bunori.ui.feature.request.RequestDetailViewModel
-import com.halovoid.bunori.ui.feature.request.RequestViewModel
 import com.halovoid.bunori.ui.feature.search.SearchViewModel
 import com.halovoid.bunori.ui.feature.settings.SettingsViewModel
 
@@ -24,14 +24,14 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when {
-            modelClass.isAssignableFrom(RequestViewModel::class.java) -> {
-                RequestViewModel(application, BatchRepository.getInstance(application)) as T
+            modelClass.isAssignableFrom(BrowseViewModel::class.java) -> {
+                BrowseViewModel(application, BatchRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(SearchViewModel::class.java) -> {
                 SearchViewModel(application) as T
             }
-            modelClass.isAssignableFrom(RequestDetailViewModel::class.java) -> {
-                RequestDetailViewModel(application, BatchRepository.getInstance(application)) as T
+            modelClass.isAssignableFrom(BatchDetailViewModel::class.java) -> {
+                BatchDetailViewModel(application, BatchRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(NovelViewModel::class.java) -> {
                 NovelViewModel(
@@ -56,8 +56,8 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> {
                 SettingsViewModel(application) as T
             }
-            modelClass.isAssignableFrom(GroupedRequestsViewModel::class.java) -> {
-                GroupedRequestsViewModel(application, BatchRepository.getInstance(application)) as T
+            modelClass.isAssignableFrom(GroupedBatchViewModel::class.java) -> {
+                GroupedBatchViewModel(application, BatchRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(DownloadViewModel::class.java) -> {
                 DownloadViewModel(application, BatchRepository.getInstance(application)) as T
@@ -71,7 +71,7 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
                     PreferenceRepository.getInstance(application)
                 ) as T
             }
-            else -> throw IllegalArgumentException("Unknown ViewModel class")
+            else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
 }

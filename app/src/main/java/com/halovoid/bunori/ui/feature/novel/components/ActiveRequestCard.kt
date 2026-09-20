@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.ProgressIndicator
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.request.components.StatusIndicator
+import com.halovoid.bunori.ui.feature.browse.components.StatusIndicator
 
 @Composable
 fun ActiveRequestCard(

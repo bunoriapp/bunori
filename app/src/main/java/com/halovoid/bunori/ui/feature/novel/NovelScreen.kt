@@ -93,7 +93,6 @@ fun NovelScreen(
     novelUrl: String,
     onRequestClick: (String) -> Unit,
     onChapterClick: (String, Int) -> Unit,
-    onActivityClick: () -> Unit,
     onArtifactsClick: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -324,8 +323,7 @@ fun NovelScreen(
                     onFilterClick = { activeDialog = NovelDialogState.FilterSheet },
                     isFilterActive = isFilterActive || isSortModified,
                     onSourceFilterClick = { activeDialog = NovelDialogState.SourceFilterSheet },
-                    isSourceFilterActive = isSourceFilterActive,
-                    onActivityClick = onActivityClick
+                    isSourceFilterActive = isSourceFilterActive
                 )
             }
 

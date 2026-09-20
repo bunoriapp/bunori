@@ -113,6 +113,22 @@ fun ReaderWebView(
         if (isPageReady && webView != null) {
             val json = readerSettings.toJsSettingsJson(primaryHex)
             webView.evaluateJavascript("window.applyReaderSettings($json);", null)
+            injectCustomCss(webView, readerSettings.customCss)
+            injectCustomJs(webView, readerSettings.customJs)
+        }
+    }
+
+    LaunchedEffect(readerSettings.customCss, isPageReady) {
+        val webView = webViewInstance
+        if (isPageReady && webView != null) {
+            injectCustomCss(webView, readerSettings.customCss)
+        }
+    }
+
+    LaunchedEffect(readerSettings.customJs, isPageReady) {
+        val webView = webViewInstance
+        if (isPageReady && webView != null) {
+            injectCustomJs(webView, readerSettings.customJs)
         }
     }
 
@@ -223,6 +239,8 @@ fun ReaderWebView(
                         // Apply current settings and font faces
                         val json = readerSettings.toJsSettingsJson(primaryHex)
                         view.evaluateJavascript("window.applyReaderSettings($json);", null)
+                        injectCustomCss(view, readerSettings.customCss)
+                        injectCustomJs(view, readerSettings.customJs)
 
                         if (customFonts.isNotEmpty()) {
                             val fontCss = buildCustomFontsCss(customFonts)
@@ -414,4 +432,50 @@ private fun openExternalLink(context: Context, url: String) {
         }
         context.startActivity(intent)
     } catch (_: Exception) {}
+}
+
+private fun injectCustomCss(webView: WebView, customCss: String) {
+    val b64Css = encodeB64(customCss)
+    webView.evaluateJavascript(
+        """
+        (function() {
+            let el = document.getElementById('user-custom-css');
+            if (!el) {
+                el = document.createElement('style');
+                el.id = 'user-custom-css';
+            }
+            try {
+                const bin = atob('$b64Css');
+                const bytes = Uint8Array.from(bin, m => m.codePointAt(0));
+                el.textContent = new TextDecoder('utf-8').decode(bytes);
+            } catch(e) {
+                el.textContent = '';
+            }
+            document.head.appendChild(el);
+        })();
+        """.trimIndent(),
+        null
+    )
+}
+
+private fun injectCustomJs(webView: WebView, customJs: String) {
+    if (customJs.isBlank()) return
+    val b64Js = encodeB64(customJs)
+    webView.evaluateJavascript(
+        """
+        (function() {
+            try {
+                const bin = atob('$b64Js');
+                const bytes = Uint8Array.from(bin, m => m.codePointAt(0));
+                const code = new TextDecoder('utf-8').decode(bytes);
+                if (code && code.trim()) {
+                    new Function(code)();
+                }
+            } catch(e) {
+                console.error('Custom JS execution error:', e);
+            }
+        })();
+        """.trimIndent(),
+        null
+    )
 }

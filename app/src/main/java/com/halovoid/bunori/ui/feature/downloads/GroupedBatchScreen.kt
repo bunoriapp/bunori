@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.novel
+package com.halovoid.bunori.ui.feature.downloads
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,12 +13,12 @@ import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.novel.components.RequestFilterSheet
-import com.halovoid.bunori.ui.feature.request.components.RequestActionHandler
-import com.halovoid.bunori.ui.feature.request.components.requestHistorySection
+import com.halovoid.bunori.ui.feature.browse.components.BatchActionHandler
+import com.halovoid.bunori.ui.feature.browse.components.batchHistorySection
+import com.halovoid.bunori.ui.feature.downloads.components.BatchFilterSheet
 
 @Composable
-fun GroupedRequestsScreen(
+fun GroupedBatchScreen(
     type: JobType,
     batches: List<Batch>,
     allBatches: List<Batch>,
@@ -41,7 +41,7 @@ fun GroupedRequestsScreen(
     var showFilterMenu by remember { mutableStateOf(false) }
     val isFilterActive = statusFilters.values.any { it != FilterState.NONE }
 
-    RequestActionHandler(
+    BatchActionHandler(
         onResolveWebview = onResolveWebview
     ) { onSecurityClick ->
         val title = when (type) {
@@ -77,7 +77,7 @@ fun GroupedRequestsScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                requestHistorySection(
+                batchHistorySection(
                     batchHistory = filteredRequests,
                     onRequestClick = onRequestClick,
                     onGroupClick = {},
@@ -95,7 +95,7 @@ fun GroupedRequestsScreen(
     }
 
     if (showFilterMenu) {
-        RequestFilterSheet(
+        BatchFilterSheet(
             allBatches = unfilteredRequestsForType,
             statusFilters = statusFilters,
             onStatusFilterChange = onStatusFilterChange,
@@ -103,3 +103,37 @@ fun GroupedRequestsScreen(
         )
     }
 }
+
+// Alias for compatibility
+@Composable
+fun GroupedRequestsScreen(
+    type: JobType,
+    batches: List<Batch>,
+    allBatches: List<Batch>,
+    statusFilters: Map<JobStatus, FilterState>,
+    onStatusFilterChange: (JobStatus, FilterState) -> Unit,
+    onBack: () -> Unit,
+    onRequestClick: (String) -> Unit,
+    onReplay: (String) -> Unit = {},
+    onCancel: (String) -> Unit = {},
+    onContinue: (String) -> Unit = {},
+    onResolveWebview: (String, String) -> Unit = { _, _ -> },
+    cancellingRequestIds: Set<String> = emptySet(),
+    activeActionIds: Set<String> = emptySet(),
+    allowAction: Boolean = false
+) = GroupedBatchScreen(
+    type = type,
+    batches = batches,
+    allBatches = allBatches,
+    statusFilters = statusFilters,
+    onStatusFilterChange = onStatusFilterChange,
+    onBack = onBack,
+    onRequestClick = onRequestClick,
+    onReplay = onReplay,
+    onCancel = onCancel,
+    onContinue = onContinue,
+    onResolveWebview = onResolveWebview,
+    cancellingRequestIds = cancellingRequestIds,
+    activeActionIds = activeActionIds,
+    allowAction = allowAction
+)

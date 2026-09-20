@@ -34,8 +34,7 @@ fun NovelTopBar(
     onFilterClick: () -> Unit,
     isFilterActive: Boolean,
     onSourceFilterClick: () -> Unit,
-    isSourceFilterActive: Boolean,
-    onActivityClick: (() -> Unit)? = null
+    isSourceFilterActive: Boolean
 ) {
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelectionMode || isOpaque) DarkBackground else Color.Transparent,
@@ -165,16 +164,6 @@ fun NovelTopBar(
                         imageVector = Icons.Default.FilterList,
                         contentDescription = "Filter and Sort"
                     )
-                }
-
-                if (onActivityClick != null) {
-                    IconButton(onClick = onActivityClick) {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = "Activity History",
-                            tint = PrimaryText
-                        )
-                    }
                 }
             }
         }

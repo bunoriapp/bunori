@@ -28,10 +28,10 @@ import com.halovoid.bunori.ui.core.theme.BrandAccent
 import com.halovoid.bunori.ui.core.theme.DarkBackground
 import com.halovoid.bunori.ui.core.theme.PrimaryText
 import com.halovoid.bunori.ui.core.theme.SecondaryText
-import com.halovoid.bunori.ui.feature.request.components.CompactRequestItem
-import com.halovoid.bunori.ui.feature.request.components.FilterBottomSheet
-import com.halovoid.bunori.ui.feature.request.components.RequestActionHandler
-import com.halovoid.bunori.ui.feature.request.components.RequestCard
+import com.halovoid.bunori.ui.feature.browse.components.CompactRequestItem
+import com.halovoid.bunori.ui.feature.browse.components.FilterBottomSheet
+import com.halovoid.bunori.ui.feature.browse.components.RequestActionHandler
+import com.halovoid.bunori.ui.feature.browse.components.RequestCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

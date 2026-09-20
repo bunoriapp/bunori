@@ -36,7 +36,7 @@
   };
 
   function runUserCustomJs() {
-    if (!state.customJs) return;
+    if (!state.customJs || !state.customJs.trim()) return;
     try {
       const fn = new Function(state.customJs);
       fn();
@@ -62,7 +62,7 @@
       return new TextDecoder('utf-8').decode(bytes);
     } catch (e) {
       console.error('Base64 decode error:', e);
-      return '';
+      return str || '';
     }
   }
 
@@ -697,9 +697,9 @@
       if (!cssEl) {
         cssEl = document.createElement('style');
         cssEl.id = 'user-custom-css';
-        document.head.appendChild(cssEl);
       }
       cssEl.textContent = customCss;
+      document.head.appendChild(cssEl);
     }
 
     if (typeof customJs === 'string') {

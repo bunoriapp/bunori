@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.novel
+package com.halovoid.bunori.ui.feature.downloads
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -20,18 +20,18 @@ enum class FilterState {
     }
 }
 
-sealed interface RequestScope {
-    data object All : RequestScope
-    data class ByNovel(val novelUrl: String) : RequestScope
-    data class ByDependency(val requestId: String) : RequestScope
+sealed interface BatchScope {
+    data object All : BatchScope
+    data class ByNovel(val novelUrl: String) : BatchScope
+    data class ByDependency(val requestId: String) : BatchScope
 }
 
-class GroupedRequestsViewModel(
+class GroupedBatchViewModel(
     application: Application,
     private val batchRepository: BatchRepository
 ) : AndroidViewModel(application) {
 
-    private val _scope = MutableStateFlow<RequestScope?>(null)
+    private val _scope = MutableStateFlow<BatchScope?>(null)
     
     private val _statusFilters = MutableStateFlow<Map<JobStatus, FilterState>>(emptyMap())
     val statusFilters: StateFlow<Map<JobStatus, FilterState>> = _statusFilters.asStateFlow()
@@ -53,9 +53,9 @@ class GroupedRequestsViewModel(
     val allRequests: StateFlow<List<Batch>> = _scope.filterNotNull()
         .flatMapLatest { scope ->
             when (scope) {
-                is RequestScope.All -> batchRepository.getRootRequests()
-                is RequestScope.ByNovel -> batchRepository.getRootRequestByNovelFlow(scope.novelUrl)
-                is RequestScope.ByDependency -> batchRepository.getRequestsByDependenceFlow(scope.requestId)
+                is BatchScope.All -> batchRepository.getRootRequests()
+                is BatchScope.ByNovel -> batchRepository.getRootRequestByNovelFlow(scope.novelUrl)
+                is BatchScope.ByDependency -> batchRepository.getRequestsByDependenceFlow(scope.requestId)
             }
         }
         .stateIn(
@@ -88,14 +88,14 @@ class GroupedRequestsViewModel(
 
     fun loadRequests(contextType: String, contextValue: String) {
         _scope.value = when (contextType.uppercase()) {
-            "ALL" -> RequestScope.All
-            "NOVEL" -> RequestScope.ByNovel(contextValue)
-            "DEPENDENCY" -> RequestScope.ByDependency(contextValue)
-            else -> RequestScope.All
+            "ALL" -> BatchScope.All
+            "NOVEL" -> BatchScope.ByNovel(contextValue)
+            "DEPENDENCY" -> BatchScope.ByDependency(contextValue)
+            else -> BatchScope.All
         }
     }
 
-    fun loadScope(scope: RequestScope) {
+    fun loadScope(scope: BatchScope) {
         _scope.value = scope
     }
 

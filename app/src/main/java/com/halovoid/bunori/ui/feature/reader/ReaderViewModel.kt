@@ -381,6 +381,10 @@ class ReaderViewModel(
         preferenceRepository.updateCustomJs(js)
     }
 
+    fun updateCustomCode(css: String, js: String) = viewModelScope.launch {
+        preferenceRepository.updateCustomCode(css, js)
+    }
+
     fun addCustomFont(font: CustomFont) = viewModelScope.launch {
         preferenceRepository.addCustomFont(font)
     }

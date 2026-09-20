@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.request.components
+package com.halovoid.bunori.ui.feature.browse.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -16,13 +16,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.domain.models.Novel
-import com.halovoid.bunori.ui.feature.request.RequestViewModel
+import com.halovoid.bunori.ui.core.theme.*
+import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
 
 @Composable
-fun ManualRequestContent(
-    viewModel: RequestViewModel,
+fun ManualCrawlForm(
+    viewModel: BrowseViewModel,
     searchUrl: String?,
     libraryUrls: Set<String>,
     onNavigateToDetail: (String, String) -> Unit
@@ -166,6 +166,15 @@ fun ManualRequestContent(
         }
     }
 }
+
+// Alias for compatibility
+@Composable
+fun ManualRequestContent(
+    viewModel: BrowseViewModel,
+    searchUrl: String?,
+    libraryUrls: Set<String>,
+    onNavigateToDetail: (String, String) -> Unit
+) = ManualCrawlForm(viewModel, searchUrl, libraryUrls, onNavigateToDetail)
 
 @Composable
 fun StepItem(number: String, title: String, description: String) {

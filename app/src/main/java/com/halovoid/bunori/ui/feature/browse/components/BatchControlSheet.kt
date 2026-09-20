@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.request.components
+package com.halovoid.bunori.ui.feature.browse.components
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
@@ -30,7 +30,7 @@ data class ControlTab(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ControlSheet(
+fun BatchControlSheet(
     tabs: List<ControlTab>,
     onDismiss: () -> Unit,
     initialTab: ControlTabType = tabs.firstOrNull()?.type ?: ControlTabType.FILTER

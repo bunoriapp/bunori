@@ -2,7 +2,6 @@ package com.halovoid.bunori.ui.navigation
 
 import android.app.Application
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,16 +21,19 @@ import androidx.navigation.navArgument
 import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.ui.ViewModelFactory
+import com.halovoid.bunori.ui.feature.browse.BatchDetailScreen
+import com.halovoid.bunori.ui.feature.browse.BrowseScreen
+import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
 import com.halovoid.bunori.ui.feature.crawler.CrawlerScreen
 import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
 import com.halovoid.bunori.ui.feature.crawler.ExtensionInfoScreen
 import com.halovoid.bunori.ui.feature.downloads.DownloadScreen
 import com.halovoid.bunori.ui.feature.downloads.DownloadViewModel
+import com.halovoid.bunori.ui.feature.downloads.GroupedBatchScreen
+import com.halovoid.bunori.ui.feature.downloads.GroupedBatchViewModel
+import com.halovoid.bunori.ui.feature.layout.LayoutSettingsScreen
 import com.halovoid.bunori.ui.feature.library.LibraryScreen
 import com.halovoid.bunori.ui.feature.library.LibraryViewModel
-import com.halovoid.bunori.ui.feature.novel.GroupedRequestsScreen
-import com.halovoid.bunori.ui.feature.novel.GroupedRequestsViewModel
-import com.halovoid.bunori.ui.feature.novel.NovelActivityScreen
 import com.halovoid.bunori.ui.feature.novel.NovelArtifactsScreen
 import com.halovoid.bunori.ui.feature.novel.NovelScreen
 import com.halovoid.bunori.ui.feature.novel.NovelViewModel
@@ -41,24 +43,19 @@ import com.halovoid.bunori.ui.feature.onboarding.PermissionScreen
 import com.halovoid.bunori.ui.feature.onboarding.WelcomeScreen
 import com.halovoid.bunori.ui.feature.reader.ReaderScreen
 import com.halovoid.bunori.ui.feature.reader.ReaderViewModel
-import com.halovoid.bunori.ui.feature.layout.LayoutSettingsScreen
-import com.halovoid.bunori.ui.feature.request.ManualRequestScreen
-import com.halovoid.bunori.ui.feature.request.RequestDetailScreen
-import com.halovoid.bunori.ui.feature.request.RequestScreen
-import com.halovoid.bunori.ui.feature.request.RequestViewModel
 import com.halovoid.bunori.ui.feature.search.SearchScreen
 import com.halovoid.bunori.ui.feature.search.SearchViewModel
 import com.halovoid.bunori.ui.feature.settings.AdvancedSettingsScreen
-import com.halovoid.bunori.ui.feature.settings.WebViewSettingsScreen
-import com.halovoid.bunori.ui.feature.settings.ManualCookieScreen
 import com.halovoid.bunori.ui.feature.settings.BackupSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.DownloadPreferencesScreen
 import com.halovoid.bunori.ui.feature.settings.ExtensionSettingsScreen
+import com.halovoid.bunori.ui.feature.settings.ManualCookieScreen
 import com.halovoid.bunori.ui.feature.settings.MoreScreen
 import com.halovoid.bunori.ui.feature.settings.SettingsViewModel
 import com.halovoid.bunori.ui.feature.settings.SupportSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.ThemeSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.UpdateDetailScreen
+import com.halovoid.bunori.ui.feature.settings.WebViewSettingsScreen
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.net.URLDecoder
@@ -68,7 +65,9 @@ sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
     object Permissions : Screen("permissions")
     object FolderSelection: Screen("folder_selection")
-    object Request : Screen("request")
+    object Browse : Screen("request")
+    val Request: Screen get() = Browse
+
     object Search : Screen("search?source={source}") {
         fun createRoute(source: String? = null) = if (source != null) {
             "search?source=${URLEncoder.encode(source, "UTF-8")}"
@@ -94,19 +93,20 @@ sealed class Screen(val route: String) {
     object SupportSettings : Screen("support_settings")
     object BackupSettings : Screen("backup_settings")
     object UpdateDetail : Screen("update_detail")
-    object RequestDetail : Screen("request_detail/{requestId}") {
+    object BatchDetail : Screen("request_detail/{requestId}") {
         fun createRoute(requestId: String) = "request_detail/${URLEncoder.encode(requestId, "UTF-8")}"
     }
+    object RequestDetail {
+        fun createRoute(requestId: String) = BatchDetail.createRoute(requestId)
+    }
+
     object Novel : Screen("novel/{crawlerName}/{novelUrl}") {
         fun createRoute(crawlerName: String, novelUrl: String) = "novel/$crawlerName/${URLEncoder.encode(novelUrl, "UTF-8")}"
-    }
-    object NovelActivity : Screen("novel_activity/{novelUrl}") {
-        fun createRoute(novelUrl: String) = "novel_activity/${URLEncoder.encode(novelUrl, "UTF-8")}"
     }
     object NovelArtifacts : Screen("novel_artifacts/{novelUrl}") {
         fun createRoute(novelUrl: String) = "novel_artifacts/${URLEncoder.encode(novelUrl, "UTF-8")}"
     }
-    object GroupedRequests : Screen("grouped_requests/{contextType}/{contextValue}/{type}") {
+    object GroupedBatches : Screen("grouped_requests/{contextType}/{contextValue}/{type}") {
         fun createRoute(contextType: String, contextValue: String, type: String) = 
             "grouped_requests/$contextType/${URLEncoder.encode(contextValue, "UTF-8")}/$type"
     }
@@ -114,7 +114,6 @@ sealed class Screen(val route: String) {
         fun createRoute(novelUrl: String, initialChapterId: Int) = 
             "reader/${URLEncoder.encode(novelUrl, "UTF-8")}/$initialChapterId"
     }
-    object ManualRequest : Screen("manual_request")
 }
 
 @Composable
@@ -128,483 +127,383 @@ fun NavGraph(navController: NavHostController) {
     LaunchedEffect(Unit) {
         val folderUri = preferenceRepository.exportFolderUri.first()
         val onboardingCompleted = preferenceRepository.isOnboardingCompleted.first()
-
+        
         startRoute = if (onboardingCompleted && folderUri != null) {
             Screen.Library.route
-        } else if (!onboardingCompleted) {
-            Screen.Welcome.route
         } else {
-            Screen.FolderSelection.route
+            Screen.Welcome.route
         }
     }
-    startRoute?.let { route ->
-        NavHost(
-            navController = navController,
-            startDestination = route,
-            enterTransition = {
-                fadeIn(animationSpec = tween(200))
-            },
-            exitTransition = {
-                fadeOut(animationSpec = tween(200))
-            },
-            popEnterTransition = {
-                fadeIn(animationSpec = tween(200))
-            },
-            popExitTransition = {
-                fadeOut(animationSpec = tween(200))
-            }
-        ) {
-            composable(Screen.Welcome.route) {
-                WelcomeScreen(
-                    onNext = {
-                        navController.navigate(Screen.FolderSelection.route)
-                    }
-                )
-            }
-            composable(Screen.FolderSelection.route) {
-                val folderViewModel: FolderViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                FolderScreen(
-                    folderViewModel,
-                    onNext = {
-                        navController.navigate(Screen.Permissions.route)
-                    }
-                )
-            }
-            composable(Screen.Permissions.route) {
-                PermissionScreen(
-                    onNext = {
-                        scope.launch {
-                            preferenceRepository.setOnboardingCompleted(true)
-                            navController.navigate(Screen.Request.route) {
-                                popUpTo(Screen.FolderSelection.route) {
-                                    inclusive = true
-                                }
-                            }
+
+    if (startRoute == null) return
+
+    NavHost(
+        navController = navController,
+        startDestination = startRoute!!
+    ) {
+        composable(Screen.Welcome.route) {
+            WelcomeScreen(
+                onNext = {
+                    navController.navigate(Screen.Permissions.route)
+                }
+            )
+        }
+        composable(Screen.Permissions.route) {
+            PermissionScreen(
+                onNext = {
+                    navController.navigate(Screen.FolderSelection.route)
+                }
+            )
+        }
+        composable(Screen.FolderSelection.route) {
+            val folderViewModel: FolderViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            FolderScreen(
+                viewModel = folderViewModel,
+                onNext = {
+                    scope.launch {
+                        preferenceRepository.setOnboardingCompleted(true)
+                        navController.navigate(Screen.Library.route) {
+                            popUpTo(Screen.Welcome.route) { inclusive = true }
                         }
                     }
-                )
-            }
-            composable(Screen.Request.route) { backStackEntry ->
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(navController.graph.id)
                 }
-                val requestViewModel: RequestViewModel = viewModel(
-                    viewModelStoreOwner = parentEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
-                val crawlerViewModel: CrawlerViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                RequestScreen(
-                    viewModel = requestViewModel,
-                    crawlerViewModel = crawlerViewModel,
-                    onNavigateToSearch = { sourceName ->
-                        navController.navigate(Screen.Search.createRoute(sourceName))
-                    },
-                    onNavigateToExtensionSettings = {
-                        navController.navigate(Screen.ExtensionSettings.route)
-                    },
-                    onNavigateToExtensionInfo = { extensionId ->
-                        navController.navigate(Screen.ExtensionInfo.createRoute(extensionId))
-                    }
-                )
+            )
+        }
+        composable(Screen.Browse.route) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(navController.graph.id)
             }
-            composable(
-                route = Screen.Search.route,
-                arguments = listOf(
-                    navArgument("source") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    }
-                )
-            ) { backStackEntry ->
-                val sourceParam = backStackEntry.arguments?.getString("source")?.let {
-                    try { URLDecoder.decode(it, "UTF-8") } catch (e: Exception) { it }
+            val browseViewModel: BrowseViewModel = viewModel(
+                viewModelStoreOwner = parentEntry,
+                factory = remember { ViewModelFactory(application) }
+            )
+            val crawlerViewModel: CrawlerViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            BrowseScreen(
+                viewModel = browseViewModel,
+                crawlerViewModel = crawlerViewModel,
+                onNavigateToSearch = { sourceName ->
+                    navController.navigate(Screen.Search.createRoute(sourceName))
+                },
+                onNavigateToExtensionSettings = {
+                    navController.navigate(Screen.ExtensionSettings.route)
+                },
+                onNavigateToExtensionInfo = { extensionId ->
+                    navController.navigate(Screen.ExtensionInfo.createRoute(extensionId))
                 }
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(navController.graph.id)
+            )
+        }
+        composable(
+            route = Screen.Search.route,
+            arguments = listOf(
+                navArgument("source") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
-                val requestViewModel: RequestViewModel = viewModel(
-                    viewModelStoreOwner = parentEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
-                val searchViewModel: SearchViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                SearchScreen(
-                    viewModel = searchViewModel,
-                    requestViewModel = requestViewModel,
-                    initialSource = sourceParam,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToRequest = {
-                        navController.navigate(Screen.ManualRequest.route)
-                    },
-                    onNavigateToDetail = { crawlerName, novelUrl ->
-                        navController.navigate(
-                            Screen.Novel.createRoute(
-                                crawlerName,
-                                novelUrl
-                            )
-                        )
-                    }
-                )
+            )
+        ) { backStackEntry ->
+            val sourceParam = backStackEntry.arguments?.getString("source")?.let {
+                try { URLDecoder.decode(it, "UTF-8") } catch (e: Exception) { it }
             }
-            composable(Screen.ManualRequest.route) { backStackEntry ->
-                val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(navController.graph.id)
+            val searchViewModel: SearchViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            val browseViewModel: BrowseViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+
+            SearchScreen(
+                viewModel = searchViewModel,
+                browseViewModel = browseViewModel,
+                initialSource = sourceParam,
+                onBack = { navController.popBackStack() },
+                onNavigateToDetail = { crawlerName, novelUrl ->
+                    navController.navigate(Screen.Novel.createRoute(crawlerName, novelUrl))
                 }
-                val requestViewModel: RequestViewModel = viewModel(
-                    viewModelStoreOwner = parentEntry,
-                    factory = remember { ViewModelFactory(application) }
-                )
-                ManualRequestScreen(
-                    viewModel = requestViewModel,
-                    searchUrl = null,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToDetail = { crawlerName, novelUrl ->
-                        navController.navigate(
-                            Screen.Novel.createRoute(
-                                crawlerName,
-                                novelUrl
-                            )
-                        )
-                    }
-                )
-            }
-            composable(Screen.Library.route) {
-                val libraryViewModel: LibraryViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                LibraryScreen(
-                    viewModel = libraryViewModel,
-                    onNovelClick = { crawlerName, novelUrl ->
-                        navController.navigate(
-                            Screen.Novel.createRoute(
-                                crawlerName,
-                                novelUrl
-                            )
-                        )
-                    },
-                    onBackClick = {
-                        navController.popBackStack()
-                    }
-                )
-            }
-            composable(Screen.History.route) {
-                val downloadViewModel: DownloadViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                DownloadScreen(
-                    viewModel = downloadViewModel,
-                    onRequestClick = { requestId: String ->
-                        navController.navigate(Screen.RequestDetail.createRoute(requestId))
-                    },
-                    onGroupClick = { type: JobType ->
-                        navController.navigate(Screen.GroupedRequests.createRoute("ALL", "all", type.name))
-                    }
-                )
-            }
-            composable(Screen.Crawlers.route) {
-                val crawlerViewModel: CrawlerViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                CrawlerScreen(
-                    viewModel = crawlerViewModel,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToExtensionSettings = {
-                        navController.navigate(Screen.ExtensionSettings.route)
-                    },
-                    onNavigateToExtensionInfo = { extensionId ->
-                        navController.navigate(Screen.ExtensionInfo.createRoute(extensionId))
-                    }
-                )
-            }
-            composable(Screen.ExtensionInfo.route) { backStackEntry ->
-                val encodedId = backStackEntry.arguments?.getString("extensionId") ?: ""
-                val extensionId = URLDecoder.decode(encodedId, "UTF-8")
-                val crawlerViewModel: CrawlerViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                ExtensionInfoScreen(
-                    extensionId = extensionId,
-                    viewModel = crawlerViewModel,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-            composable(Screen.Downloads.route) {
-                val downloadViewModel: DownloadViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                DownloadScreen(
-                    viewModel = downloadViewModel,
-                    onRequestClick = { requestId: String ->
-                        navController.navigate(Screen.RequestDetail.createRoute(requestId))
-                    },
-                    onGroupClick = { type: JobType ->
-                        navController.navigate(Screen.GroupedRequests.createRoute("ALL", "all", type.name))
-                    }
-                )
-            }
-            composable(Screen.Support.route) {
-                val settingsViewModel: SettingsViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                MoreScreen(
-                    viewModel = settingsViewModel,
-                    onNavigateToLayout = {
-                        navController.navigate(Screen.LayoutSettings.route)
-                    },
-                    onNavigateToDownloadsPref = {
-                        navController.navigate(Screen.DownloadPreferences.route)
-                    },
-                    onNavigateToAdvanced = {
-                        navController.navigate(Screen.AdvancedSettings.route)
-                    },
-                    onNavigateToSupportSettings = {
-                        navController.navigate(Screen.SupportSettings.route)
-                    },
-                    onNavigateToBackupSettings = {
-                        navController.navigate(Screen.BackupSettings.route)
-                    },
-                    onNavigateToUpdate = {
-                        navController.navigate(Screen.UpdateDetail.route)
-                    },
-                    onNavigateToThemeSettings = {
-                        navController.navigate(Screen.ThemeSettings.route)
-                    },
-                    onNavigateToExtensionSettings = {
-                        navController.navigate(Screen.ExtensionSettings.route)
-                    }
-                )
-            }
-            composable(Screen.ThemeSettings.route) { backStackEntry ->
-                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
-                ThemeSettingsScreen(
-                    viewModel = settingsViewModel,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-            composable(Screen.BackupSettings.route) { backStackEntry ->
-                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
-                BackupSettingsScreen(
-                    viewModel = settingsViewModel,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-            composable(Screen.UpdateDetail.route) { backStackEntry ->
-                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
-                UpdateDetailScreen(
-                    viewModel = settingsViewModel,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-            composable(Screen.DownloadPreferences.route) { backStackEntry ->
-                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
-                DownloadPreferencesScreen(
-                    viewModel = settingsViewModel,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-            composable(Screen.LayoutSettings.route) { backStackEntry ->
-                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
-                LayoutSettingsScreen(
-                    viewModel = settingsViewModel,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-            composable(Screen.ExtensionSettings.route) { backStackEntry ->
-                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
-                ExtensionSettingsScreen(
-                    viewModel = settingsViewModel,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-            composable(Screen.AdvancedSettings.route) { backStackEntry ->
-                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
-                AdvancedSettingsScreen(
-                    viewModel = settingsViewModel,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToWebView = { navController.navigate(Screen.WebViewSettings.route) }
-                )
-            }
-            composable(Screen.WebViewSettings.route) { backStackEntry ->
-                val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
-                WebViewSettingsScreen(
-                    viewModel = settingsViewModel,
-                    onBack = { navController.popBackStack() },
-                    onNavigateToManualCookies = { navController.navigate(Screen.ManualCookies.route) }
-                )
-            }
-            composable(Screen.ManualCookies.route) {
-                ManualCookieScreen(
-                    onBack = { navController.popBackStack() }
-                )
-            }
-            composable(Screen.SupportSettings.route) {
-                SupportSettingsScreen(
-                    onBack = { navController.popBackStack() }
-                )
-            }
-            composable(Screen.RequestDetail.route) { backStackEntry ->
-                val encodedId = backStackEntry.arguments?.getString("requestId") ?: ""
-                val requestId = URLDecoder.decode(encodedId, "UTF-8")
-
-                RequestDetailScreen(
-                    requestId = requestId,
-                    onBackClick = {
-                        navController.popBackStack()
-                    },
-                    onGroupClick = { type ->
-                        navController.navigate(Screen.GroupedRequests.createRoute("DEPENDENCY", requestId, type.name))
-                    },
-                    onRequestClick = { id ->
-                        navController.navigate(Screen.RequestDetail.createRoute(id))
-                    }
-                )
-            }
-            composable(Screen.Novel.route) { backStackEntry ->
-                val crawlerName = backStackEntry.arguments?.getString("crawlerName") ?: ""
-                val novelUrl = URLDecoder.decode(
-                    backStackEntry.arguments?.getString("novelUrl") ?: "",
-                    "UTF-8"
-                )
-                NovelScreen(
-                    novelUrl = novelUrl,
-                    onRequestClick = { requestId ->
-                        navController.navigate(Screen.RequestDetail.createRoute(requestId))
-                    },
-                    onChapterClick = { url, chapterId ->
-                        navController.navigate(Screen.Reader.createRoute(url, chapterId))
-                    },
-                    onBack = {
-                        navController.popBackStack()
-                    },
-                    onActivityClick = {
-                        navController.navigate(Screen.NovelActivity.createRoute(novelUrl))
-                    },
-                    onArtifactsClick = {
-                        navController.navigate(Screen.NovelArtifacts.createRoute(novelUrl))
-                    }
-                )
-            }
-            composable(Screen.NovelActivity.route) { backStackEntry ->
-                val novelUrl = URLDecoder.decode(
-                    backStackEntry.arguments?.getString("novelUrl") ?: "",
-                    "UTF-8"
-                )
-                val viewModel: GroupedRequestsViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                LaunchedEffect(novelUrl) {
-                    viewModel.loadRequests("NOVEL", novelUrl)
+            )
+        }
+        composable(Screen.Library.route) {
+            val libraryViewModel: LibraryViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            LibraryScreen(
+                viewModel = libraryViewModel,
+                onNovelClick = { crawlerName, novelUrl ->
+                    navController.navigate(Screen.Novel.createRoute(crawlerName, novelUrl))
+                },
+                onBackClick = {
+                    navController.popBackStack()
                 }
-                val requests by viewModel.requests.collectAsStateWithLifecycle()
-                val cancellingRequestIds by viewModel.cancellingRequestIds.collectAsStateWithLifecycle()
-                val activeActionIds by viewModel.activeActionIds.collectAsStateWithLifecycle()
-
-                NovelActivityScreen(
-                    batches = requests,
-                    onBack = { navController.popBackStack() },
-                    onRequestClick = { requestId ->
-                        navController.navigate(Screen.RequestDetail.createRoute(requestId))
-                    },
-                    onReplay = { viewModel.replayRequest(it) },
-                    onCancel = { viewModel.cancelRequest(it) },
-                    onContinue = { viewModel.resumeRequest(it) },
-                    onResolveWebview = { requestId, url ->
-                        viewModel.resolveWebView(requestId, url)
-                    },
-                    cancellingRequestIds = cancellingRequestIds,
-                    activeActionIds = activeActionIds
-                )
-            }
-            composable(Screen.NovelArtifacts.route) { backStackEntry ->
-                val novelUrl = URLDecoder.decode(
-                    backStackEntry.arguments?.getString("novelUrl") ?: "",
-                    "UTF-8"
-                )
-                val viewModel: NovelViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-                LaunchedEffect(novelUrl) {
-                    viewModel.loadNovel(novelUrl)
+            )
+        }
+        composable(Screen.Crawlers.route) {
+            val crawlerViewModel: CrawlerViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            CrawlerScreen(
+                viewModel = crawlerViewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToExtensionSettings = {
+                    navController.navigate(Screen.ExtensionSettings.route)
+                },
+                onNavigateToExtensionInfo = { extensionId ->
+                    navController.navigate(Screen.ExtensionInfo.createRoute(extensionId))
                 }
-                val artifacts by viewModel.artifacts.collectAsStateWithLifecycle()
-                val novel by viewModel.novel.collectAsStateWithLifecycle()
-
-                NovelArtifactsScreen(
-                    novel = novel,
-                    artifacts = artifacts,
-                    onBack = { navController.popBackStack() },
-                    onDownload = { _ -> },
-                    viewModel = viewModel
-                )
-            }
-            composable(Screen.GroupedRequests.route) { backStackEntry ->
-                val contextType = backStackEntry.arguments?.getString("contextType") ?: ""
-                val contextValue = URLDecoder.decode(
-                    backStackEntry.arguments?.getString("contextValue") ?: "",
-                    "UTF-8"
-                )
-                val typeName = backStackEntry.arguments?.getString("type") ?: ""
-                val type = JobType.valueOf(typeName)
-
-                val viewModel: GroupedRequestsViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
-
-                LaunchedEffect(contextType, contextValue) {
-                    viewModel.loadRequests(contextType, contextValue)
+            )
+        }
+        composable(Screen.ExtensionInfo.route) { backStackEntry ->
+            val encodedId = backStackEntry.arguments?.getString("extensionId") ?: ""
+            val extensionId = URLDecoder.decode(encodedId, "UTF-8")
+            val crawlerViewModel: CrawlerViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            ExtensionInfoScreen(
+                extensionId = extensionId,
+                viewModel = crawlerViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Downloads.route) {
+            val downloadViewModel: DownloadViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            DownloadScreen(
+                viewModel = downloadViewModel,
+                onRequestClick = { requestId: String ->
+                    navController.navigate(Screen.BatchDetail.createRoute(requestId))
+                },
+                onGroupClick = { type: JobType ->
+                    navController.navigate(Screen.GroupedBatches.createRoute("ALL", "all", type.name))
                 }
+            )
+        }
+        composable(Screen.Support.route) {
+            val settingsViewModel = rememberSettingsViewModel(navController, it, application)
+            MoreScreen(
+                viewModel = settingsViewModel,
+                onNavigateToLayout = {
+                    navController.navigate(Screen.LayoutSettings.route)
+                },
+                onNavigateToThemeSettings = {
+                    navController.navigate(Screen.ThemeSettings.route)
+                },
+                onNavigateToDownloadsPref = {
+                    navController.navigate(Screen.DownloadPreferences.route)
+                },
+                onNavigateToExtensionSettings = {
+                    navController.navigate(Screen.ExtensionSettings.route)
+                },
+                onNavigateToAdvanced = {
+                    navController.navigate(Screen.AdvancedSettings.route)
+                },
+                onNavigateToBackupSettings = {
+                    navController.navigate(Screen.BackupSettings.route)
+                },
+                onNavigateToSupportSettings = {
+                    navController.navigate(Screen.SupportSettings.route)
+                },
+                onNavigateToUpdate = {
+                    navController.navigate(Screen.UpdateDetail.route)
+                }
+            )
+        }
+        composable(Screen.DownloadPreferences.route) { backStackEntry ->
+            val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
+            DownloadPreferencesScreen(
+                viewModel = settingsViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.LayoutSettings.route) { backStackEntry ->
+            val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
+            LayoutSettingsScreen(
+                viewModel = settingsViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.ThemeSettings.route) { backStackEntry ->
+            val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
+            ThemeSettingsScreen(
+                viewModel = settingsViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.ExtensionSettings.route) { backStackEntry ->
+            val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
+            ExtensionSettingsScreen(
+                viewModel = settingsViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.AdvancedSettings.route) { backStackEntry ->
+            val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
+            AdvancedSettingsScreen(
+                viewModel = settingsViewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToWebView = {
+                    navController.navigate(Screen.WebViewSettings.route)
+                }
+            )
+        }
+        composable(Screen.WebViewSettings.route) { backStackEntry ->
+            val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
+            WebViewSettingsScreen(
+                viewModel = settingsViewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToManualCookies = {
+                    navController.navigate(Screen.ManualCookies.route)
+                }
+            )
+        }
+        composable(Screen.ManualCookies.route) {
+            ManualCookieScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.BackupSettings.route) { backStackEntry ->
+            val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
+            BackupSettingsScreen(
+                viewModel = settingsViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.UpdateDetail.route) { backStackEntry ->
+            val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
+            UpdateDetailScreen(
+                viewModel = settingsViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.SupportSettings.route) {
+            SupportSettingsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.BatchDetail.route) { backStackEntry ->
+            val encodedId = backStackEntry.arguments?.getString("requestId") ?: ""
+            val requestId = URLDecoder.decode(encodedId, "UTF-8")
 
-                val requests by viewModel.requests.collectAsStateWithLifecycle()
-                val allRequests by viewModel.allRequests.collectAsStateWithLifecycle()
-                val cancellingRequestIds by viewModel.cancellingRequestIds.collectAsStateWithLifecycle()
-                val activeActionIds by viewModel.activeActionIds.collectAsStateWithLifecycle()
-                val statusFilters by viewModel.statusFilters.collectAsStateWithLifecycle()
-
-                GroupedRequestsScreen(
-                    type = type,
-                    batches = requests,
-                    allBatches = allRequests,
-                    statusFilters = statusFilters,
-                    onStatusFilterChange = { status, state -> viewModel.setStatusFilter(status, state) },
-                    onBack = { navController.popBackStack() },
-                    onRequestClick = { requestId ->
-                        navController.navigate(Screen.RequestDetail.createRoute(requestId))
-                    },
-                    onReplay = { viewModel.replayRequest(it) },
-                    onCancel = { viewModel.cancelRequest(it) },
-                    onContinue = { viewModel.resumeRequest(it) },
-                    onResolveWebview = { requestId, url ->
-                        viewModel.resolveWebView(requestId, url)
-                    },
-                    cancellingRequestIds = cancellingRequestIds,
-                    activeActionIds = activeActionIds,
-                    allowAction = contextType == "ALL" || contextType == "DEPENDENCY"
-                )
+            BatchDetailScreen(
+                requestId = requestId,
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onGroupClick = { type ->
+                    navController.navigate(Screen.GroupedBatches.createRoute("DEPENDENCY", requestId, type.name))
+                },
+                onRequestClick = { id ->
+                    navController.navigate(Screen.BatchDetail.createRoute(id))
+                }
+            )
+        }
+        composable(Screen.Novel.route) { backStackEntry ->
+            val novelUrl = URLDecoder.decode(
+                backStackEntry.arguments?.getString("novelUrl") ?: "",
+                "UTF-8"
+            )
+            NovelScreen(
+                novelUrl = novelUrl,
+                onRequestClick = { requestId ->
+                    navController.navigate(Screen.BatchDetail.createRoute(requestId))
+                },
+                onChapterClick = { url, chapterId ->
+                    navController.navigate(Screen.Reader.createRoute(url, chapterId))
+                },
+                onBack = {
+                    navController.popBackStack()
+                },
+                onArtifactsClick = {
+                    navController.navigate(Screen.NovelArtifacts.createRoute(novelUrl))
+                }
+            )
+        }
+        composable(Screen.NovelArtifacts.route) { backStackEntry ->
+            val novelUrl = URLDecoder.decode(
+                backStackEntry.arguments?.getString("novelUrl") ?: "",
+                "UTF-8"
+            )
+            val viewModel: NovelViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            LaunchedEffect(novelUrl) {
+                viewModel.loadNovel(novelUrl)
             }
-            composable(Screen.Reader.route) { backStackEntry ->
-                val novelUrl = URLDecoder.decode(
-                    backStackEntry.arguments?.getString("novelUrl") ?: "",
-                    "UTF-8"
-                )
-                val initialChapterId = backStackEntry.arguments?.getString("initialChapterId")?.toIntOrNull() ?: -1
+            val artifacts by viewModel.artifacts.collectAsStateWithLifecycle()
+            val novel by viewModel.novel.collectAsStateWithLifecycle()
 
-                val viewModel: ReaderViewModel = viewModel(
-                    factory = remember { ViewModelFactory(application) }
-                )
+            NovelArtifactsScreen(
+                novel = novel,
+                artifacts = artifacts,
+                onBack = { navController.popBackStack() },
+                onDownload = { _ -> },
+                viewModel = viewModel
+            )
+        }
+        composable(Screen.GroupedBatches.route) { backStackEntry ->
+            val contextType = backStackEntry.arguments?.getString("contextType") ?: ""
+            val contextValue = URLDecoder.decode(
+                backStackEntry.arguments?.getString("contextValue") ?: "",
+                "UTF-8"
+            )
+            val typeName = backStackEntry.arguments?.getString("type") ?: ""
+            val type = JobType.valueOf(typeName)
 
-                ReaderScreen(
-                    novelUrl = novelUrl,
-                    initialChapterId = initialChapterId,
-                    onBack = { navController.popBackStack() },
-                    viewModel = viewModel
-                )
+            val viewModel: GroupedBatchViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+
+            LaunchedEffect(contextType, contextValue) {
+                viewModel.loadRequests(contextType, contextValue)
             }
+
+            val requests by viewModel.requests.collectAsStateWithLifecycle()
+            val allRequests by viewModel.allRequests.collectAsStateWithLifecycle()
+            val cancellingRequestIds by viewModel.cancellingRequestIds.collectAsStateWithLifecycle()
+            val activeActionIds by viewModel.activeActionIds.collectAsStateWithLifecycle()
+            val statusFilters by viewModel.statusFilters.collectAsStateWithLifecycle()
+
+            GroupedBatchScreen(
+                type = type,
+                batches = requests,
+                allBatches = allRequests,
+                statusFilters = statusFilters,
+                onStatusFilterChange = { status, state -> viewModel.setStatusFilter(status, state) },
+                onBack = { navController.popBackStack() },
+                onRequestClick = { requestId ->
+                    navController.navigate(Screen.BatchDetail.createRoute(requestId))
+                },
+                onReplay = { viewModel.replayRequest(it) },
+                onCancel = { viewModel.cancelRequest(it) },
+                onContinue = { viewModel.resumeRequest(it) },
+                onResolveWebview = { requestId, url ->
+                    viewModel.resolveWebView(requestId, url)
+                },
+                cancellingRequestIds = cancellingRequestIds,
+                activeActionIds = activeActionIds,
+                allowAction = contextType == "ALL" || contextType == "DEPENDENCY"
+            )
+        }
+        composable(Screen.Reader.route) { backStackEntry ->
+            val novelUrl = URLDecoder.decode(
+                backStackEntry.arguments?.getString("novelUrl") ?: "",
+                "UTF-8"
+            )
+            val initialChapterId = backStackEntry.arguments?.getString("initialChapterId")?.toIntOrNull() ?: -1
+
+            val viewModel: ReaderViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+
+            ReaderScreen(
+                novelUrl = novelUrl,
+                initialChapterId = initialChapterId,
+                onBack = { navController.popBackStack() },
+                viewModel = viewModel
+            )
         }
     }
 }
@@ -616,7 +515,7 @@ private fun rememberSettingsViewModel(
     application: Application
 ): SettingsViewModel {
     val owner = remember(backStackEntry) {
-        runCatching { navController.getBackStackEntry(Screen.Support.route) }.getOrNull() ?: backStackEntry
+        navController.getBackStackEntry(navController.graph.id)
     }
     return viewModel(
         viewModelStoreOwner = owner,
