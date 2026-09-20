@@ -50,6 +50,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
+import com.halovoid.bunori.ui.core.components.AppDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -98,9 +100,11 @@ fun ExtensionInfoScreen(
         extensionItems.firstOrNull { it.id == extensionId }
     }
 
+    val isActionInProgress = inProgressIds.contains(extensionId)
+
     // Auto-navigate back if extension was uninstalled
     LaunchedEffect(item) {
-        if (item != null && !item.isInstalled && !inProgressIds.contains(extensionId)) {
+        if (item != null && !item.isInstalled && !isActionInProgress) {
             onBack()
         }
     }
@@ -129,11 +133,67 @@ fun ExtensionInfoScreen(
                     }
                     Text(
                         text = "Extension Info",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = PrimaryText,
-                        modifier = Modifier.padding(start = 4.dp)
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .padding(start = 4.dp)
+                            .weight(1f, fill = false)
                     )
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    if (item != null) {
+                        if (item.hasUpdate) {
+                            Button(
+                                onClick = {
+                                    item.repoEntry?.let { entry -> viewModel.installExtension(entry) }
+                                },
+                                enabled = !isActionInProgress,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = BrandAccent,
+                                    contentColor = Color.White
+                                ),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                if (isActionInProgress) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Update,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Update",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+
+                        IconButton(
+                            onClick = { showUninstallConfirmation = true },
+                            enabled = !isActionInProgress
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Uninstall",
+                                tint = PrimaryText
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -263,170 +323,72 @@ fun ExtensionInfoScreen(
                 }
             }
 
-            // 4. VERSION & LANGUAGE (Side-by-side with separator, no card background)
             val versionText = when {
                 item.hasUpdate -> "v${item.installedVersion} → v${item.repoVersion}"
                 item.installedVersion != null -> "v${item.installedVersion}"
                 item.repoVersion != null -> "v${item.repoVersion}"
                 else -> "v1.0.0"
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 4. VERSION & LANGUAGE BAR (spans end-to-end, centered horizontally & vertically in columns with vertical divider, no grey box)
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = versionText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (item.hasUpdate) BrandAccent else PrimaryText,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "•",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = SecondaryText.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-                Text(
-                    text = languageDisplayName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = SecondaryText
-                )
-            }
-
-            // 5. UNINSTALL AND UPDATE ACTIONS (Integrated native feel)
-            if (item.hasUpdate) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    OutlinedButton(
-                        onClick = { showUninstallConfirmation = true },
-                        enabled = !isActionInProgress,
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.5f)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Uninstall",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-
-                    Button(
-                        onClick = {
-                            item.repoEntry?.let { entry -> viewModel.installExtension(entry) }
-                        },
-                        enabled = !isActionInProgress,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = BrandAccent,
-                            contentColor = Color.White
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                    ) {
-                        if (isActionInProgress) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Updating...",
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Update,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Update",
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Version",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = SecondaryText
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = versionText,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (item.hasUpdate) BrandAccent else PrimaryText,
+                        textAlign = TextAlign.Center
+                    )
                 }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .background(DarkSurfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = BrandAccent,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Up to date",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = SecondaryText
-                        )
-                    }
 
-                    OutlinedButton(
-                        onClick = { showUninstallConfirmation = true },
-                        enabled = !isActionInProgress,
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.4f)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Uninstall",
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
+                VerticalDivider(
+                    modifier = Modifier.height(44.dp),
+                    thickness = 1.dp,
+                    color = BorderColor.copy(alpha = 0.8f)
+                )
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Language",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = SecondaryText
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = languageDisplayName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryText,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-
-            // 6. SOURCE CONFIGURATION SECTION (List presentation without card background)
-            Text(
-                text = "Source Configuration",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = PrimaryText,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 4.dp)
-            )
 
             Column(modifier = Modifier.fillMaxWidth()) {
                 ConfigItemRow(
@@ -497,7 +459,7 @@ fun ExtensionInfoScreen(
 
     // Uninstall Confirmation Dialog
     if (showUninstallConfirmation) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { showUninstallConfirmation = false },
             title = {
                 Text(
@@ -530,9 +492,7 @@ fun ExtensionInfoScreen(
                 TextButton(onClick = { showUninstallConfirmation = false }) {
                     Text("Cancel", color = PrimaryText)
                 }
-            },
-            containerColor = DarkSurface,
-            shape = RoundedCornerShape(16.dp)
+            }
         )
     }
 }

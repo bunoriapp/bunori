@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,9 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.halovoid.bunori.ui.core.theme.BrandAccent
-import com.halovoid.bunori.ui.core.theme.DarkSurface
-import com.halovoid.bunori.ui.core.theme.ErrorRed
 import com.halovoid.bunori.ui.core.theme.PrimaryText
 import com.halovoid.bunori.ui.core.theme.SecondaryText
 import kotlinx.coroutines.delay
@@ -40,7 +38,7 @@ data class ContextualAction(
 /**
  * A fluid, animated contextual bottom action bar inspired by Mihon's bottom action menu.
  * Automatically handles bottom window insets, smooth expand/shrink transitions,
- * and animated label expansion on long-press with haptic feedback.
+ * adapts background to user theme, and animated label expansion on long-press with haptic feedback.
  */
 @Composable
 fun ContextualBottomBar(
@@ -48,7 +46,7 @@ fun ContextualBottomBar(
     modifier: Modifier = Modifier,
     selectedCount: Int? = null,
     actions: List<ContextualAction> = emptyList(),
-    containerColor: Color = MaterialTheme.colorScheme.surface,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     customContent: (@Composable RowScope.() -> Unit)? = null
 ) {
     AnimatedVisibility(
@@ -58,13 +56,13 @@ fun ContextualBottomBar(
         modifier = modifier
     ) {
         Surface(
-            shape = androidx.compose.ui.graphics.RectangleShape,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
             color = containerColor,
-            tonalElevation = 8.dp,
+            tonalElevation = 0.dp,
             shadowElevation = 8.dp,
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
             ),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -78,7 +76,7 @@ fun ContextualBottomBar(
                     .windowInsetsPadding(
                         WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
                     )
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
@@ -92,10 +90,10 @@ fun ContextualBottomBar(
                             label = "action_weight"
                         )
 
-                        val tint = if (!action.enabled) {
-                            SecondaryText.copy(alpha = 0.38f)
-                        } else {
-                            PrimaryText
+                        val tint = when {
+                            !action.enabled -> SecondaryText.copy(alpha = 0.38f)
+                            action.isDestructive -> MaterialTheme.colorScheme.error
+                            else -> PrimaryText
                         }
 
                         Box(

@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Alignment
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.halovoid.bunori.ui.core.components.AppDialog
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.theme.*
 import kotlinx.coroutines.launch
@@ -107,13 +109,14 @@ fun RepoUrlDialog(
 ) {
     var urlText by remember { mutableStateOf(initialUrl) }
 
-    AlertDialog(
+    AppDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
                 text = "Extension Repository",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = PrimaryText
             )
         },
         text = {
@@ -123,20 +126,41 @@ fun RepoUrlDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryText
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 OutlinedTextField(
                     value = urlText,
                     onValueChange = { urlText = it },
                     singleLine = true,
-                    label = { Text("Repository Index URL") },
-                    modifier = Modifier.fillMaxWidth()
+                    placeholder = {
+                        Text(
+                            text = "https://...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SecondaryText
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BrandAccent,
+                        unfocusedBorderColor = BorderColor.copy(alpha = 0.3f),
+                        focusedContainerColor = DarkSurfaceVariant.copy(alpha = 0.3f),
+                        unfocusedContainerColor = DarkSurfaceVariant.copy(alpha = 0.2f),
+                        cursorColor = BrandAccent,
+                        focusedTextColor = PrimaryText,
+                        unfocusedTextColor = PrimaryText
+                    )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 TextButton(
                     onClick = { urlText = DEFAULT_EXTENSION_REPO_URL },
                     modifier = Modifier.align(Alignment.End)
                 ) {
-                    Text("Reset to Default", fontSize = 12.sp)
+                    Text(
+                        text = "Reset to Default",
+                        fontSize = 12.sp,
+                        color = BrandAccent,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         },
@@ -144,12 +168,16 @@ fun RepoUrlDialog(
             TextButton(
                 onClick = { onSave(urlText.trim()) }
             ) {
-                Text("Save")
+                Text(
+                    text = "Save",
+                    color = BrandAccent,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancel", color = PrimaryText)
             }
         }
     )

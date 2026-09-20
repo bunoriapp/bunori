@@ -26,7 +26,7 @@ fun ConfirmDeleteDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    AppDialog(
         onDismissRequest = onDismiss,
         title = { Text(title, color = PrimaryText) },
         text = { Text(message, color = SecondaryText) },
@@ -39,8 +39,6 @@ fun ConfirmDeleteDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancel", color = PrimaryText)
             }
-        },
-        containerColor = DarkSurface,
-        shape = RoundedCornerShape(12.dp)
+        }
     )
 }

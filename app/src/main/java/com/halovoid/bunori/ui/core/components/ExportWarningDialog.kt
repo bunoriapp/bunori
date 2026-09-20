@@ -17,9 +17,9 @@ fun ExportWarningDialog(
     onExportAnyway: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    AppDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Chapters Missing") },
+        title = { Text("Chapters Missing", fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 Text(

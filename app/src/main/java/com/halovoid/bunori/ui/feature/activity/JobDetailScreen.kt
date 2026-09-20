@@ -347,7 +347,6 @@ fun JobDetailScreen(
                             onClick = null,
                             allowAction = false,
                             isCancelling = isCancelling,
-                            isActionPending = isActionPending
                         )
                     }
                 }

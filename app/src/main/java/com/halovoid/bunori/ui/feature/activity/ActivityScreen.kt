@@ -44,8 +44,6 @@ fun ActivityScreen(
     val requestHistory by viewModel.batchHistory.collectAsStateWithLifecycle()
     val globalStats by viewModel.globalStats.collectAsStateWithLifecycle()
     val isCompactMode by viewModel.isCompactMode.collectAsStateWithLifecycle()
-    val cancellingRequestIds by viewModel.cancellingRequestIds.collectAsStateWithLifecycle()
-    val activeActionIds by viewModel.activeActionIds.collectAsStateWithLifecycle()
 
     var filterType by remember { mutableStateOf<JobType?>(null) }
     var showFilterMenu by remember { mutableStateOf(false) }

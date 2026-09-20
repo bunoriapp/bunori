@@ -162,7 +162,7 @@ class DownloadNotificationManager(private val context: Context) {
         val cancelIntent = SchedulerService.createCancelPendingIntent(context, batch.id)
 
         val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_ALERTS)
-            .setContentTitle("⚠️ Security Check: $crawlerName")
+            .setContentTitle("Security Check: $crawlerName")
             .setContentText("Download paused for \"${batch.name}\". Tap to complete Cloudflare verification.")
             .setStyle(
                 NotificationCompat.BigTextStyle()

@@ -16,12 +16,12 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.filled.Deselect
-import androidx.compose.material.icons.filled.DoneAll
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.RemoveDone
-import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Deselect
+import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.RemoveDone
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -167,7 +167,7 @@ fun NovelScreen(
                 actions = listOf(
                     ContextualAction(
                         title = if (selectedChapterIds.size == chapters.size) "Deselect" else "Select All",
-                        icon = if (selectedChapterIds.size == chapters.size) Icons.Default.Deselect else Icons.Default.SelectAll,
+                        icon = if (selectedChapterIds.size == chapters.size) Icons.Outlined.Deselect else Icons.Outlined.SelectAll,
                         onClick = {
                             if (selectedChapterIds.size == chapters.size) {
                                 viewModel.clearSelection()
@@ -178,28 +178,29 @@ fun NovelScreen(
                     ),
                     ContextualAction(
                         title = "Download",
-                        icon = Icons.Default.Download,
+                        icon = Icons.Outlined.FileDownload,
                         onClick = {
                             viewModel.downloadSelectedChapters(novel ?: return@ContextualAction)
                         }
                     ),
                     ContextualAction(
                         title = "Mark Read",
-                        icon = Icons.Default.DoneAll,
+                        icon = Icons.Outlined.DoneAll,
                         onClick = {
                             viewModel.markSelectedChaptersRead(true)
                         }
                     ),
                     ContextualAction(
                         title = "Mark Unread",
-                        icon = Icons.Default.RemoveDone,
+                        icon = Icons.Outlined.RemoveDone,
                         onClick = {
                             viewModel.markSelectedChaptersRead(false)
                         }
                     ),
                     ContextualAction(
                         title = "Delete",
-                        icon = Icons.Outlined.Delete,
+                        icon = Icons.Outlined.DeleteSweep,
+                        isDestructive = true,
                         onClick = {
                             viewModel.deleteSelectedChapters()
                         }

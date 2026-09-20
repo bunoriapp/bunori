@@ -246,20 +246,6 @@ private fun JumpChapterItem(
                         }
                     }
 
-                    if (chapter.isDownloaded) {
-                        Surface(
-                            color = SuccessGreen.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Text(
-                                text = "Downloaded",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SuccessGreen,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-
                     if (chapter.read) {
                         Text(
                             text = "Read",

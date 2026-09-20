@@ -2,6 +2,7 @@ package com.halovoid.bunori.ui.feature.activity.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -241,7 +242,6 @@ fun JobCard(
     onSecurityClick: (() -> Unit)? = null,
     allowAction: Boolean = false,
     isCancelling: Boolean = false,
-    isActionPending: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -270,7 +270,6 @@ fun JobCard(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
             .then(
                 if (onClick != null && !isCancelling) {
                     Modifier.clickable { onClick() }
@@ -278,8 +277,9 @@ fun JobCard(
                     Modifier
                 }
             ),
+        shape = RoundedCornerShape(12.dp),
         color = DarkSurface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderColor.copy(alpha = 0.5f))
+        border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.5f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

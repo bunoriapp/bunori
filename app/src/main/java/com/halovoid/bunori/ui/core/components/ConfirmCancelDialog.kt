@@ -31,7 +31,7 @@ fun ConfirmCancelDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    AppDialog(
         onDismissRequest = onDismiss,
         title = { Text(title, color = PrimaryText) },
         text = { 
@@ -54,8 +54,6 @@ fun ConfirmCancelDialog(
             TextButton(onClick = onDismiss) {
                 Text("Back", color = PrimaryText)
             }
-        },
-        containerColor = DarkSurface,
-        shape = RoundedCornerShape(12.dp)
+        }
     )
 }

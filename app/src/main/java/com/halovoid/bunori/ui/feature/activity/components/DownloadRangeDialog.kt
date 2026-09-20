@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.halovoid.bunori.ui.core.components.AppDialog
 import com.halovoid.bunori.ui.core.theme.BrandAccent
 import com.halovoid.bunori.ui.core.theme.DarkSurface
 import com.halovoid.bunori.ui.core.theme.DarkSurfaceVariant
@@ -32,10 +33,8 @@ fun DownloadRangeDialog(
     val steps = if (rangeSpan > 1) rangeSpan - 1 else 0
     val selectedCount = (currentRange.endInclusive - currentRange.start).toInt() + 1
 
-    AlertDialog(
+    AppDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkSurface,
-        shape = RoundedCornerShape(16.dp),
         title = {
             Text(
                 text = "Select Download Range",
