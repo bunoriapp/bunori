@@ -309,18 +309,6 @@ class NovelViewModel(
     fun loadNovel(novelUrl: String) {
         clearSelection()
         _novelUrl.value = novelUrl
-        checkAndTriggerAutoRefresh(novelUrl)
-    }
-
-    private fun checkAndTriggerAutoRefresh(novelUrl: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            if (batchRepository.hasActiveMetadataRequest(novelUrl)) return@launch
-            val currentNovel = novelRepository.getNovelDetails(novelUrl) ?: return@launch
-            val now = System.currentTimeMillis()
-            if (now > currentNovel.refreshExpiry || currentNovel.chapters.isEmpty()) {
-                fetchNovelMetadata(currentNovel)
-            }
-        }
     }
 
     fun toggleLibrary(novel: Novel) {

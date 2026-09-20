@@ -70,14 +70,18 @@ class NovelMetadataHandler(
 
                 if (existing != null) {
                     chapter.copy(
-                        id = existing.id
+                        id = existing.id,
+                        novelUrl = task.novelUrl
                     ).apply {
                         sourceUrl = existing.sourceUrl ?: chapter.url
                         scanlationSource = effectiveScanlation
                         read = existing.read
                     }
                 } else {
-                    chapter.copy(id = 0).apply {
+                    chapter.copy(
+                        id = 0,
+                        novelUrl = task.novelUrl
+                    ).apply {
                         sourceUrl = sourceUrl ?: url
                         scanlationSource = effectiveScanlation
                     }
@@ -87,6 +91,7 @@ class NovelMetadataHandler(
             // 5. Persist the updated data to the database
             val existingNovel = novelRepository.getNovelDetails(task.novelUrl)
             val novelToSave = updatedNovel.copy(
+                url = task.novelUrl,
                 chapters = mergedChapters,
                 inLibrary = existingNovel?.inLibrary ?: false,
                 titleHash = existingNovel?.titleHash,

@@ -59,7 +59,10 @@ class BrowseViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                novelRepository.saveNovelMetadata(novel)
+                val existing = novelRepository.getNovelDetails(novel.url)
+                if (existing == null) {
+                    novelRepository.saveNovelMetadata(novel)
+                }
                 onSaved()
             } catch (e: Exception) {
                 _error.value = "Failed to save novel: ${e.message}"
