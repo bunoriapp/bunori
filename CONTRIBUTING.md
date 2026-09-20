@@ -1,9 +1,9 @@
-# Contributing to LNCrawler
+# Contributing to Bunori
 
-Thank you for your interest in contributing to LNCrawler! Contributions of all kinds are welcome, especially new sources, bug fixes, and improvemts to crawlers.
+Thank you for your interest in contributing to Bunori! Contributions of all kinds are welcome, especially new sources, bug fixes, and improvemts to crawlers.
 
 > [!NOTE]
-> Crawler implementations and crawler-specific bug reports are maintained separately in **[LNCrawlerSources](https://github.com/Binit06/LNCrawlerSources)**. Please refer to that repository when contributing or reporting issues related to individual sources.
+> Crawler implementations and crawler-specific bug reports are maintained separately in **[BunoriSources](https://github.com/Binit06/BunoriSources)**. Please refer to that repository when contributing or reporting issues related to individual sources.
 
 ---
 
@@ -19,7 +19,7 @@ Some of the most useful ways to contribute are:
 - Improve the performance or reliability
 - Improve the DEX loading and crawler discovery system
 
-For contributions, involving a speceific novel source or crawler implementation, please use [LNCrawlerSources](https://github.com/Binit06/LNCrawlerSources) instead.
+For contributions, involving a speceific novel source or crawler implementation, please use [BunoriSources](https://github.com/Binit06/BunoriSources) instead.
 
 ---
 
@@ -27,8 +27,8 @@ For contributions, involving a speceific novel source or crawler implementation,
 
 ### 1.  **Fork the repository on Github and clone your fork**
 ```
-git clone https://github.com/<your_username>/LNCrawler.git
-cd LNCrawler
+git clone https://github.com/<your_username>/Bunori.git
+cd Bunori
 ``` 
 ### 2.  **Create a branch**
 
@@ -54,27 +54,27 @@ Before submitting a contribution, make sure the project builds successfully and 
 
 ## Testing a New Crawler
 
-Crawler implementation are maintained in [LNCrawlerSources](https://github.com/Binit06/LNCrawlerSources). However, you do not need to add a crawler there immediately when developing or debugging it.
+Crawler implementation are maintained in [BunoriSources](https://github.com/Binit06/BunoriSources). However, you do not need to add a crawler there immediately when developing or debugging it.
 
 If you want to test a crawller locally, you can:
-- Add a crawler implementation directly to your fork of LNCrawler.
+- Add a crawler implementation directly to your fork of Bunori.
 - Register the crawler in CrawlerFactory
-- Build and run LNCrawler normally.
+- Build and run Bunori normally.
 - Test and debug the crawler using the application's existing built-in crawler support.
 
-This allows you to develop and test a crawler without having to update [LNCrawlerSources](https://github.com/Binit06/LNCrawlerSources) during development.
+This allows you to develop and test a crawler without having to update [BunoriSources](https://github.com/Binit06/BunoriSources) during development.
 
 **THIS IS INTENDED FOR LOCAL TESTING ONLY.**
 
-Once the crawler is ready and tested, it should be contributed to [LNCrawlerSources](https://github.com/Binit06/LNCrawlerSources) rather than being permanently added as a built-in crawler in LNCrawler.
+Once the crawler is ready and tested, it should be contributed to [BunoriSources](https://github.com/Binit06/BunoriSources) rather than being permanently added as a built-in crawler in Bunori.
 
 ---
 
 ## Adding a New Crawler
 
-New crawler implementation should be contributed through [LNCrawlerSources](https://github.com/Binit06/LNCrawlerSources).
+New crawler implementation should be contributed through [BunoriSources](https://github.com/Binit06/BunoriSources).
 
-Please refer to [LNCrawlerSources](https://github.com/Binit06/LNCrawlerSources) README for instructions on implementing a new crawler.
+Please refer to [BunoriSources](https://github.com/Binit06/BunoriSources) README for instructions on implementing a new crawler.
 
 ### Keep Source-Specific Logic Isolated
 
@@ -108,13 +108,13 @@ When making API Changes:
 - Handle older implementation gracefully where possible.
 - Test existing crawlers against the updated APIs
 
-If an API Change intentionally introduces a breaking change, clearly document the change and its impact on existing crawler. If needed also set a mininimum Version Requirement as mentioned in LNCrawlerSource README.
+If an API Change intentionally introduces a breaking change, clearly document the change and its impact on existing crawler. If needed also set a mininimum Version Requirement as mentioned in BunoriSource README.
 
 ---
 
 ## DEX Architechture
 
-LNCrawler loads crawler implementations from a DEX containing the supporting sources.
+Bunori loads crawler implementations from a DEX containing the supporting sources.
 
 The crawler implementations are packaged together, allowing the application to discover and use the available sources without coupling the core crawling logic to each individual sources.
 
@@ -181,7 +181,7 @@ Avoid commits such as:
 
 If you find a bug, please open an issue with enough infomation to reproduce it.
 
-For crawler-specific issues, please open the issue in [LNCrawlerSources](https://github.com/Binit06/LNCrawlerSources).
+For crawler-specific issues, please open the issue in [BunoriSources](https://github.com/Binit06/BunoriSources).
 
 For issues involving the core application, crawler API, DEX loading, or other functionality maintained in this repository, open the issue here.
 
@@ -207,6 +207,6 @@ Contributions are evaluated based on their technical merits, regardless of who s
 
 ## Thank You
 
-Every Contribution makes LNCrawler better.
+Every Contribution makes Bunori better.
 
-Whether you are adding a new source, fixing a small bug, improving the documentation, or simply reporting an issue, thank you for contributing to LNCrawler.
+Whether you are adding a new source, fixing a small bug, improving the documentation, or simply reporting an issue, thank you for contributing to Bunori.

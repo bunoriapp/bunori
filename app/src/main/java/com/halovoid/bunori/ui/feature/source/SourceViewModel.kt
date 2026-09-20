@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.crawler
+package com.halovoid.bunori.ui.feature.source
 
 import android.app.Application
 import android.net.Uri
@@ -74,7 +74,7 @@ data class ExtensionUiItem(
         }
 }
 
-class CrawlerViewModel(
+class SourceViewModel(
     application: Application,
     private val preferenceRepository: PreferenceRepository
 ) : AndroidViewModel(application) {

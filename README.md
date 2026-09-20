@@ -1,21 +1,21 @@
 <div align="center">
 <img src="assets/icon.png" width="100" />
 
-# LNCrawler
+# Bunori
 
 ### Novel Reader and Exporter for Android
 
 <br />
 <div align="center">
 
-[![Latest release](https://img.shields.io/github/v/release/Binit06/LNCrawler?style=for-the-badge&labelColor=0d1117)](https://github.com/Binit06/LNCrawler/releases)
-[![License](https://img.shields.io/github/license/Binit06/LNCrawler?style=for-the-badge&labelColor=0d1117)](https://github.com/Binit06/LNCrawler/blob/main/LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/Binit06/LNCrawler/total?style=for-the-badge&labelColor=0d1117)](https://github.com/Binit06/LNCrawler/releases)
+[![Latest release](https://img.shields.io/github/v/release/bunoriapp/bunori?style=for-the-badge&labelColor=0d1117)](https://github.com/Binit06/Bunori/releases)
+[![License](https://img.shields.io/github/license/bunoriapp/bunori?style=for-the-badge&labelColor=0d1117)](https://github.com/Binit06/Bunori/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/bunoriapp/bunori/total?style=for-the-badge&labelColor=0d1117)](https://github.com/Binit06/Bunori/releases)
 
 <br />
 
-![Forks](https://img.shields.io/github/forks/Binit06/LNCrawler?style=for-the-badge&labelColor=0d1117)
-![Stars](https://img.shields.io/github/stars/Binit06/LNCrawler?style=for-the-badge&labelColor=0d1117)
+![Forks](https://img.shields.io/github/forks/bunoriapp/bunori?style=for-the-badge&labelColor=0d1117)
+![Stars](https://img.shields.io/github/stars/bunoriapp/bunori?style=for-the-badge&labelColor=0d1117)
 
 <br />
 
@@ -94,7 +94,7 @@
 
 #### Search
 - Contains an in house search for directly searching novels
-- Maintained entirely by LNCrawler
+- Maintained entirely by Bunori
 
 </td>
   </tr>
@@ -112,7 +112,7 @@
   </tr>
   <tr>
     <td align="center">
-      <a href="https://github.com/Binit06/LNCrawler/releases/latest/download/LNCrawler.apk">
+      <a href="https://github.com/bunoriapp/bunori/releases/latest">
         <img src="assets/badge_github.png" alt="Download from GitHub" height="75">
       </a>
     </td>
@@ -127,7 +127,7 @@
 
 <h1><a id="support-the-project"></a>Support the Project</h1>
 
-<h3>LNCrawler is free and open-source. If you find it useful, consider supporting the development!</h3>
+<h3>Bunori is free and open-source. If you find it useful, consider supporting the development!</h3>
 
 #### Buy Me a Coffee
 
@@ -143,9 +143,9 @@
 
 <h1>Special Thanks</h1>
 
-<h3>LNCrawler took a lot of inspiration from these incredible open-source work.</h3>
+<h3>Bunori took a lot of inspiration from these incredible open-source work.</h3>
 
-<a href="https://github.com/tachiyomiorg/tachiyomi">
+<a href="https://github.com/ZhanZiyuan/tachiyomi">
   <img src="https://www.shieldcn.dev/badge/Tachiyomi-GitHub.svg?variant=secondary&size=sm" alt="Tachiyomi">
 </a>
 
@@ -161,10 +161,10 @@
 
 <h1>Contributors</h1>
 
-<h3>Thanks to everyone who contributes to LNCrawler!</h3>
+<h3>Thanks to everyone who contributes to Bunori!</h3>
 
-<a href="https://github.com/Binit06/LNCrawler/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Binit06/LNCrawler" alt="Contributors" />
+<a href="https://github.com/bunoriapp/bunori/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=bunoriapp/bunori" alt="Contributors" />
 </a>
 
 </div>

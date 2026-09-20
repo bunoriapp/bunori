@@ -41,7 +41,7 @@
             android:theme="@style/Theme.Bunori" />
 
         <activity
-            android:name=".ui.feature.crawler.webview.WebViewActivity"
+            android:name=".ui.feature.source.webview.WebViewActivity"
             android:exported="false"
             android:theme="@style/Theme.Bunori" />
 

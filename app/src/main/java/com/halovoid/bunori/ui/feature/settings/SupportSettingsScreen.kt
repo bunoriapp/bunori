@@ -125,7 +125,7 @@ fun SupportSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { uriHandler.openUri("https://github.com/LNCrawler/LNCrawler") }
+                    .clickable { uriHandler.openUri("https://github.com/bunoriapp/bunoriapp") }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

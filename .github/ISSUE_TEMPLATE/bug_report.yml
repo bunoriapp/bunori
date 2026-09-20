@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in LNCrawler
+description: Report a bug in Bunori
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -10,7 +10,7 @@ body:
 
         > [!NOTE]
         > If the issue is specific to a particular novel source or crawler,
-        > please report it in [LNCrawlerSources](https://github.com/LNCrawler/LNCrawlerSources) instead.
+        > please report it in [Extensions](https://github.com/bunoriapp/bunori) instead.
 
   - type: checkboxes
     id: checks
@@ -19,7 +19,7 @@ body:
       options:
         - label: I searched existing issues and this hasn't been reported already
           required: true
-        - label: This bug is in LNCrawler itself, not a specific novel source/crawler
+        - label: This bug is in Bunori itself, not a specific novel source
           required: true
 
   - type: dropdown
@@ -38,9 +38,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: LNCrawler version
-      description: Run `lncrawler --version` or check the app's About screen if unsure.
-      placeholder: "v1.0.1"
+      label: Bunori version
+      description: Check the app's About screen if unsure.
+      placeholder: "v1.x.x"
     validations:
       required: true
 

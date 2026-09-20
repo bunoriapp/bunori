@@ -9,7 +9,7 @@ import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.ReaderRepository
 import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
-import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
+import com.halovoid.bunori.ui.feature.source.SourceViewModel
 import com.halovoid.bunori.ui.feature.activity.ActivityViewModel
 import com.halovoid.bunori.ui.feature.activity.JobDetailViewModel
 import com.halovoid.bunori.ui.feature.library.LibraryViewModel
@@ -46,8 +46,8 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
                     PreferenceRepository.getInstance(application)
                 ) as T
             }
-            modelClass.isAssignableFrom(CrawlerViewModel::class.java) -> {
-                CrawlerViewModel(application, PreferenceRepository.getInstance(application)) as T
+            modelClass.isAssignableFrom(SourceViewModel::class.java) -> {
+                SourceViewModel(application, PreferenceRepository.getInstance(application)) as T
             }
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> {
                 SettingsViewModel(application) as T

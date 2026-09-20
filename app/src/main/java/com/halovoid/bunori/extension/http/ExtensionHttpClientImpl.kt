@@ -3,7 +3,7 @@ package com.halovoid.bunori.extension.http
 import android.webkit.CookieManager
 import com.halovoid.bunori.api.core.network.NetworkClient
 import com.halovoid.bunori.extension.api.http.ExtensionHttpClient
-import com.halovoid.bunori.ui.feature.crawler.webview.WebViewResolverImpl
+import com.halovoid.bunori.ui.feature.source.webview.WebViewResolverImpl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext

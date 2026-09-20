@@ -1,10 +1,10 @@
 blank_issues_enabled: false
 
 contact_links:
-  - name: LNCrawler Documentation
-    url: https://github.com/Binit06/LNCrawler#readme
+  - name: Bunori Documentation
+    url: https://github.com/bunoriapp/bunori#readme
     about: Read the documentation before opening an issue.
 
-  - name: LNCrawlerSources
-    url: https://github.com/Binit06/LNCrawlerSources
-    about: Report crawler-specific issues and contribute new crawlers here.
+  - name: Extensions
+    url: https://github.com/bunoriapp/extensions
+    about: Report source-specific issues and contribute new crawlers here.

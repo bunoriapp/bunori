@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.crawler.components
+package com.halovoid.bunori.ui.feature.source.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,7 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.ui.core.components.SourceIcon
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.crawler.ExtensionUiItem
+import com.halovoid.bunori.ui.feature.source.ExtensionUiItem
 
 @Composable
 fun ExtensionRow(

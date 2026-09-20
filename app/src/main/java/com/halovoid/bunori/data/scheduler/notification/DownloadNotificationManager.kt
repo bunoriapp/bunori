@@ -17,7 +17,7 @@ import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.crawlerName
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
-import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
+import com.halovoid.bunori.ui.feature.source.webview.WebViewActivity
 import com.halovoid.bunori.ui.navigation.AppNavigationManager
 import com.halovoid.bunori.ui.navigation.Screen
 

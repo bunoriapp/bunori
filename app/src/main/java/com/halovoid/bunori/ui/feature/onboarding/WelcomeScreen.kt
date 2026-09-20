@@ -14,59 +14,66 @@ import androidx.compose.ui.unit.sp
 import com.halovoid.bunori.R
 import com.halovoid.bunori.ui.core.theme.*
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.style.TextAlign
+
 @Composable
 fun WelcomeScreen(
     onNext: () -> Unit
 ) {
     OnboardingStep(
         title = "Welcome to Bunori",
-        subtitle = "A modern web novel reader, background crawler, and offline library.",
-        buttonText = "Get Started",
-        onNext = onNext
+        subtitle = "A complete platform for discovering, reading, and downloading web novels with modular extensions.",
+        onNext = onNext,
+        isScrollable = false
     ) {
-        Column(
+        // Splash icon in its previous position (below title & subtitle)
+        Image(
+            painter = painterResource(id = R.mipmap.ic_splash_logo),
+            contentDescription = null,
+            modifier = Modifier.size(96.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Info vertically centered in the remaining screen space
+        Box(
             modifier = Modifier
+                .weight(1f)
                 .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.Center
         ) {
-            Image(
-                painter = painterResource(id = R.mipmap.ic_splash_logo),
-                contentDescription = null,
-                modifier = Modifier.size(76.dp)
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(22.dp)
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 FeatureItem(
-                    title = "Multi-Source Aggregation",
-                    description = "Search, discover, and track novels across numerous web sources with unified filtering and metadata."
+                    title = "One Library, Many Sources",
+                    description = "Discover and track novels across multiple web sources with unified search and filtering in one library."
                 )
 
                 FeatureItem(
-                    title = "Modular .bext Extensions",
-                    description = "Install and update source crawlers directly inside the app without needing system APK installs."
+                    title = "Extensible by Design",
+                    description = "Add and update source extensions independently with lightweight .bext packages, without waiting for app updates."
                 )
 
                 FeatureItem(
-                    title = "Distraction-Free Reader",
-                    description = "Customize typography, reading rulers, layout spacing, tap gestures, and true AMOLED dark mode."
+                    title = "A Reader Built for Long-Form Reading",
+                    description = "Tailor typography, margins, reading rulers, tap gestures, and true AMOLED dark mode to your comfort."
                 )
 
                 FeatureItem(
-                    title = "Offline Downloads & Export",
-                    description = "Queue background chapter downloads for offline reading, and export full novels into clean EPUB books."
+                    title = "Powerful Offline Reading",
+                    description = "Download specific chapter ranges in the background with auto-resume for uninterrupted offline reading."
                 )
 
                 FeatureItem(
-                    title = "Smart Library & Automation",
-                    description = "Automated chapter update checks, silent background updates, intelligent cache pruning, and easy backups."
+                    title = "Built to Stay Out of Your Way",
+                    description = "Crawling, chapter updates, downloads, and cache management run quietly in the background."
                 )
             }
         }

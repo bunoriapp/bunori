@@ -29,7 +29,6 @@ fun ExtensionRepoScreen(
         stepNumber = 4,
         totalSteps = 4,
         onBack = onBack,
-        buttonText = "Enter Bunori",
         onNext = {
             if (inputUrl.isNotBlank()) {
                 viewModel.setExtensionRepoUrl(inputUrl.trim())

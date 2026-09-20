@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.crawler.components
+package com.halovoid.bunori.ui.feature.source.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,16 +17,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.crawler.CatalogState
-import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
-import com.halovoid.bunori.ui.feature.crawler.ExtensionUiItem
+import com.halovoid.bunori.ui.feature.source.CatalogState
+import com.halovoid.bunori.ui.feature.source.SourceViewModel
+import com.halovoid.bunori.ui.feature.source.ExtensionUiItem
 
 @Composable
 fun ExtensionListContent(
     extensionItems: List<ExtensionUiItem>,
     catalogState: CatalogState,
     searchQuery: String,
-    viewModel: CrawlerViewModel,
+    viewModel: SourceViewModel,
     onNavigateToExtensionSettings: (() -> Unit)?,
     onNavigateToExtensionInfo: ((String) -> Unit)?,
     onSelectItemForDetails: (ExtensionUiItem) -> Unit,

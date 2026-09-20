@@ -1,9 +1,6 @@
-package com.halovoid.bunori.ui.feature.crawler
+package com.halovoid.bunori.ui.feature.source
 
 import android.content.Intent
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,32 +15,26 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material.icons.outlined.AltRoute
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.DataObject
-import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -61,7 +52,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -73,14 +63,14 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.ui.core.components.SourceIcon
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.crawler.components.ConfigDivider
-import com.halovoid.bunori.ui.feature.crawler.components.ConfigItemRow
+import com.halovoid.bunori.ui.feature.source.components.ConfigDivider
+import com.halovoid.bunori.ui.feature.source.components.ConfigItemRow
 import java.net.URI
 
 @Composable
 fun ExtensionInfoScreen(
     extensionId: String,
-    viewModel: CrawlerViewModel,
+    viewModel: SourceViewModel,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {

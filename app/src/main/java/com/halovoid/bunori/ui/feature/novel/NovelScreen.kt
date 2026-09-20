@@ -61,7 +61,7 @@ import com.halovoid.bunori.ui.core.theme.DarkBackground
 import com.halovoid.bunori.ui.core.theme.DarkSurface
 import com.halovoid.bunori.ui.core.theme.PrimaryAccent
 import com.halovoid.bunori.ui.core.theme.PrimaryText
-import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
+import com.halovoid.bunori.ui.feature.source.webview.WebViewActivity
 import com.halovoid.bunori.ui.feature.activity.components.DownloadRangeDialog
 import com.halovoid.bunori.ui.feature.novel.components.ChapterFilterSortSheet
 import com.halovoid.bunori.ui.feature.novel.components.JumpToChapterBottomSheet

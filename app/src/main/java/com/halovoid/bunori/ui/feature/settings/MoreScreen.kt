@@ -181,13 +181,13 @@ fun MoreScreen(
             SettingsRow(
                 title = "What's New",
                 subtitle = "View latest release notes",
-                onClick = { uriHandler.openUri("https://github.com/LNCrawler/LNCrawler/releases") }
+                onClick = { uriHandler.openUri("https://github.com/bunoriapp/bunori/releases") }
             )
             
             SettingsRow(
                 title = "Open Source License",
                 subtitle = "MIT License",
-                onClick = { uriHandler.openUri("https://github.com/LNCrawler/LNCrawler/blob/main/LICENSE") }
+                onClick = { uriHandler.openUri("https://github.com/bunoriapp/bunori/blob/main/LICENSE") }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -200,7 +200,7 @@ fun MoreScreen(
                 title = "GitHub Issues",
                 subtitle = "Report bugs or request new features",
                 iconPainter = painterResource(id = R.drawable.ic_github),
-                onClick = { uriHandler.openUri("https://github.com/LNCrawler/LNCrawler/issues") }
+                onClick = { uriHandler.openUri("https://github.com/bunoriapp/bunori/issues") }
             )
 
             SettingsRow(
@@ -226,7 +226,7 @@ fun MoreScreen(
                 Spacer(modifier = Modifier.width(20.dp))
                 SocialIcon(
                     painter = painterResource(id = R.drawable.ic_github),
-                    onClick = { uriHandler.openUri("https://github.com/LNCrawler/LNCrawler") }
+                    onClick = { uriHandler.openUri("https://github.com/bunoriapp/bunoriapp") }
                 )
                 Spacer(modifier = Modifier.width(20.dp))
                 SocialIcon(

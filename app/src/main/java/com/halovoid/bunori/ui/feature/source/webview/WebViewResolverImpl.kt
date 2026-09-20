@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.crawler.webview
+package com.halovoid.bunori.ui.feature.source.webview
 
 import android.content.Context
 import android.content.Intent

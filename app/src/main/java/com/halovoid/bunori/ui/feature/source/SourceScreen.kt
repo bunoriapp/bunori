@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.crawler
+package com.halovoid.bunori.ui.feature.source
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -14,13 +14,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.crawler.components.*
+import com.halovoid.bunori.ui.feature.source.components.*
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CrawlerScreen(
-    viewModel: CrawlerViewModel,
+fun SourceScreen(
+    viewModel: SourceViewModel,
     onBack: () -> Unit = {},
     showHeader: Boolean = true,
     searchQuery: String = "",

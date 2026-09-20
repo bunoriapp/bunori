@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.crawler.components
+package com.halovoid.bunori.ui.feature.source.components
 
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.halovoid.bunori.ui.core.components.SourceIcon
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.crawler.ExtensionUiItem
+import com.halovoid.bunori.ui.feature.source.ExtensionUiItem
 
 @Composable
 fun ExtensionDetailDialog(

@@ -47,8 +47,7 @@ fun FolderScreen(
         totalSteps = 4,
         onBack = onBack,
         onNext = onNext,
-        isNextEnabled = isStepValid,
-        nextButtonText = "Next"
+        isNextEnabled = isStepValid
     ) {
         Column(
             modifier = Modifier

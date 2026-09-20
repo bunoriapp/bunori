@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,8 +30,8 @@ import com.halovoid.bunori.ui.core.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnboardingStep(
-    title: String,
-    subtitle: String,
+    title: String? = null,
+    subtitle: String? = null,
     stepNumber: Int? = null,
     totalSteps: Int = 4,
     buttonText: String? = null,
@@ -39,6 +40,7 @@ fun OnboardingStep(
     isNextEnabled: Boolean = true,
     nextButtonText: String = "Next",
     bottomAction: (@Composable () -> Unit)? = null,
+    isScrollable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Scaffold(
@@ -95,26 +97,16 @@ fun OnboardingStep(
                     }
                 },
                 actions = {
-                    if (onNext != null && buttonText == null) {
-                        TextButton(
+                    if (onNext != null) {
+                        val isFinalStep = stepNumber != null && stepNumber == totalSteps
+                        IconButton(
                             onClick = onNext,
-                            enabled = isNextEnabled,
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = BrandAccent,
-                                disabledContentColor = SecondaryText.copy(alpha = 0.3f)
-                            )
+                            enabled = isNextEnabled
                         ) {
-                            Text(
-                                text = nextButtonText,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
+                                imageVector = if (isFinalStep) Icons.Default.Check else Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = if (isFinalStep) "Finish" else "Next",
+                                tint = if (isNextEnabled) BrandAccent else SecondaryText.copy(alpha = 0.3f)
                             )
                         }
                     }
@@ -125,42 +117,7 @@ fun OnboardingStep(
             )
         },
         bottomBar = {
-            if (buttonText != null && onNext != null) {
-                Surface(
-                    color = MaterialTheme.colorScheme.background,
-                    tonalElevation = 2.dp
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(horizontal = 24.dp, vertical = 20.dp)
-                    ) {
-                        Button(
-                            onClick = onNext,
-                            enabled = isNextEnabled,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp),
-                            shape = RoundedCornerShape(26.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = BrandAccent,
-                                contentColor = Color.White,
-                                disabledContainerColor = Color.DarkGray.copy(alpha = 0.5f),
-                                disabledContentColor = Color.White.copy(alpha = 0.5f)
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-                        ) {
-                            Text(
-                                text = buttonText,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-            } else if (bottomAction != null) {
+            if (bottomAction != null) {
                 Surface(
                     color = MaterialTheme.colorScheme.background,
                     tonalElevation = 2.dp
@@ -177,38 +134,46 @@ fun OnboardingStep(
             }
         }
     ) { innerPadding ->
+        val scrollModifier = if (isScrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
+                .then(scrollModifier)
                 .padding(horizontal = 24.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                color = PrimaryText,
-                fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Center
-            )
+            if (!title.isNullOrBlank()) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = PrimaryText,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center
+                )
+            }
             
-            Spacer(modifier = Modifier.height(8.dp))
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SecondaryText,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
             
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = SecondaryText,
-                textAlign = TextAlign.Center,
-                lineHeight = 20.sp,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
+            if (!title.isNullOrBlank() || !subtitle.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(24.dp))
+            }
             
             content()
 
-            Spacer(modifier = Modifier.height(32.dp))
+            if (isScrollable) {
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         }
     }
 }

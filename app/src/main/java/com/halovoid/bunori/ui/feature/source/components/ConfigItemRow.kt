@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.crawler.components
+package com.halovoid.bunori.ui.feature.source.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.HorizontalDivider

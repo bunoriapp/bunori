@@ -64,8 +64,7 @@ fun ThemeOnboardingScreen(
         stepNumber = 2,
         totalSteps = 4,
         onBack = onBack,
-        onNext = onNext,
-        nextButtonText = "Next"
+        onNext = onNext
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),

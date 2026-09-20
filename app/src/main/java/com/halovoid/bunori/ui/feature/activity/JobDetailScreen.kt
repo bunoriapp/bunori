@@ -415,7 +415,6 @@ fun JobDetailScreen(
                         val isSelected = selectedTaskIds.contains(task.id)
                         TaskDetailItem(
                             task = task,
-                            isSelectionMode = isSelectionMode,
                             isSelected = isSelected,
                             onClick = {
                                 if (isSelectionMode) {
@@ -455,7 +454,6 @@ private fun formatStatusName(status: JobStatus): String {
 @Composable
 fun TaskDetailItem(
     task: Batch,
-    isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {},

@@ -66,8 +66,7 @@ fun PermissionScreen(
         stepNumber = 3,
         totalSteps = 4,
         onBack = onBack,
-        onNext = onNext,
-        nextButtonText = "Next"
+        onNext = onNext
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),

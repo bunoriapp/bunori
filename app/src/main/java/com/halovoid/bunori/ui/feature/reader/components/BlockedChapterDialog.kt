@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.crawler.webview.WebViewActivity
+import com.halovoid.bunori.ui.feature.source.webview.WebViewActivity
 
 @Composable
 fun BlockedChapterDialog(

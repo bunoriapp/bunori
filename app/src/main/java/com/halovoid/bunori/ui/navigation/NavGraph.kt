@@ -21,9 +21,7 @@ import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.feature.browse.BrowseScreen
 import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
-import com.halovoid.bunori.ui.feature.crawler.CrawlerScreen
-import com.halovoid.bunori.ui.feature.crawler.CrawlerViewModel
-import com.halovoid.bunori.ui.feature.crawler.ExtensionInfoScreen
+import com.halovoid.bunori.ui.feature.source.ExtensionInfoScreen
 import com.halovoid.bunori.ui.feature.activity.ActivityScreen
 import com.halovoid.bunori.ui.feature.activity.ActivityViewModel
 import com.halovoid.bunori.ui.feature.activity.JobDetailScreen
@@ -55,6 +53,8 @@ import com.halovoid.bunori.ui.feature.settings.SupportSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.ThemeSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.UpdateDetailScreen
 import com.halovoid.bunori.ui.feature.settings.WebViewSettingsScreen
+import com.halovoid.bunori.ui.feature.source.SourceScreen
+import com.halovoid.bunori.ui.feature.source.SourceViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.net.URLDecoder
@@ -78,7 +78,7 @@ sealed class Screen(val route: String) {
     object Library : Screen("library")
     object History : Screen("history")
     object Activity : Screen("activity")
-    object Crawlers : Screen("crawlers")
+    object Sources : Screen("sources")
     object Support : Screen("support")
     object ReaderSettings : Screen("reader_settings")
     object GeneralPreferences : Screen("general_preferences")
@@ -209,12 +209,12 @@ fun NavGraph(navController: NavHostController) {
                 viewModelStoreOwner = parentEntry,
                 factory = remember { ViewModelFactory(application) }
             )
-            val crawlerViewModel: CrawlerViewModel = viewModel(
+            val crawlerViewModel: SourceViewModel = viewModel(
                 factory = remember { ViewModelFactory(application) }
             )
             BrowseScreen(
                 viewModel = browseViewModel,
-                crawlerViewModel = crawlerViewModel,
+                sourceViewModel = crawlerViewModel,
                 onNavigateToSearch = { sourceName ->
                     navController.navigate(Screen.Search.createRoute(sourceName))
                 },
@@ -267,11 +267,11 @@ fun NavGraph(navController: NavHostController) {
                 }
             )
         }
-        composable(Screen.Crawlers.route) {
-            val crawlerViewModel: CrawlerViewModel = viewModel(
+        composable(Screen.Sources.route) {
+            val crawlerViewModel: SourceViewModel = viewModel(
                 factory = remember { ViewModelFactory(application) }
             )
-            CrawlerScreen(
+            SourceScreen(
                 viewModel = crawlerViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToExtensionSettings = {
@@ -285,7 +285,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.ExtensionInfo.route) { backStackEntry ->
             val encodedId = backStackEntry.arguments?.getString("extensionId") ?: ""
             val extensionId = URLDecoder.decode(encodedId, "UTF-8")
-            val crawlerViewModel: CrawlerViewModel = viewModel(
+            val crawlerViewModel: SourceViewModel = viewModel(
                 factory = remember { ViewModelFactory(application) }
             )
             ExtensionInfoScreen(
