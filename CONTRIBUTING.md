@@ -1,25 +1,39 @@
 # Contributing to Bunori
 
-Thank you for your interest in contributing to Bunori! Contributions of all kinds are welcome, especially new sources, bug fixes, and improvemts to crawlers.
+Thank you for your interest in contributing to Bunori! Contributions of all kinds are welcome, especially new sources, bug fixes, and improvemts to sources.
 
 > [!NOTE]
-> Crawler implementations and crawler-specific bug reports are maintained separately in **[BunoriSources](https://github.com/Binit06/BunoriSources)**. Please refer to that repository when contributing or reporting issues related to individual sources.
+> Source implementations and source-specific bug reports are maintained separately in **[extensions](https://github.com/bunoriapp/extensions)**. Please refer to that repository when contributing or reporting issues related to individual sources.
 
+---
+
+## Table of Contents
+- [What You Can Contribute](#what-you-can-contribute)
+- [Project Architecture](#project-architecture)
+- [Getting Started](#getting-started)
+- [Testing a New Source](#testing-a-new-source)
+- [Adding a New Source](#adding-a-new-source)
+- [Source Compatibilty](#source-compatibilty)
+- [BEXT Architechture](#bext-architechture)
+- [Code Guidelines](#code-guidelines)
+- [Pull Requests](#pull-requests)
+- [Reporting Issues](#reporting-issues)
+- [Code of Conduct](#code-of-conduct)
 ---
 
 ## What you can contribute
 
 Some of the most useful ways to contribute are:
-- Improve the core crawler architechture
-- Improve the crawler API
-- Fix bugs in the core application
-- Improve chapter or novel handling
-- Improve the Android Application
-- Improve documentation
-- Improve the performance or reliability
-- Improve the DEX loading and crawler discovery system
+- Improve the core download architechture
+- Improve the sources(`:extenstion-api`) API
+- Optimising the WebAssembly Micro Runtime (WAMR) JNI Bridge and assembly fallback layers
+- Improve Webview Reader Engine
+- Improve the Database storage methods and usage
+- Improve Headless Webview Resolver
+- Resolve UI Crashes, Memory Leaks, Cookie Management and support for various User-Agent Headers
+- Expand Setup Guide, code comments and contribution workflows
 
-For contributions, involving a speceific novel source or crawler implementation, please use [BunoriSources](https://github.com/Binit06/BunoriSources) instead.
+For contributions, involving a speceific novel source or source implementation, please use [extensions](https://github.com/bunoriapp/extensions) instead.
 
 ---
 
@@ -27,10 +41,18 @@ For contributions, involving a speceific novel source or crawler implementation,
 
 ### 1.  **Fork the repository on Github and clone your fork**
 ```
-git clone https://github.com/<your_username>/Bunori.git
-cd Bunori
+git clone https://github.com/<your_username>/bunori.git
+cd bunori
 ``` 
-### 2.  **Create a branch**
+
+### 2. Configure Your Environment
+
+- **Android Studio**: Android Studio Ladybug (2024.2+) or newer.
+- **JDK**: Java 17 (Eclipse Temurin 17 recommended).
+- **Android NDK**: Version 30.0.16248370 (configured automatically via Gradle).
+- **CMake**: Version 3.22.1+.
+
+### 3.  **Create a branch**
 
 Create a branch for your contribution:
 
@@ -39,86 +61,65 @@ git checkout -b feature/my-source
 ```
 
 Use a descriptive branch name such as:
-- refactor/crawler-api
-- docs/contributing
-- feature/new-feature
-- fix/new-fix
+- `feature/` — for new features or capabilities (e.g. feature/tap-zone-customization)
+- `fix/` — for bug fixes (e.g. fix/novel-pruning-cascade)
+- `refactor/` — for code restructuring or cleanup (e.g. refactor/download-mutex)
+- `docs/` — for documentation updates (e.g. docs/update-contributing)
 
-### 3.  **Build and Test**
+### 4.  **Build and Test**
 
-Open the project in Android Studio and allow gradle to synchronize.
+Open the project in Android Studio, allow Gradle to synchronize, and run a test build:
 
-Before submitting a contribution, make sure the project builds successfully and test the affected functionality.
-
----
-
-## Testing a New Crawler
-
-Crawler implementation are maintained in [BunoriSources](https://github.com/Binit06/BunoriSources). However, you do not need to add a crawler there immediately when developing or debugging it.
-
-If you want to test a crawller locally, you can:
-- Add a crawler implementation directly to your fork of Bunori.
-- Register the crawler in CrawlerFactory
-- Build and run Bunori normally.
-- Test and debug the crawler using the application's existing built-in crawler support.
-
-This allows you to develop and test a crawler without having to update [BunoriSources](https://github.com/Binit06/BunoriSources) during development.
-
-**THIS IS INTENDED FOR LOCAL TESTING ONLY.**
-
-Once the crawler is ready and tested, it should be contributed to [BunoriSources](https://github.com/Binit06/BunoriSources) rather than being permanently added as a built-in crawler in Bunori.
+```
+./gradlew compileDebugKotlin
+./gradlew test
+```
 
 ---
 
-## Adding a New Crawler
+## Testing a New Source
 
-New crawler implementation should be contributed through [BunoriSources](https://github.com/Binit06/BunoriSources).
+Sources implementation are maintained in [extensions](https://github.com/bunoriapp/extensions). However, you do not need to add a source there immediately when developing or debugging it.
 
-Please refer to [BunoriSources](https://github.com/Binit06/BunoriSources) README for instructions on implementing a new crawler.
+If you want to test a source locally, you can:
+- Implement a new source by following the guide in [extensions](https://github.com/bunoriapp/extensions)
+- Genearate the `.bext` file locally and send it over to your device
+- Go to `More -> Extensions -> Load from .bext file` to test the extension directly on the device
 
-### Keep Source-Specific Logic Isolated
+This allows you to develop and test a source without having to update [extensions](https://github.com/bunoriapp/extensions) during development.
 
-- CSS Selectors,
-- URL Handling,
-- HTML Parsing,
-- Source Speceific API handling
-- Novel and chapter extraction
-
-Avoid adding source-specific conditions to the shared crawler infrastructure when the behavior can be implemented inside the crawler itself.
-
-This keeps individual sources independent and makes future contributions easier.
+Once the source is ready and tested, it can be contributed to [extensions](https://github.com/bunoriapp/bunori) by following the contribution guidelines over there.
 
 ---
 
-## API Compaitibilty
+## Adding a New Source
 
-The :api module defines interfaces and contracts used by crawler implementations.
+New source implementation should be contributed through [extensions](https://github.com/bunoriapp/extensions).
 
-Changes to the API can affect **every crawler**, inlcuding crawlers that have already been built and packaged into a DEX.
-
->[!IMPORTANT]
->**Changes to the :api module can break existing crawlers if the new API is not backwards compatible**
-> When modifying an existing API, consider how previously implemented crawlers will behave with the new version. Prefer backward-compatible changes where possible and provide graceful handling for older implementations when compatibility cannot be maintained directly.
-
-When making API Changes:
-- Check how existing crawlers use the affected API.
-- Avoid unnecessarily breaking existing interfaces.
-- Prefer adding new behaviour over removing or changing existing contracts.
-- Provide sensible defaults when introducing new functionality.
-- Handle older implementation gracefully where possible.
-- Test existing crawlers against the updated APIs
-
-If an API Change intentionally introduces a breaking change, clearly document the change and its impact on existing crawler. If needed also set a mininimum Version Requirement as mentioned in BunoriSource README.
+Please refer to [extensions](https://github.com/bunoriapp/extensions) README for instructions on implementing a new source.
 
 ---
 
-## DEX Architechture
+## Source Compatibilty
 
-Bunori loads crawler implementations from a DEX containing the supporting sources.
+The sources are built and published individually and have backward compatibility
 
-The crawler implementations are packaged together, allowing the application to discover and use the available sources without coupling the core crawling logic to each individual sources.
+The `:extension-api` handles the job for loading the `.bext` files and etracting the manifest fields over to the app as well as loading the .aot from the package into the app.
 
-Because crawlers depend on the contracts defined by the :api module, changes to those contracts should be made carefully and tested against existing implementations.
+If a change to `:extension-api` is made it may directly affects how the app loads `.bext` files, clearly document the change and its impact on existing loading system.
+
+---
+
+## BEXT Architechture
+
+Bunori loads source implementations from a BEXT (**B**unori **Ext**ensions).
+
+The source is package into a .bext file containing
+- `manifest.json`
+- `icon.webp`
+- `source.wasm`
+- `artifacts/arm64-v8a/extension.aot`
+- `artifacts/x86_64/extension.aot`
 
 ---
 
@@ -128,12 +129,12 @@ Try to keep contributions consistent with the exisitng codebase.
 - Prefer cleaner and descriptive names
 - Keep functions focused on a single responsibility
 - Avoid unnecessary abstractions
-- Keep source speceific logic inside its crawlers
+- Keep source speceific logic inside its sources
 - Use Kotlin idioms where they improve readability
 - Handle network and parsing failures gracefuly
 - Avoid unrelated changes in the same pull batch
 
-Most importantly **don't over-engineer a crawler**. A simple implementation that reliably handles the source is preferable to unnecessary complexity
+Most importantly **don't over-engineer**. A simple implementation that reliably handles the something is preferable to unnecessary complexity
 
 ---
 
@@ -141,11 +142,11 @@ Most importantly **don't over-engineer a crawler**. A simple implementation that
 
 Before opening a pull batch
 - Make sure your changes build successfully
-- Test the affected crawlers or functionality
+- Test the affected sources or functionality
 - Check the existing functionality still works
 - Remove debugging code and unnecessary changes
 - Update documentation if your change requires it
-- If you changed :api, test existing crawler implementations for compatibility.
+- If you changed :api, test existing source implementations for compatibility.
 
 When opening a pull batch, briefly describe:
 - What you changed
@@ -162,9 +163,9 @@ Keep commit messages concise and descriptive
 
 Examples:
 
-- feat: add crawler factory support
+- feat: add new job factory support
 - fix: handle missing chapter
-- refactor: simplify crawler metadata
+- refactor: add new field to source metadata
 - docs: improve contributing guide
 
 Avoid commits such as:
@@ -181,11 +182,11 @@ Avoid commits such as:
 
 If you find a bug, please open an issue with enough infomation to reproduce it.
 
-For crawler-specific issues, please open the issue in [BunoriSources](https://github.com/Binit06/BunoriSources).
+For source-specific issues, please open the issue in [extensions](https://github.com/bunoriapp/extensions).
 
-For issues involving the core application, crawler API, DEX loading, or other functionality maintained in this repository, open the issue here.
+For issues involving the core application, source API, BEXT loading, or other functionality maintained in this repository, open the issue here.
 
-When reporting a crawler-related issue, include:
+When reporting a source-related issue, include:
 - Source Name
 - Novel URL, if Applicable
 - Chapter URL, if Applicable

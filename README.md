@@ -3,14 +3,14 @@
 
 # Bunori
 
-### Novel Reader and Exporter for Android
+### Modern Web Novel Reader and Exporter
 
 <br />
 <div align="center">
 
-[![Latest release](https://img.shields.io/github/v/release/bunoriapp/bunori?style=for-the-badge&labelColor=0d1117)](https://github.com/Binit06/Bunori/releases)
-[![License](https://img.shields.io/github/license/bunoriapp/bunori?style=for-the-badge&labelColor=0d1117)](https://github.com/Binit06/Bunori/blob/main/LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/bunoriapp/bunori/total?style=for-the-badge&labelColor=0d1117)](https://github.com/Binit06/Bunori/releases)
+[![Latest release](https://img.shields.io/github/v/release/bunoriapp/bunori?style=for-the-badge&labelColor=0d1117)](https://github.com/bunoriapp/bunori/releases)
+[![License](https://img.shields.io/github/license/bunoriapp/bunori?style=for-the-badge&labelColor=0d1117)](https://github.com/bunoriapp/bunori/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/bunoriapp/bunori/total?style=for-the-badge&labelColor=0d1117)](https://github.com/bunoriapp/bunori/releases)
 
 <br />
 
@@ -51,50 +51,53 @@
   <tr>
     <td width="50%" valign="top">
 
-#### Crawling
-- Fetch EBooks from supported sources
-- Supports multiple novel sources through independent crawlers
-- Update Novel Metadata
+#### In-Built Reader
+- Tailored typography, custom fonts, letter spacings and line heights 
+- Tap navigation zones, customisable screen margins
+- Various theme palleted along with True AMOLED
 
 </td>
     <td width="50%" valign="top">
 
-#### Dynamic Sources
-- Loads crawlers automatically from DEX extensions
-- Add new sources without modifying the core crawling engine
-
-</td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-
-#### Performance
-- Coroutine Based Scrapping
-- Concurrent chapter + content fetching
-- Implements Local Processing
-
-</td>
-    <td width="50%" valign="top">
-
-#### Architecture
-- Isolated crawler implementations
-- Pluggable source architecture
+#### BEXT Extension System
+- Sandboxed extensions compiled to webassembly via WAMR runtime
+- Install update manage sources independently without app updates
+- Fast HTML parsing with native performance bridges
 
 </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
 
-#### Developer Experiences
-- Easy-to-add new sources
-- Clearly separates crawler implementaion and core architechture
+#### Batch & Task Download
+- Concurrency controlled downloading with source rate limiting & Jitter
+- Automatic retires, Back Off Delays and auto resume
+- Foreground notification and live tracking
 
 </td>
     <td width="50%" valign="top">
 
-#### Search
-- Contains an in house search for directly searching novels
-- Maintained entirely by Bunori
+#### Artifact & Storage
+- Export downloaded chapters to standalone files
+- Efficient `.html.gz` compressed chapter storage on disk
+- Filter through scanlation and other aspects to download speceific chapters
+
+</td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+
+#### Headless Webview & Webkit Engine
+- Headless webview resolver handles non-interactive bot prevention challenges
+- Manual Cookie entry and browser debug modes for difficult sources
+
+</td>
+    <td width="50%" valign="top">
+
+#### Automation & Backup
+- Scheduled background workers for novel pruning and cache clearing
+- Full database backup and restore to JSON archives
+
 
 </td>
   </tr>
@@ -118,6 +121,9 @@
     </td>
   </tr>
 </table>
+
+*Supports `arm64-v8a` (modern Android devices) and `x86_64` (emulators).*
+
 
 </div>
 
@@ -166,15 +172,5 @@
 <a href="https://github.com/bunoriapp/bunori/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=bunoriapp/bunori" alt="Contributors" />
 </a>
-
-</div>
-
----
-
-<div align="center">
-
-<br/>
-
-**Made with ❤️ by [Binit06](https://github.com/Binit06)**
 
 </div>

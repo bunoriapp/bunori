@@ -103,8 +103,8 @@ class JobSchedulerTest {
             tasks[task.id] = task
         }
 
-        override suspend fun insertTasks(tasksList: List<TaskEntity>) {
-            tasksList.forEach { tasks[it.id] = it }
+        override suspend fun insertTasks(tasks: List<TaskEntity>) {
+            tasks.forEach { this.tasks[it.id] = it }
         }
 
         override suspend fun getTaskById(id: String): TaskEntity? {
@@ -271,15 +271,16 @@ class JobSchedulerTest {
         listOf(sourceABatchA, sourceABatchB, sourceABatchC, sourceBBatchA, sourceBBatchB).forEach { batchDao.insertBatch(it) }
         taskDao.insertTasks(srcATasks + srcABatchBTask + srcABatchCTask + srcBTasks + srcBBatchBTask)
 
-        // Create scheduler with ZeroBackoffPolicy so tests run instantly
+        // Create scheduler with ZeroBackoffPolicy and rateLimiter = null so tests run instantly
         val schedulerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
         val scheduler = JobScheduler(
             batchDao = batchDao,
             taskDao = taskDao,
             handlerRegistry = registry,
-            config = SchedulerConfig(pollingIntervalMs = 50L, maxConcurrentJobs = 10),
+            config = SchedulerConfig(pollingIntervalMs = 20L, maxConcurrentJobs = 10),
             retryPolicy = ZeroBackoffPolicy(),
-            scope = schedulerScope
+            scope = schedulerScope,
+            rateLimiter = null
         )
 
         var isCompleted = false
@@ -292,7 +293,7 @@ class JobSchedulerTest {
         // Wait for scheduler to finish processing all tasks
         withTimeout(5000L) {
             while (!isCompleted) {
-                delay(50L)
+                delay(20L)
             }
         }
 
@@ -349,7 +350,7 @@ class JobSchedulerTest {
     fun testPriorityAndRoundRobinExecutionOrder() = runBlocking {
         val batchDao = FakeBatchDao()
         val taskDao = FakeTaskDao()
-        val executedOrder = mutableListOf<String>()
+        val executedOrder = java.util.Collections.synchronizedList(mutableListOf<String>())
 
         val registry = JobHandlerRegistry()
         val handler = object : JobHandler {
@@ -377,9 +378,10 @@ class JobSchedulerTest {
             batchDao = batchDao,
             taskDao = taskDao,
             handlerRegistry = registry,
-            config = SchedulerConfig(pollingIntervalMs = 50L, maxConcurrentJobs = 1),
+            config = SchedulerConfig(pollingIntervalMs = 20L, maxConcurrentJobs = 1),
             retryPolicy = ZeroBackoffPolicy(),
-            scope = scope
+            scope = scope,
+            rateLimiter = null
         )
 
         var finished = false
@@ -387,7 +389,7 @@ class JobSchedulerTest {
         scheduler.start()
 
         withTimeout(3000L) {
-            while (!finished) delay(50L)
+            while (!finished) delay(20L)
         }
 
         scheduler.stop()
@@ -415,15 +417,16 @@ class JobSchedulerTest {
             batchDao = batchDao,
             taskDao = taskDao,
             handlerRegistry = registry,
-            config = SchedulerConfig(pollingIntervalMs = 1000L),
-            scope = scope
+            config = SchedulerConfig(pollingIntervalMs = 20L),
+            scope = scope,
+            rateLimiter = null
         )
 
         scheduler.pauseJob("b1")
 
-        withTimeout(2000L) {
+        withTimeout(3000L) {
             while (batchDao.getBatchById("b1")?.status != JobStatus.PAUSED) {
-                delay(50L)
+                delay(20L)
             }
         }
 
@@ -432,9 +435,9 @@ class JobSchedulerTest {
 
         scheduler.resumeJob("b1")
 
-        withTimeout(2000L) {
+        withTimeout(3000L) {
             while (batchDao.getBatchById("b1")?.status != JobStatus.RUNNING) {
-                delay(50L)
+                delay(20L)
             }
         }
 

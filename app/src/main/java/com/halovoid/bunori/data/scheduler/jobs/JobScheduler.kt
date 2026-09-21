@@ -26,7 +26,7 @@ class JobScheduler(
     private val retryPolicy: RetryPolicy = ExponentialBackoffPolicy(),
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
     private val preferenceRepository: PreferenceRepository? = null,
-    private val rateLimiter: SourceRateLimiter = SourceRateLimiter()
+    private val rateLimiter: SourceRateLimiter? = SourceRateLimiter()
 ) {
     private val trigger = Channel<Unit>(Channel.CONFLATED)
     private var pollingJob: Job? = null
@@ -211,7 +211,13 @@ class JobScheduler(
                 globalPool
             }
 
-            if (!pool.tryAcquire()) {
+            if (!globalPool.tryAcquire()) {
+                readyQueue.pushFirst(task)
+                break
+            }
+
+            if (pool != globalPool && !pool.tryAcquire()) {
+                globalPool.release()
                 val key = crawlerName ?: "__global__"
                 saturatedCrawlers.add(key)
                 readyQueue.pushFirst(task)
@@ -228,14 +234,21 @@ class JobScheduler(
                         config,
                         rateLimiter,
                         onCrawlerBlocked = { blockedName, _ -> blockCrawler(blockedName) },
-                        releaseSlot = { pool.release() },
-                        acquireSlot = { pool.acquire() }
+                        releaseSlot = {
+                            pool.release()
+                            if (pool != globalPool) globalPool.release()
+                        },
+                        acquireSlot = {
+                            if (pool != globalPool) globalPool.acquire()
+                            pool.acquire()
+                        }
                     )
                     runner.run(task) { activeJobs.remove(task.id) }
                 } catch (e: Exception) {
                     activeJobs.remove(task.id)
                 } finally {
                     pool.release()
+                    if (pool != globalPool) globalPool.release()
                     notifyWakeup()
                 }
             }

@@ -148,13 +148,33 @@ jobs:
 
           rm release.jks
 
+      - name: Extract Release Notes from CHANGELOG.md
+        id: changelog
+        run: |
+          VERSION="${{ needs.check-version.outputs.new_version }}"
+          echo "Extracting release notes for version $VERSION..."
+          
+          if [ -f CHANGELOG.md ]; then
+            awk -v ver="$VERSION" '
+              $0 ~ "^## \\[" ver "\\]" || $0 ~ "^## " ver { flag=1; next }
+              flag && /^## / { flag=0 }
+              flag { print }
+            ' CHANGELOG.md > release_notes.md
+          fi
+          
+          if [ ! -s release_notes.md ]; then
+            echo "No changelog entry found for version $VERSION. Using default fallback."
+            echo "Release v$VERSION" > release_notes.md
+          fi
+
       - name: Create Github Release
         uses: softprops/action-gh-release@v2
         with:
           files: release_apks/*.apk
           tag_name: v${{ needs.check-version.outputs.new_version }}
           name: Release v${{ needs.check-version.outputs.new_version }}
+          body_path: release_notes.md
           draft: true
           prerelease: ${{ contains(needs.check-version.outputs.new_version, '-alpha') || contains(needs.check-version.outputs.new_version, '-beta') || contains(needs.check-version.outputs.new_version, '-rc') }}
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
