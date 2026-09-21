@@ -186,7 +186,7 @@ fun MoreScreen(
             
             SettingsRow(
                 title = "Open Source License",
-                subtitle = "MIT License",
+                subtitle = "GPL-3.0 License",
                 onClick = { uriHandler.openUri("https://github.com/bunoriapp/bunori/blob/main/LICENSE") }
             )
 
@@ -207,7 +207,7 @@ fun MoreScreen(
                 title = "Discord Server",
                 subtitle = "Join our community for chat & support",
                 iconPainter = painterResource(id = R.drawable.ic_discord),
-                onClick = { uriHandler.openUri("https://discord.gg/A6cY7pN6Y") }
+                onClick = { uriHandler.openUri("https://discord.gg/WzpTJuS4JT") }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -221,7 +221,7 @@ fun MoreScreen(
             ) {
                 SocialIcon(
                     painter = painterResource(id = R.drawable.ic_discord),
-                    onClick = { uriHandler.openUri("https://discord.gg/A6cY7pN6Y") }
+                    onClick = { uriHandler.openUri("https://discord.gg/WzpTJuS4JT") }
                 )
                 Spacer(modifier = Modifier.width(20.dp))
                 SocialIcon(

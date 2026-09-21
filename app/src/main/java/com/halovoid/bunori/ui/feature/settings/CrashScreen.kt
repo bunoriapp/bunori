@@ -57,7 +57,7 @@ fun CrashScreen(
 
             Button(
                 onClick = {
-                    uriHandler.openUri("https://discord.gg/A6cY7pN6Y")
+                    uriHandler.openUri("https://discord.gg/WzpTJuS4JT")
                 },
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 8.dp),
