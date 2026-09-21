@@ -17,7 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import com.halovoid.bunori.ui.core.components.NovelCoverImage
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.core.theme.*
 
@@ -39,25 +39,19 @@ fun CompactNovelCard(
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            var coverModel by remember(novel.coverUrl, novel.coverHttpsUrl) {
-                mutableStateOf(novel.coverUrl ?: novel.coverHttpsUrl)
-            }
             Box(
                 modifier = Modifier
                     .size(width = 52.dp, height = 72.dp)
                     .clip(RoundedCornerShape(6.dp))
                     .background(DarkSurfaceVariant)
             ) {
-                AsyncImage(
-                    model = coverModel,
-                    contentDescription = novel.title,
+                NovelCoverImage(
+                    coverUrl = novel.coverUrl,
+                    coverHttpsUrl = novel.coverHttpsUrl,
+                    title = novel.title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    onError = {
-                        if (coverModel != novel.coverHttpsUrl) {
-                            coverModel = novel.coverHttpsUrl
-                        }
-                    }
+                    shape = RoundedCornerShape(6.dp),
+                    showTitleInFallback = false
                 )
 
                 val unreadCount = remember(novel.chapters) {

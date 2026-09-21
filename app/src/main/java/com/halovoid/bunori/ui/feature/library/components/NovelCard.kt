@@ -18,7 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
-import coil.compose.AsyncImage
+import com.halovoid.bunori.ui.core.components.NovelCoverImage
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.core.theme.*
 
@@ -35,20 +35,13 @@ fun NovelCard(
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = DarkSurface)
     ) {
-        var coverModel by remember(novel.coverUrl, novel.coverHttpsUrl) {
-            mutableStateOf(novel.coverUrl ?: novel.coverHttpsUrl)
-        }
         Box(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = coverModel,
-                contentDescription = novel.title,
+            NovelCoverImage(
+                coverUrl = novel.coverUrl,
+                coverHttpsUrl = novel.coverHttpsUrl,
+                title = novel.title,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                onError = {
-                    if (coverModel != novel.coverHttpsUrl) {
-                        coverModel = novel.coverHttpsUrl
-                    }
-                }
+                shape = RoundedCornerShape(8.dp)
             )
 
             val unreadCount = remember(novel.chapters) {

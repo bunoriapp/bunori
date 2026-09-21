@@ -18,7 +18,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.halovoid.bunori.ui.core.components.NovelCoverImage
 import com.halovoid.bunori.domain.models.SearchItem
 import com.halovoid.bunori.ui.core.theme.*
 
@@ -42,29 +42,13 @@ fun SearchResultCard(
             border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.5f))
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                AsyncImage(
-                    model = item.imageUrl,
-                    contentDescription = item.title,
+                NovelCoverImage(
+                    coverUrl = item.imageUrl,
+                    coverHttpsUrl = item.imageUrl,
+                    title = item.title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    error = null
+                    shape = RoundedCornerShape(8.dp)
                 )
-                
-                if (item.imageUrl.isNullOrBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(DarkSurfaceVariant),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Book,
-                            contentDescription = null,
-                            tint = SecondaryText.copy(alpha = 0.2f),
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
 
                 if (isInLibrary) {
                     Box(

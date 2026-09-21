@@ -19,7 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.halovoid.bunori.ui.core.components.NovelCoverImage
 import com.halovoid.bunori.domain.models.SearchItem
 import com.halovoid.bunori.ui.core.theme.*
 
@@ -42,21 +42,14 @@ fun CompactSearchResultCard(
                 .clip(RoundedCornerShape(6.dp))
                 .background(DarkSurfaceVariant)
         ) {
-            AsyncImage(
-                model = item.imageUrl,
-                contentDescription = item.title,
+            NovelCoverImage(
+                coverUrl = item.imageUrl,
+                coverHttpsUrl = item.imageUrl,
+                title = item.title,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                shape = RoundedCornerShape(6.dp),
+                showTitleInFallback = false
             )
-            
-            if (item.imageUrl.isNullOrBlank()) {
-                Icon(
-                    Icons.Default.Book,
-                    contentDescription = null,
-                    tint = SecondaryText.copy(alpha = 0.2f),
-                    modifier = Modifier.size(20.dp).align(Alignment.Center)
-                )
-            }
 
             if (isInLibrary) {
                 Box(

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.halovoid.bunori.ui.core.components.NovelCoverImage
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.core.theme.*
 
@@ -40,19 +41,21 @@ fun NovelHeroSection(novel: Novel) {
             .height(280.dp)
             .background(DarkBackground)
     ) {
-        AsyncImage(
-            model = coverModel,
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .alpha(0.12f),
-            contentScale = ContentScale.Crop,
-            onError = {
-                if (coverModel != novel.coverHttpsUrl) {
-                    coverModel = novel.coverHttpsUrl
+        if (!coverModel.isNullOrBlank()) {
+            AsyncImage(
+                model = coverModel,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(0.12f),
+                contentScale = ContentScale.Crop,
+                onError = {
+                    if (coverModel != novel.coverHttpsUrl) {
+                        coverModel = novel.coverHttpsUrl
+                    }
                 }
-            }
-        )
+            )
+        }
 
         Box(
             modifier = Modifier
@@ -76,20 +79,14 @@ fun NovelHeroSection(novel: Novel) {
                 .padding(top = 48.dp, bottom = 16.dp),
             verticalAlignment = Alignment.Bottom
         ) {
-            AsyncImage(
-                model = coverModel,
-                contentDescription = null,
+            NovelCoverImage(
+                coverUrl = novel.coverUrl,
+                coverHttpsUrl = novel.coverHttpsUrl,
+                title = novel.title,
                 modifier = Modifier
                     .width(100.dp)
-                    .aspectRatio(2f / 3f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(DarkSurface),
-                contentScale = ContentScale.Crop,
-                onError = {
-                    if (coverModel != novel.coverHttpsUrl) {
-                        coverModel = novel.coverHttpsUrl
-                    }
-                }
+                    .aspectRatio(2f / 3f),
+                shape = RoundedCornerShape(8.dp)
             )
 
             Spacer(modifier = Modifier.width(20.dp))
