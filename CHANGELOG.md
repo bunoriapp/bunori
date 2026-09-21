@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0] - 2026-09-21
 
 ### Highlights & Major Features
-- **Rebrand to Bunori**: Complete codebase, UI, and package modernization under the Bunori platform name.
+- **Rebrand to Bunori**: Complete codebase, UI, and package modernization under the Bunori platform name. This will be installed as a new app and update won't be applied to the old LNCrawler
 - **`.bext` Extension System**: Rebuilt crawler architecture powered by WebAssembly (WAMR bridge) with lightweight `.bext` packages and standalone extension repository management.
 - **Brand New WebView Reader Engine**: Highly customizable reader supporting custom typography, font sizing, line spacing, margins, tap zones, AMOLED dark mode, and reading rulers.
 - **Refactored Batch & Task Downloader**: Switched from DAG scheduling to a robust Batch & Task queue model with concurrency mutexes, source-level backoff, jitter, and retry capabilities.

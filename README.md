@@ -33,8 +33,8 @@
 <img src="assets/screenshots/library.jpg" alt="Artifacts" width="30%" />
 <img src="assets/screenshots/novel.jpg" alt="Novel Screen" width="30%" />
 <img src="assets/screenshots/reader.jpg" alt="Request Screen" width="30%" />
-<img src="assets/screenshots/search.jpg" alt="Novel Features" width="30%" />
-<img src="assets/screenshots/downloads.jpg" alt="Linked Request Screen" width="30%" />
+<img src="assets/screenshots/extension.jpg" alt="Novel Features" width="30%" />
+<img src="assets/screenshots/activity.jpg" alt="Linked Request Screen" width="30%" />
 <img src="assets/screenshots/settings.jpg" alt="Linked Request Screen" width="30%" />
 
 </div>
