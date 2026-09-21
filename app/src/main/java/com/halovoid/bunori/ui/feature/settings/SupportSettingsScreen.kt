@@ -63,7 +63,7 @@ fun SupportSettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = "Your support helps keep this project active by directly offsetting server hosting fees, domain registration, and GitHub automation builds used to maintain up-to-date crawler sources.",
+                    text = "Your support helps keep this project active by directly supporting the dev and helping out in the development of the project.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = SecondaryText,
                     lineHeight = 22.sp

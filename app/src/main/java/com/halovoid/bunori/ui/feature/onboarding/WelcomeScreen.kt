@@ -16,65 +16,105 @@ import com.halovoid.bunori.ui.core.theme.*
 
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun WelcomeScreen(
     onNext: () -> Unit
 ) {
     OnboardingStep(
-        title = "Welcome to Bunori",
-        subtitle = "A complete platform for discovering, reading, and downloading web novels",
+        title = null,
+        subtitle = null,
         onNext = onNext,
         isScrollable = false
     ) {
-        // Splash icon in its previous position (below title & subtitle)
-        Image(
-            painter = painterResource(id = R.mipmap.ic_splash_logo),
-            contentDescription = null,
-            modifier = Modifier.size(96.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Info vertically centered in the remaining screen space
+        // Outer Box fills the available space and is responsible for
+        // horizontally centering the content block on wide screens.
+        // (This replaces the old fillMaxSize()+widthIn() chain on the
+        // Column, which never actually capped the width because
+        // fillMaxSize() locks minWidth == maxWidth before widthIn() runs.)
         Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-            contentAlignment = Alignment.Center
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .fillMaxHeight()
+                    .widthIn(max = 560.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                FeatureItem(
-                    title = "One Library, Many Sources",
-                    description = "Discover and track novels across multiple web sources with unified search and filtering in one library."
+                // Heading & Subtitle (left-aligned text inside the centered block)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        text = "Welcome to Bunori",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = PrimaryText,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "A complete platform for discovering, reading, and downloading web novels",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SecondaryText,
+                        lineHeight = 20.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Splash icon (this one stays visually centered within the block)
+                Image(
+                    painter = painterResource(id = R.mipmap.ic_splash_logo),
+                    contentDescription = null,
+                    modifier = Modifier.size(96.dp)
                 )
 
-                FeatureItem(
-                    title = "Extensible by Design",
-                    description = "Add and update source extensions independently with lightweight .bext packages, without waiting for app updates."
-                )
+                Spacer(modifier = Modifier.height(8.dp))
 
-                FeatureItem(
-                    title = "A Reader for Long Form Reading",
-                    description = "Tailor typography, margins, reading rulers, tap gestures, and true AMOLED dark mode to your comfort."
-                )
+                // Feature items list
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        FeatureItem(
+                            title = "One Library, Many Sources",
+                            description = "Discover and track novels across multiple web sources with unified search and filtering in one library."
+                        )
 
-                FeatureItem(
-                    title = "Powerful Offline Reading",
-                    description = "Download specific chapter ranges in the background with auto-resume for uninterrupted offline reading."
-                )
+                        FeatureItem(
+                            title = "Extensible by Design",
+                            description = "Add and update source extensions independently with lightweight .bext packages, without waiting for app updates."
+                        )
 
-                FeatureItem(
-                    title = "Built to Stay Out of Your Way",
-                    description = "Crawling, chapter updates, downloads, and cache management run quietly in the background."
-                )
+                        FeatureItem(
+                            title = "A Reader for Long Form Reading",
+                            description = "Tailor typography, margins, reading rulers, tap gestures, and true AMOLED dark mode to your comfort."
+                        )
+
+                        FeatureItem(
+                            title = "Powerful Offline Reading",
+                            description = "Download specific chapter ranges in the background with auto-resume for uninterrupted offline reading."
+                        )
+
+                        FeatureItem(
+                            title = "Built to Stay Out of Your Way",
+                            description = "Crawling, chapter updates, downloads, and cache management run quietly in the background."
+                        )
+                    }
+                }
             }
         }
     }
