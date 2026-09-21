@@ -62,7 +62,7 @@ fun JobDetailScreen(
     val factory = remember { ViewModelFactory(context.applicationContext as android.app.Application) }
     val viewModel: JobDetailViewModel = viewModel(factory = factory)
 
-    val record by viewModel.getRequest(batchId).collectAsState(initial = null)
+    val record by viewModel.getBatch(batchId).collectAsState(initial = null)
     val linkedRequests by viewModel.linkedRequests.collectAsStateWithLifecycle()
     val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
     val selectedTaskIds by viewModel.selectedTaskIds.collectAsStateWithLifecycle()
@@ -107,7 +107,7 @@ fun JobDetailScreen(
             message = "Are you sure you want to stop \"${record!!.name}\"? Any progress made will be preserved, but remaining tasks will stop.",
             onConfirm = {
                 showCancelDialog = false
-                viewModel.cancelRequest(record!!.id)
+                viewModel.cancelBatch(record!!.id)
             },
             onDismiss = { showCancelDialog = false }
         )
@@ -219,7 +219,7 @@ fun JobDetailScreen(
                             } else {
                                 when (current.status) {
                                     JobStatus.RUNNING -> {
-                                        IconButton(onClick = { viewModel.pauseRequest(current.id) }) {
+                                        IconButton(onClick = { viewModel.pauseBatch(current.id) }) {
                                             Icon(
                                                 imageVector = Icons.Default.Pause,
                                                 contentDescription = "Pause",
@@ -235,7 +235,7 @@ fun JobDetailScreen(
                                         }
                                     }
                                     JobStatus.PAUSED -> {
-                                        IconButton(onClick = { viewModel.resumeRequest(current.id) }) {
+                                        IconButton(onClick = { viewModel.resumeBatch(current.id) }) {
                                             Icon(
                                                 imageVector = Icons.Default.PlayArrow,
                                                 contentDescription = "Resume",
@@ -276,7 +276,7 @@ fun JobDetailScreen(
                                         }
                                     }
                                     JobStatus.SUCCESS, JobStatus.FAILED, JobStatus.CANCELLED -> {
-                                        IconButton(onClick = { viewModel.replayRequest(current.id) }) {
+                                        IconButton(onClick = { viewModel.replayBatch(current.id) }) {
                                             Icon(
                                                 imageVector = Icons.Default.Refresh,
                                                 contentDescription = "Replay",

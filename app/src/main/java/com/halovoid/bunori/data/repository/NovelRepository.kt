@@ -130,10 +130,6 @@ class NovelRepository private constructor(context: Context) {
         novelDao.updateLibraryStatus(url, inLibrary, hash)
     }
 
-    suspend fun updateRefreshExpiry(url: String, refreshExpiry: Long) = withContext(Dispatchers.IO) {
-        novelDao.updateRefreshExpiry(url, refreshExpiry)
-    }
-
     suspend fun getSimilarNovels(hash: Long, threshold: Int): List<Novel> = withContext(Dispatchers.IO) {
         novelDao.getAllNovelsOnce().map { it.toDomain() }.filter { existingNovel ->
             existingNovel.titleHash?.let { existingHash ->

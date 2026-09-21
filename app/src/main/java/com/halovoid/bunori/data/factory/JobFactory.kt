@@ -5,11 +5,10 @@ import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
-import com.halovoid.bunori.domain.models.SearchItem
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ExportFormat
 import org.json.JSONObject
 
-class RequestFactory {
+class JobFactory {
 
     fun metadata(novel: Novel): BatchEntity {
         val metadata = JSONObject().apply {
@@ -21,22 +20,6 @@ class RequestFactory {
             type = JobType.NOVEL_METADATA,
             novelUrl = novel.url,
             name = "Metadata: ${novel.title}",
-            metadata = metadata,
-            status = JobStatus.PENDING,
-            priority = 0
-        )
-    }
-
-    fun metadataFromSearchItem(item: SearchItem): BatchEntity {
-        val metadata = JSONObject().apply {
-            put("crawlerName", item.source)
-        }.toString()
-
-        return BatchEntity(
-            id = "${item.url}_metadata",
-            type = JobType.NOVEL_METADATA,
-            novelUrl = item.url,
-            name = "Metadata: ${item.title}",
             metadata = metadata,
             status = JobStatus.PENDING,
             priority = 0

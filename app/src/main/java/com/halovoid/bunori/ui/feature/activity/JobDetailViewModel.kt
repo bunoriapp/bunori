@@ -36,17 +36,17 @@ class JobDetailViewModel(
         _statusFilter.value = status
     }
 
-    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
+    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingBatchIds
     val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
-    fun resolveWebView(requestId: String, url: String) {
+    fun resolveWebView(batchId: String, url: String) {
         viewModelScope.launch {
-            AppLog.i("RequestDetailViewModel", "Starting WebView resolution for $requestId at $url")
+            AppLog.i("RequestDetailViewModel", "Starting WebView resolution for $batchId at $url")
             val success = com.halovoid.bunori.api.core.scrapper.Scrapper.globalResolver?.resolve(url) ?: false
             AppLog.i("RequestDetailViewModel", "Resolution result: $success")
             if (success) {
-                AppLog.i("RequestDetailViewModel", "Resuming request $requestId")
-                batchRepository.resumeRequest(requestId)
+                AppLog.i("RequestDetailViewModel", "Resuming request $batchId")
+                batchRepository.resumeBatch(batchId)
             }
         }
     }
@@ -103,16 +103,6 @@ class JobDetailViewModel(
         }
     }
 
-    fun selectTasksWithSameStatus(tasks: List<Batch>) {
-        val selected = _selectedTaskIds.value
-        val selectedStatuses = tasks.filter { it.id in selected }.map { it.status }.toSet()
-        if (selectedStatuses.isNotEmpty()) {
-            val matchingIds = tasks.filter { it.status in selectedStatuses }.map { it.id }.toSet()
-            _isSelectionMode.value = true
-            _selectedTaskIds.value = matchingIds
-        }
-    }
-
     fun replaySelectedTasks(batchId: String) {
         val selected = _selectedTaskIds.value.toList()
         if (selected.isNotEmpty()) {
@@ -138,8 +128,8 @@ class JobDetailViewModel(
         id to status
     }
         .flatMapLatest { (id, status) ->
-            batchRepository.getRequestsByDependenceFlow(id).map { requests ->
-                val filtered = if (status == null) requests else requests.filter { it.status == status }
+            batchRepository.getBatchByDependenceFlow(id).map { batches ->
+                val filtered = if (status == null) batches else batches.filter { it.status == status }
                 filtered.sortedWith(
                     compareBy<Batch> { statusPriority(it.status) }
                         .thenBy { it.name }
@@ -157,7 +147,7 @@ class JobDetailViewModel(
     val chapterMetadata: StateFlow<Chapter?> = _requestId
         .filterNotNull()
         .flatMapLatest { id ->
-            batchRepository.getRequestByIdFlow(id)
+            batchRepository.getBatchByIdFlow(id)
         }
         .filterNotNull()
         .map { request ->
@@ -178,11 +168,11 @@ class JobDetailViewModel(
     val artifactMetadata: StateFlow<Artifact?> = _requestId
         .filterNotNull()
         .flatMapLatest { id ->
-            batchRepository.getRequestByIdFlow(id)
+            batchRepository.getBatchByIdFlow(id)
         }
         .filterNotNull()
         .map { request ->
-            val artifacts = artifactRepository.getArtifactForRequest(request.id)
+            val artifacts = artifactRepository.getArtifactForBatch(request.id)
             artifacts.find { it.requestId == request.id }
         }
         .flowOn(Dispatchers.IO)
@@ -192,31 +182,31 @@ class JobDetailViewModel(
             initialValue = null
         )
 
-    fun getRequest(requestId: String): Flow<Batch?> {
-        return batchRepository.getRequestByIdFlow(requestId)
+    fun getBatch(batchId: String): Flow<Batch?> {
+        return batchRepository.getBatchByIdFlow(batchId)
     }
 
-    fun pauseRequest(requestId: String) {
+    fun pauseBatch(batchId: String) {
         viewModelScope.launch {
-            batchRepository.pauseRequest(requestId)
+            batchRepository.pauseBatch(batchId)
         }
     }
 
-    fun replayRequest(requestId: String) {
+    fun replayBatch(batchId: String) {
         viewModelScope.launch {
-            batchRepository.replayRequest(requestId)
+            batchRepository.replayBatch(batchId)
         }
     }
 
-    fun resumeRequest(requestId: String) {
+    fun resumeBatch(batchId: String) {
         viewModelScope.launch {
-            batchRepository.resumeRequest(requestId)
+            batchRepository.resumeBatch(batchId)
         }
     }
 
-    fun cancelRequest(requestId: String) {
+    fun cancelBatch(batchId: String) {
         viewModelScope.launch {
-            batchRepository.cancelRequest(requestId)
+            batchRepository.cancelBatch(batchId)
         }
     }
 

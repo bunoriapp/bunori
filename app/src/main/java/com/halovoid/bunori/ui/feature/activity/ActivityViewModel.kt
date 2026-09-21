@@ -20,7 +20,7 @@ class ActivityViewModel(
     private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
 ) : AndroidViewModel(application) {
 
-    val batchHistory: StateFlow<List<Batch>> = batchRepository.getRootRequests()
+    val batchHistory: StateFlow<List<Batch>> = batchRepository.getBatches()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -52,8 +52,8 @@ class ActivityViewModel(
         initialValue = GlobalActivityStats(0, 0)
     )
 
-    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingRequestIds
-    val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
+//    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.
+//    val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
     fun setCompactMode(compact: Boolean) {
         viewModelScope.launch {
@@ -61,33 +61,30 @@ class ActivityViewModel(
         }
     }
 
-    fun cancelRequest(requestId: String) {
+    fun cancelBatch(batchId: String) {
         viewModelScope.launch {
-            batchRepository.cancelRequest(requestId)
+            batchRepository.cancelBatch(batchId)
         }
     }
 
-    fun replayRequest(requestId: String) {
+    fun replayBatch(batchtId: String) {
         viewModelScope.launch {
-            batchRepository.replayRequest(requestId)
+            batchRepository.replayBatch(batchtId)
         }
     }
 
-    fun resumeRequest(requestId: String) {
+    fun resumeBatch(batchId: String) {
         viewModelScope.launch {
-            batchRepository.resumeRequest(requestId)
+            batchRepository.resumeBatch(batchId)
         }
     }
 
-    fun resolveWebView(requestId: String, url: String) {
+    fun resolveWebView(batchId: String, url: String) {
         viewModelScope.launch {
             val success = Scrapper.globalResolver?.resolve(url) ?: false
             if (success) {
-                batchRepository.resumeRequest(requestId)
+                batchRepository.resumeBatch(batchId)
             }
         }
     }
 }
-
-// Backward compatibility alias
-typealias DownloadViewModel = ActivityViewModel

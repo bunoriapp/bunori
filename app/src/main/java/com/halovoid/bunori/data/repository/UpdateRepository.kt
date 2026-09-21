@@ -33,10 +33,6 @@ class UpdateRepository private constructor(context: Context) {
         _isAppUpdateAvailable.value = VersionUtils.isUpdateAvailable(BuildConfig.VERSION_NAME, info.tagName)
     }
 
-    fun setCrawlerUpdateAvailable(available: Boolean) {
-        _isCrawlerUpdateAvailable.value = available
-    }
-
     companion object {
         @Volatile
         private var INSTANCE: UpdateRepository? = null

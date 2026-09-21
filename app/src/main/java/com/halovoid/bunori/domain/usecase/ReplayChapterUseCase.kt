@@ -1,7 +1,7 @@
 package com.halovoid.bunori.domain.usecase
 
 import android.net.Uri
-import com.halovoid.bunori.data.factory.RequestFactory
+import com.halovoid.bunori.data.factory.JobFactory
 import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.repository.StorageRepository
@@ -16,7 +16,7 @@ class ReplayChapterUseCase(
     private val downloadRepository: DownloadRepository,
     private val storageRepository: StorageRepository,
     private val batchRepository: BatchRepository,
-    private val requestFactory: RequestFactory = RequestFactory()
+    private val jobFactory: JobFactory = JobFactory()
 ) {
     suspend operator fun invoke(novel: Novel, chapter: Chapter) {
         val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
@@ -28,7 +28,7 @@ class ReplayChapterUseCase(
             }
             downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
         }
-        val request = requestFactory.chapter(novel, chapter)
+        val request = jobFactory.chapter(novel, chapter)
         batchRepository.insertBatchWithChapterTasks(request, listOf(chapter))
     }
 }

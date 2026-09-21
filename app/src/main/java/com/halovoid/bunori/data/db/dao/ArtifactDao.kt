@@ -15,7 +15,7 @@ interface ArtifactDao {
     fun getArtifactById(id: Int): ArtifactEntity
 
     @Query("SELECT * FROM artifacts WHERE requestId = :id")
-    fun getArtifactForRequest(id: String): List<ArtifactEntity>
+    fun getArtifactForBatch(id: String): List<ArtifactEntity>
 
     @Query("SELECT * FROM artifacts WHERE novelUrl = :url")
     fun getArtifactsByNovelFlow(url: String): Flow<List<ArtifactEntity>>

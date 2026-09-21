@@ -88,7 +88,7 @@ private fun SearchResultsList(
             )
         }
 
-        if (allDone && !allEmpty) {
+        if (allDone) {
             item(key = "asking_request") {
                 RequestNovelFooter(onRequestClick = onNavigateToRequest)
             }

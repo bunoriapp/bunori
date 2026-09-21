@@ -2,7 +2,8 @@ package com.halovoid.bunori.data.repository
 
 import android.content.Context
 import com.halovoid.bunori.data.db.AppDatabase
-import com.halovoid.bunori.data.db.entities.DownloadEntity
+import com.halovoid.bunori.data.db.mappers.toDomain
+import com.halovoid.bunori.data.db.mappers.toEntity
 import com.halovoid.bunori.domain.models.Download
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -98,34 +99,4 @@ class DownloadRepositoryImpl private constructor(context: Context) : DownloadRep
     override suspend fun deleteAllCachedDownloads() {
         downloadDao.deleteAllCachedDownloads()
     }
-
-    private fun DownloadEntity.toDomain(): Download = Download(
-        id = id,
-        novelUrl = novelUrl,
-        chapterUrl = chapterUrl,
-        fileLocation = fileLocation,
-        chapterIndex = chapterIndex,
-        chapterTitle = chapterTitle,
-        scanlationSource = scanlationSource,
-        novelTitle = novelTitle,
-        sizeBytes = sizeBytes,
-        downloadedAt = downloadedAt,
-        isCache = isCache,
-        expirationTime = expirationTime
-    )
-
-    private fun Download.toEntity(): DownloadEntity = DownloadEntity(
-        id = id,
-        novelUrl = novelUrl,
-        chapterUrl = chapterUrl,
-        fileLocation = fileLocation,
-        chapterIndex = chapterIndex,
-        chapterTitle = chapterTitle,
-        scanlationSource = scanlationSource,
-        novelTitle = novelTitle,
-        sizeBytes = sizeBytes,
-        downloadedAt = downloadedAt,
-        isCache = isCache,
-        expirationTime = expirationTime
-    )
 }

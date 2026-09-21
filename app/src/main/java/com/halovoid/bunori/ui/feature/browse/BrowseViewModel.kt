@@ -2,9 +2,10 @@ package com.halovoid.bunori.ui.feature.browse
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.scrapper.Scrapper
-import com.halovoid.bunori.data.factory.RequestFactory
+import com.halovoid.bunori.data.factory.JobFactory
 import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.domain.models.Novel
@@ -25,9 +26,9 @@ class BrowseViewModel(
     application: Application,
     private val batchRepository: BatchRepository,
     private val novelRepository: NovelRepository = NovelRepository.getInstance(application),
-    private val requestFactory: RequestFactory = RequestFactory(),
+    private val jobFactory: JobFactory = JobFactory(),
     private val saveNovelUseCase: SaveNovelUseCase = SaveNovelUseCase(novelRepository),
-    private val startNovelCrawlUseCase: StartNovelCrawlUseCase = StartNovelCrawlUseCase(batchRepository, requestFactory)
+    private val startNovelCrawlUseCase: StartNovelCrawlUseCase = StartNovelCrawlUseCase(batchRepository, jobFactory)
 ) : AndroidViewModel(application) {
 
     private val _error = MutableStateFlow<String?>(null)
@@ -50,7 +51,7 @@ class BrowseViewModel(
             AppLog.i("BrowseViewModel", "Resolution result: $success")
             if (success) {
                 AppLog.i("BrowseViewModel", "Resuming request $requestId")
-                batchRepository.resumeRequest(requestId)
+                batchRepository.resumeBatch(requestId)
             }
         }
     }
@@ -62,6 +63,19 @@ class BrowseViewModel(
                 val existing = novelRepository.getNovelDetails(novel.url)
                 if (existing == null) {
                     novelRepository.saveNovelMetadata(novel)
+                    startNovelCrawlUseCase(
+                        context = getApplication(),
+                        crawlerName = novel.crawlerName,
+                        url = novel.url,
+                        title = novel.title
+                    )
+                } else if (existing.chapters.isEmpty()) {
+                    startNovelCrawlUseCase(
+                        context = getApplication(),
+                        crawlerName = novel.crawlerName,
+                        url = novel.url,
+                        title = novel.title
+                    )
                 }
                 onSaved()
             } catch (e: Exception) {

@@ -1,12 +1,13 @@
 package com.halovoid.bunori.data.repository
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.halovoid.bunori.data.db.AppDatabase
-import com.halovoid.bunori.data.db.dao.BatchWithStats
 import com.halovoid.bunori.data.db.entities.BatchEntity
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.db.entities.TaskEntity
+import com.halovoid.bunori.data.db.mappers.toDomain
 import com.halovoid.bunori.data.handlers.utility.crawlerName
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
@@ -21,25 +22,24 @@ class BatchRepository private constructor(private val context: Context) {
     private val db = AppDatabase.getDatabase(context)
     val batchDao = db.batchDao()
     val taskDao = db.taskDao()
-    private val chapterRepository = ChapterRepository.getInstance(context)
 
-    private val _cancellingRequestIds = MutableStateFlow<Set<String>>(emptySet())
-    val cancellingRequestIds: StateFlow<Set<String>> = _cancellingRequestIds.asStateFlow()
+    private val _cancellingBatchIds = MutableStateFlow<Set<String>>(emptySet())
+    val cancellingBatchIds: StateFlow<Set<String>> = _cancellingBatchIds.asStateFlow()
 
     private val _activeActionIds = MutableStateFlow<Set<String>>(emptySet())
     val activeActionIds: StateFlow<Set<String>> = _activeActionIds.asStateFlow()
 
-    fun getRootRequests(): Flow<List<Batch>> = batchDao.getBatchesWithStatsFlow().map { list ->
+    fun getBatches(): Flow<List<Batch>> = batchDao.getBatchesWithStatsFlow().map { list ->
         list.map { it.toDomain() }
     }
 
-    fun getRootRequestByNovelFlow(url: String): Flow<List<Batch>> =
+    fun getBatchesByNovelFlow(url: String): Flow<List<Batch>> =
         batchDao.getBatchesWithStatsByNovelFlow(url).map { list ->
             list.map { it.toDomain() }
         }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    fun getRequestByIdFlow(id: String): Flow<Batch?> =
+    fun getBatchByIdFlow(id: String): Flow<Batch?> =
         batchDao.getBatchWithStatsByIdFlow(id).flatMapLatest { batchWithStats ->
             if (batchWithStats != null) {
                 flowOf(batchWithStats.toDomain())
@@ -48,7 +48,7 @@ class BatchRepository private constructor(private val context: Context) {
             }
         }
 
-    fun getRequestsByDependenceFlow(batchId: String): Flow<List<Batch>> =
+    fun getBatchByDependenceFlow(batchId: String): Flow<List<Batch>> =
         taskDao.getTasksByBatchIdFlow(batchId).map { list ->
             list.map { it.toDomain() }
         }
@@ -56,7 +56,7 @@ class BatchRepository private constructor(private val context: Context) {
     fun getActiveTasksByNovelFlow(novelUrl: String): Flow<List<TaskEntity>> =
         taskDao.getActiveTasksByNovelFlow(novelUrl)
 
-    suspend fun insertRequests(batches: List<BatchEntity>) = withContext(Dispatchers.IO) {
+    suspend fun insertBatches(batches: List<BatchEntity>) = withContext(Dispatchers.IO) {
         for (batch in batches) {
             val task = TaskEntity(
                 id = "${batch.id}_init",
@@ -102,7 +102,7 @@ class BatchRepository private constructor(private val context: Context) {
         taskDao.insertTasks(tasks)
     }
 
-    suspend fun pauseRequest(batchId: String) = withContext(Dispatchers.IO) {
+    suspend fun pauseBatch(batchId: String) = withContext(Dispatchers.IO) {
         _activeActionIds.update { it + batchId }
         try {
             val effectiveBatchId = batchDao.getBatchById(batchId)?.id
@@ -116,7 +116,7 @@ class BatchRepository private constructor(private val context: Context) {
         }
     }
 
-    suspend fun resumeRequest(batchId: String) = withContext(Dispatchers.IO) {
+    suspend fun resumeBatch(batchId: String) = withContext(Dispatchers.IO) {
         _activeActionIds.update { it + batchId }
         try {
             val effectiveBatchId = batchDao.getBatchById(batchId)?.id
@@ -145,7 +145,7 @@ class BatchRepository private constructor(private val context: Context) {
         }
     }
 
-    suspend fun replayRequest(batchId: String) = withContext(Dispatchers.IO) {
+    suspend fun replayBatch(batchId: String) = withContext(Dispatchers.IO) {
         _activeActionIds.update { it + batchId }
         try {
             val effectiveBatchId = batchDao.getBatchById(batchId)?.id
@@ -159,8 +159,8 @@ class BatchRepository private constructor(private val context: Context) {
         }
     }
 
-    suspend fun cancelRequest(batchId: String) = withContext(Dispatchers.IO) {
-        _cancellingRequestIds.update { it + batchId }
+    suspend fun cancelBatch(batchId: String) = withContext(Dispatchers.IO) {
+        _cancellingBatchIds.update { it + batchId }
         try {
             val effectiveBatchId = batchDao.getBatchById(batchId)?.id
                 ?: taskDao.getTaskById(batchId)?.batchId
@@ -169,7 +169,7 @@ class BatchRepository private constructor(private val context: Context) {
             taskDao.updateUnfinishedStatusForBatch(effectiveBatchId, JobStatus.CANCELLED)
             SchedulerService.cancelJob(context, effectiveBatchId)
         } finally {
-            _cancellingRequestIds.update { it - batchId }
+            _cancellingBatchIds.update { it - batchId }
         }
     }
 
@@ -191,28 +191,14 @@ class BatchRepository private constructor(private val context: Context) {
 
     suspend fun cancelTasks(taskIds: List<String>, batchId: String) = withContext(Dispatchers.IO) {
         if (taskIds.isEmpty()) return@withContext
-        val effectiveBatchId = batchDao.getBatchById(batchId)?.id
-            ?: taskDao.getTaskById(batchId)?.batchId
-            ?: batchId
         taskDao.cancelTasks(taskIds)
         for (taskId in taskIds) {
             SchedulerService.cancelJob(context, taskId)
         }
     }
 
-    suspend fun deleteRequest(batchId: String) = withContext(Dispatchers.IO) {
-        val effectiveBatchId = batchDao.getBatchById(batchId)?.id
-            ?: taskDao.getTaskById(batchId)?.batchId
-            ?: batchId
-        batchDao.deleteById(effectiveBatchId)
-        taskDao.deleteByBatchId(effectiveBatchId)
-    }
-
-    suspend fun hasActiveMetadataRequest(novelUrl: String): Boolean = withContext(Dispatchers.IO) {
-        batchDao.hasActiveMetadataBatch(novelUrl)
-    }
-
     companion object {
+        @SuppressLint("StaticFieldLeak")
         @Volatile
         private var INSTANCE: BatchRepository? = null
 
@@ -223,64 +209,3 @@ class BatchRepository private constructor(private val context: Context) {
         }
     }
 }
-
-fun BatchWithStats.toDomain(): Batch {
-    val effectiveStatus = when {
-        batch.status == JobStatus.PAUSED -> JobStatus.PAUSED
-        batch.status == JobStatus.CANCELLED -> JobStatus.CANCELLED
-        blockedTasks > 0 && runningTasks == 0 -> JobStatus.BLOCKED
-        runningTasks > 0 -> JobStatus.RUNNING
-        pendingTasks > 0 -> if (batch.status == JobStatus.RUNNING) JobStatus.RUNNING else JobStatus.PENDING
-        totalTasks > 0 && (completedTasks + failedTasks + cancelledTasks >= totalTasks) -> {
-            when {
-                cancelledTasks == totalTasks -> JobStatus.CANCELLED
-                failedTasks > 0 -> JobStatus.FAILED
-                else -> JobStatus.SUCCESS
-            }
-        }
-        else -> batch.status
-    }
-
-    return Batch(
-        id = batch.id,
-        name = batch.name,
-        parentNovel = batch.novelUrl,
-        url = null,
-        novelUrl = batch.novelUrl,
-        priority = batch.priority,
-        type = batch.type,
-        createdAt = batch.createdAt,
-        updatedAt = batch.updatedAt,
-        completedAt = batch.completedAt,
-        progressTotal = totalTasks,
-        progressSuccess = completedTasks,
-        progressFailed = failedTasks,
-        progressCancelled = cancelledTasks,
-        status = effectiveStatus,
-        rstatus = effectiveStatus,
-        metadata = batch.metadata,
-        error = batch.error
-    )
-}
-
-fun TaskEntity.toDomain(): Batch = Batch(
-    id = id,
-    name = name,
-    parentNovel = novelUrl,
-    dependsOn = batchId,
-    url = url,
-    novelUrl = novelUrl,
-    priority = priority,
-    type = type,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    completedAt = completedAt,
-    progressTotal = 1,
-    progressSuccess = if (status == JobStatus.SUCCESS) 1 else 0,
-    progressFailed = if (status == JobStatus.FAILED) 1 else 0,
-    progressCancelled = if (status == JobStatus.CANCELLED) 1 else 0,
-    status = status,
-    rstatus = status,
-    metadata = metadata,
-    error = error
-)

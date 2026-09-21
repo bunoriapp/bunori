@@ -73,7 +73,7 @@ class ArtifactHandler(
                 ?: return@withContext JobResult.Failure(Exception("Crawler '$crawlerName' not found"))
 
             // 3. Cleanup existing artifacts for this batch to prevent duplicates
-            val existingArtifacts = artifactRepository.getArtifactForRequest(task.batchId)
+            val existingArtifacts = artifactRepository.getArtifactForBatch(task.batchId)
             existingArtifacts.forEach { existing ->
                 try {
                     storageRepository.delete(existing.artifactDestination.toUri())

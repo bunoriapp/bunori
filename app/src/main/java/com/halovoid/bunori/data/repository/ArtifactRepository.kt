@@ -31,12 +31,8 @@ class ArtifactRepository private constructor(private val context: Context) {
         }
     }
 
-    fun getArtifactById(id: Int): Artifact {
-        return artifactDao.getArtifactById(id).toDomain()
-    }
-
-    fun getArtifactForRequest(id: String) : List<Artifact> {
-        return artifactDao.getArtifactForRequest(id).map { it.toDomain() }
+    fun getArtifactForBatch(id: String) : List<Artifact> {
+        return artifactDao.getArtifactForBatch(id).map { it.toDomain() }
     }
 
     fun getArtifactsByNovelFlow(url: String): Flow<List<Artifact>> {
@@ -46,7 +42,6 @@ class ArtifactRepository private constructor(private val context: Context) {
     suspend fun artifactExists(artifact: Artifact): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                // Try to open the input stream to verify the file is actually there and readable
                 context.contentResolver.openInputStream(artifact.artifactDestination.toUri())?.use {
                     true
                 } ?: false
