@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
-class CrawlerRateLimiter {
+class SourceRateLimiter {
     private val mutexes = ConcurrentHashMap<String, Mutex>()
     private val nextAllowedTime = ConcurrentHashMap<String, Long>()
 

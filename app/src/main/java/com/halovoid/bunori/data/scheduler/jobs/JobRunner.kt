@@ -7,7 +7,7 @@ import com.halovoid.bunori.data.db.dao.TaskDao
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.crawlerName
-import com.halovoid.bunori.data.scheduler.CrawlerRateLimiter
+import com.halovoid.bunori.data.scheduler.SourceRateLimiter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -20,7 +20,7 @@ class JobRunner(
     private val handlerRegistry: JobHandlerRegistry,
     private val retryPolicy: RetryPolicy,
     private val config: SchedulerConfig,
-    private val rateLimiter: CrawlerRateLimiter? = null,
+    private val rateLimiter: SourceRateLimiter? = null,
     private val onCrawlerBlocked: (suspend (crawlerName: String, task: TaskEntity) -> Unit)? = null,
     private val releaseSlot: (() -> Unit)? = null,
     private val acquireSlot: (suspend () -> Unit)? = null

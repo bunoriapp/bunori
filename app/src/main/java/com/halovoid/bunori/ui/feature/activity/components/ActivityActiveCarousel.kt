@@ -18,12 +18,16 @@ import com.halovoid.bunori.ui.core.theme.SecondaryText
 fun ActivityActiveCarousel(
     activeBatches: List<Batch>,
     onRequestClick: (String) -> Unit,
+    onBatchLongClick: ((String) -> Unit)? = null,
+    isSelectionMode: Boolean = false,
+    selectedBatchIds: Set<String> = emptySet(),
     modifier: Modifier = Modifier
 ) {
     if (activeBatches.isEmpty()) return
 
     if (activeBatches.size == 1) {
         val batch = activeBatches.first()
+        val isSelected = selectedBatchIds.contains(batch.id)
         Box(
             modifier = modifier
                 .fillMaxWidth()
@@ -32,6 +36,8 @@ fun ActivityActiveCarousel(
             JobCard(
                 batch = batch,
                 onClick = { onRequestClick(batch.id) },
+                onLongClick = onBatchLongClick?.let { { it(batch.id) } },
+                isSelected = isSelected,
                 allowAction = false
             )
         }
@@ -48,9 +54,12 @@ fun ActivityActiveCarousel(
                 modifier = Modifier.fillMaxWidth()
             ) { page ->
                 val batch = activeBatches[page]
+                val isSelected = selectedBatchIds.contains(batch.id)
                 JobCard(
                     batch = batch,
                     onClick = { onRequestClick(batch.id) },
+                    onLongClick = onBatchLongClick?.let { { it(batch.id) } },
+                    isSelected = isSelected,
                     allowAction = false
                 )
             }

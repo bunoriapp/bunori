@@ -98,7 +98,7 @@ fun ContextualBottomBar(
 
                         Box(
                             modifier = Modifier
-                                .height(48.dp)
+                                .height(56.dp)
                                 .weight(animatedWeight)
                                 .combinedClickable(
                                     enabled = action.enabled,

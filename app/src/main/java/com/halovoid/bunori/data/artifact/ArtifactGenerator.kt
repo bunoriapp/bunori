@@ -1,6 +1,6 @@
 package com.halovoid.bunori.data.artifact
 
-import com.halovoid.bunori.data.scheduler.RequestMetadata
+import com.halovoid.bunori.data.scheduler.JobMetadata
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import java.io.File
@@ -11,6 +11,6 @@ interface ArtifactGenerator {
     suspend fun generate(
         novel: Novel,
         chapters: List<Chapter>,
-        metadata: RequestMetadata
+        metadata: JobMetadata
     ): File // Returns the temporary file in cache
 }

@@ -5,11 +5,11 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 
-class CrawlerRateLimiterTest {
+class SourceRateLimiterTest {
 
     @Test
     fun testRateLimiterEnforcesSpacing() = runBlocking {
-        val rateLimiter = CrawlerRateLimiter()
+        val rateLimiter = SourceRateLimiter()
         val crawler = "TestCrawler"
 
         // First acquire should be instant
@@ -27,7 +27,7 @@ class CrawlerRateLimiterTest {
 
     @Test
     fun testRateLimiterIndependentBetweenCrawlers() = runBlocking {
-        val rateLimiter = CrawlerRateLimiter()
+        val rateLimiter = SourceRateLimiter()
 
         // Acquire crawler A
         rateLimiter.acquire("CrawlerA", 500L)
@@ -41,7 +41,7 @@ class CrawlerRateLimiterTest {
 
     @Test
     fun testRateLimiterWithJitter() = runBlocking {
-        val rateLimiter = CrawlerRateLimiter()
+        val rateLimiter = SourceRateLimiter()
         val crawler = "JitterCrawler"
 
         rateLimiter.acquire(crawler, 150L, maxJitterMs = 50L)
@@ -54,7 +54,7 @@ class CrawlerRateLimiterTest {
 
     @Test
     fun testRateLimiterConcurrentWorkersSpacing() = runBlocking {
-        val rateLimiter = CrawlerRateLimiter()
+        val rateLimiter = SourceRateLimiter()
         val crawler = "ConcurrentCrawler"
 
         val tStart = System.currentTimeMillis()

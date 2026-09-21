@@ -1,9 +1,11 @@
 package com.halovoid.bunori.ui.feature.activity.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -34,6 +36,7 @@ fun CompactJobItem(
     batch: Batch,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
+    isSelected: Boolean = false,
     showProgressBackground: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -53,9 +56,16 @@ fun CompactJobItem(
         label = "compact_progress"
     )
 
+    val itemBackgroundColor by animateColorAsState(
+        targetValue = if (isSelected) BrandAccent.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent,
+        animationSpec = tween(durationMillis = 200),
+        label = "compact_item_bg"
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .background(itemBackgroundColor)
             .drawBehind {
                 if (showProgressBackground && animatedProgress > 0f) {
                     drawRect(
@@ -232,10 +242,13 @@ fun StatusIndicator(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun JobCard(
     batch: Batch,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    isSelected: Boolean = false,
     onReplay: (() -> Unit)? = null,
     onCancel: (() -> Unit)? = null,
     onContinue: (() -> Unit)? = null,
@@ -267,19 +280,34 @@ fun JobCard(
         batch.progressSuccess.toFloat() / batch.progressTotal
     } else 0f
 
+    val cardBackgroundColor by androidx.compose.animation.animateColorAsState(
+        targetValue = if (isSelected) BrandAccent.copy(alpha = 0.12f) else DarkSurface,
+        animationSpec = tween(durationMillis = 200),
+        label = "job_card_bg"
+    )
+
+    val cardBorderColor by androidx.compose.animation.animateColorAsState(
+        targetValue = if (isSelected) BrandAccent.copy(alpha = 0.5f) else BorderColor.copy(alpha = 0.5f),
+        animationSpec = tween(durationMillis = 200),
+        label = "job_card_border"
+    )
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .then(
-                if (onClick != null && !isCancelling) {
-                    Modifier.clickable { onClick() }
+                if ((onClick != null || onLongClick != null) && !isCancelling) {
+                    Modifier.combinedClickable(
+                        onClick = { onClick?.invoke() },
+                        onLongClick = onLongClick
+                    )
                 } else {
                     Modifier
                 }
             ),
         shape = RoundedCornerShape(12.dp),
-        color = DarkSurface,
-        border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.5f))
+        color = cardBackgroundColor,
+        border = BorderStroke(1.dp, cardBorderColor)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

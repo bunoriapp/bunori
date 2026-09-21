@@ -2,7 +2,7 @@ package com.halovoid.bunori.data.artifact.generators
 
 import com.halovoid.bunori.data.artifact.ArtifactGenerator
 import com.halovoid.bunori.data.repository.StorageRepository
-import com.halovoid.bunori.data.scheduler.RequestMetadata
+import com.halovoid.bunori.data.scheduler.JobMetadata
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import androidx.core.net.toUri
@@ -295,7 +295,7 @@ class EpubGenerator(
     override suspend fun generate(
         novel: Novel,
         chapters: List<Chapter>,
-        metadata: RequestMetadata
+        metadata: JobMetadata
     ): File = withContext(Dispatchers.IO) {
         val items = mutableListOf<EpubItem>()
         val addedFileNames = mutableSetOf<String>()

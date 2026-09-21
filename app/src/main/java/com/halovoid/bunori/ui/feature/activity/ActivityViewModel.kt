@@ -5,13 +5,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.handlers.utility.crawlerName
 import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.domain.models.Batch
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import com.halovoid.bunori.ui.feature.activity.components.getSourceDisplayName
+import com.halovoid.bunori.ui.navigation.AppNavigationManager
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class ActivityViewModel(
@@ -28,6 +28,16 @@ class ActivityViewModel(
         )
 
     val isCompactMode: StateFlow<Boolean> = preferenceRepository.activityCompactView
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    private val _selectedBatchIds = MutableStateFlow<Set<String>>(emptySet())
+    val selectedBatchIds: StateFlow<Set<String>> = _selectedBatchIds.asStateFlow()
+
+    val isSelectionMode: StateFlow<Boolean> = _selectedBatchIds.map { it.isNotEmpty() }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -51,6 +61,73 @@ class ActivityViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = GlobalActivityStats(0, 0)
     )
+
+    fun toggleBatchSelection(batchId: String) {
+        _selectedBatchIds.update { current ->
+            if (current.contains(batchId)) current - batchId else current + batchId
+        }
+    }
+
+    fun selectBatch(batchId: String) {
+        _selectedBatchIds.update { it + batchId }
+    }
+
+    fun selectAllBatches(batches: List<Batch>) {
+        _selectedBatchIds.value = batches.map { it.id }.toSet()
+    }
+
+    fun clearSelection() {
+        _selectedBatchIds.value = emptySet()
+    }
+
+    fun selectBatchesBySourceDisplayName(sourceName: String, visibleBatches: List<Batch>) {
+        val matchingIds = visibleBatches
+            .filter { it.getSourceDisplayName() == sourceName }
+            .map { it.id }
+        if (matchingIds.isNotEmpty()) {
+            _selectedBatchIds.update { it + matchingIds }
+        }
+    }
+
+    fun selectBatchesBySource(visibleBatches: List<Batch>) {
+        val currentSelected = _selectedBatchIds.value
+        if (currentSelected.isEmpty()) return
+
+        val selectedSources = visibleBatches
+            .filter { it.id in currentSelected }
+            .mapNotNull { it.crawlerName ?: it.novelUrl }
+            .toSet()
+
+        if (selectedSources.isEmpty()) return
+
+        val matchingIds = visibleBatches
+            .filter { batch -> (batch.crawlerName ?: batch.novelUrl) in selectedSources }
+            .map { it.id }
+
+        _selectedBatchIds.update { it + matchingIds }
+    }
+
+    fun cancelSelectedBatches() {
+        val selectedIds = _selectedBatchIds.value
+        if (selectedIds.isEmpty()) return
+        clearSelection()
+        viewModelScope.launch {
+            selectedIds.forEach { batchId ->
+                batchRepository.cancelBatch(batchId)
+            }
+        }
+    }
+
+    fun replaySelectedBatches() {
+        val selectedIds = _selectedBatchIds.value
+        if (selectedIds.isEmpty()) return
+        clearSelection()
+        viewModelScope.launch {
+            selectedIds.forEach { batchId ->
+                batchRepository.replayBatch(batchId)
+            }
+        }
+    }
 
     fun setCompactMode(compact: Boolean) {
         viewModelScope.launch {

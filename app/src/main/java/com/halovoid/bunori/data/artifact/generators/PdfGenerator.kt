@@ -16,7 +16,7 @@ import com.halovoid.bunori.data.artifact.ArtifactGenerator
 import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepository
-import com.halovoid.bunori.data.scheduler.RequestMetadata
+import com.halovoid.bunori.data.scheduler.JobMetadata
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import kotlinx.coroutines.Dispatchers
@@ -348,7 +348,7 @@ class PdfGenerator(
     override suspend fun generate(
         novel: Novel,
         chapters: List<Chapter>,
-        metadata: RequestMetadata
+        metadata: JobMetadata
     ): File = withContext(Dispatchers.IO) {
 
         val ignoreImages = preferenceRepository?.ignoreImages?.first() ?: false

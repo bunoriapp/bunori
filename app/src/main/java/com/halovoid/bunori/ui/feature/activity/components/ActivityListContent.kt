@@ -20,6 +20,9 @@ fun ActivityListContent(
     historyBatches: List<Batch>,
     isCompactMode: Boolean,
     onRequestClick: (String) -> Unit,
+    onBatchLongClick: ((String) -> Unit)? = null,
+    isSelectionMode: Boolean = false,
+    selectedBatchIds: Set<String> = emptySet(),
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -48,7 +51,9 @@ fun ActivityListContent(
                 items(activeBatches, key = { it.id }) { batch ->
                     CompactJobItem(
                         batch = batch,
+                        isSelected = selectedBatchIds.contains(batch.id),
                         onClick = { onRequestClick(batch.id) },
+                        onLongClick = onBatchLongClick?.let { { it(batch.id) } },
                         showProgressBackground = true
                     )
                 }
@@ -56,7 +61,10 @@ fun ActivityListContent(
                 item(key = "active_content") {
                     ActivityActiveCarousel(
                         activeBatches = activeBatches,
-                        onRequestClick = onRequestClick
+                        onRequestClick = onRequestClick,
+                        onBatchLongClick = onBatchLongClick,
+                        isSelectionMode = isSelectionMode,
+                        selectedBatchIds = selectedBatchIds
                     )
                 }
             }
@@ -73,7 +81,9 @@ fun ActivityListContent(
             items(recentBatches, key = { it.id }) { batch ->
                 CompactJobItem(
                     batch = batch,
-                    onClick = { onRequestClick(batch.id) }
+                    isSelected = selectedBatchIds.contains(batch.id),
+                    onClick = { onRequestClick(batch.id) },
+                    onLongClick = onBatchLongClick?.let { { it(batch.id) } }
                 )
             }
         }
@@ -99,7 +109,9 @@ fun ActivityListContent(
             items(historyBatches, key = { it.id }) { batch ->
                 CompactJobItem(
                     batch = batch,
-                    onClick = { onRequestClick(batch.id) }
+                    isSelected = selectedBatchIds.contains(batch.id),
+                    onClick = { onRequestClick(batch.id) },
+                    onLongClick = onBatchLongClick?.let { { it(batch.id) } }
                 )
             }
         }

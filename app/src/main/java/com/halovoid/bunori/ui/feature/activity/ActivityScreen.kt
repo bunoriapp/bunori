@@ -1,10 +1,15 @@
 package com.halovoid.bunori.ui.feature.activity
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -12,12 +17,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
+import com.halovoid.bunori.ui.core.components.ContextualAction
+import com.halovoid.bunori.ui.core.components.ContextualBottomBar
 import com.halovoid.bunori.ui.core.components.DownloadProgressRing
 import com.halovoid.bunori.ui.core.components.ScreenHeader
 import com.halovoid.bunori.ui.core.theme.BrandAccent
 import com.halovoid.bunori.ui.core.theme.DarkBackground
 import com.halovoid.bunori.ui.core.theme.PrimaryText
 import com.halovoid.bunori.ui.feature.activity.components.*
+import com.halovoid.bunori.ui.navigation.AppNavigationManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,47 +36,153 @@ fun ActivityScreen(
     val requestHistory by viewModel.batchHistory.collectAsStateWithLifecycle()
     val globalStats by viewModel.globalStats.collectAsStateWithLifecycle()
     val isCompactMode by viewModel.isCompactMode.collectAsStateWithLifecycle()
+    val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
+    val selectedBatchIds by viewModel.selectedBatchIds.collectAsStateWithLifecycle()
 
     var filterType by remember { mutableStateOf<JobType?>(null) }
     var showFilterMenu by remember { mutableStateOf(false) }
 
+    BackHandler(enabled = isSelectionMode) {
+        viewModel.clearSelection()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.clearSelection()
+            AppNavigationManager.clearContextualBottomBar()
+        }
+    }
+
+    var showSourceFilterSheet by remember { mutableStateOf(false) }
+
     JobActionHandler(
         onResolveWebview = { id, url -> viewModel.resolveWebView(id, url) }
     ) { _ ->
+        val filteredHistory = remember(requestHistory, filterType) {
+            if (filterType == null) requestHistory
+            else requestHistory.filter { it.type == filterType }
+        }
+
+        val activeBatches = remember(filteredHistory) {
+            filteredHistory.filter {
+                it.status == JobStatus.RUNNING ||
+                it.status == JobStatus.PAUSED ||
+                it.status == JobStatus.PENDING ||
+                it.status == JobStatus.BLOCKED ||
+                it.status == JobStatus.CANCELLING
+            }
+        }
+
+        val nonActiveBatches = remember(filteredHistory) {
+            filteredHistory.filter {
+                it.status == JobStatus.SUCCESS ||
+                it.status == JobStatus.FAILED ||
+                it.status == JobStatus.CANCELLED
+            }
+        }
+
+        val recentBatches = remember(nonActiveBatches) {
+            nonActiveBatches.take(2)
+        }
+
+        val historyBatches = remember(nonActiveBatches) {
+            nonActiveBatches.drop(2)
+        }
+
+        val selectedBatches = remember(filteredHistory, selectedBatchIds) {
+            filteredHistory.filter { it.id in selectedBatchIds }
+        }
+        val canCancel = selectedBatches.isNotEmpty() && selectedBatches.any {
+            it.status == JobStatus.RUNNING ||
+            it.status == JobStatus.PAUSED ||
+            it.status == JobStatus.PENDING ||
+            it.status == JobStatus.BLOCKED
+        }
+        val canReplay = selectedBatches.isNotEmpty() && selectedBatches.none {
+            it.status == JobStatus.RUNNING ||
+            it.status == JobStatus.CANCELLING
+        }
+
+        val contextualActions = remember(filteredHistory, selectedBatchIds, canCancel, canReplay) {
+            listOf(
+                ContextualAction(
+                    title = if (filteredHistory.isNotEmpty() && selectedBatchIds.size == filteredHistory.size) "Deselect" else "Select All",
+                    icon = if (filteredHistory.isNotEmpty() && selectedBatchIds.size == filteredHistory.size) Icons.Default.Deselect else Icons.Default.SelectAll,
+                    onClick = {
+                        if (filteredHistory.isNotEmpty() && selectedBatchIds.size == filteredHistory.size) {
+                            viewModel.clearSelection()
+                        } else {
+                            viewModel.selectAllBatches(filteredHistory)
+                        }
+                    }
+                ),
+                ContextualAction(
+                    title = "Filter",
+                    icon = Icons.Default.FilterList,
+                    onClick = {
+                        showSourceFilterSheet = true
+                    }
+                ),
+                ContextualAction(
+                    title = "Replay",
+                    icon = Icons.Default.Refresh,
+                    enabled = canReplay,
+                    onClick = {
+                        viewModel.replaySelectedBatches()
+                    }
+                ),
+                ContextualAction(
+                    title = "Cancel",
+                    icon = Icons.Default.Cancel,
+                    isDestructive = true,
+                    enabled = canCancel,
+                    onClick = {
+                        viewModel.cancelSelectedBatches()
+                    }
+                )
+            )
+        }
+
+        if (showSourceFilterSheet) {
+            SourceSelectionBottomSheet(
+                batches = filteredHistory,
+                onDismiss = { showSourceFilterSheet = false },
+                onSourceSelected = { selectedSource ->
+                    viewModel.selectBatchesBySourceDisplayName(selectedSource, filteredHistory)
+                    showSourceFilterSheet = false
+                }
+            )
+        }
+
+        LaunchedEffect(isSelectionMode, selectedBatchIds.size, contextualActions) {
+            AppNavigationManager.setContextualBottomBar(
+                com.halovoid.bunori.ui.navigation.ContextualBottomBarConfig(
+                    visible = isSelectionMode,
+                    selectedCount = selectedBatchIds.size,
+                    actions = contextualActions
+                )
+            )
+        }
+
+        val handleBatchClick: (String) -> Unit = { batchId ->
+            if (isSelectionMode) {
+                viewModel.toggleBatchSelection(batchId)
+            } else {
+                onRequestClick(batchId)
+            }
+        }
+
+        val handleBatchLongClick: (String) -> Unit = { batchId ->
+            if (isSelectionMode) {
+                viewModel.toggleBatchSelection(batchId)
+            } else {
+                viewModel.selectBatch(batchId)
+            }
+        }
+
         Scaffold(
             containerColor = DarkBackground
         ) { innerPadding ->
-            val filteredHistory = remember(requestHistory, filterType) {
-                if (filterType == null) requestHistory
-                else requestHistory.filter { it.type == filterType }
-            }
-
-            val activeBatches = remember(filteredHistory) {
-                filteredHistory.filter {
-                    it.status == JobStatus.RUNNING ||
-                    it.status == JobStatus.PAUSED ||
-                    it.status == JobStatus.PENDING ||
-                    it.status == JobStatus.BLOCKED ||
-                    it.status == JobStatus.CANCELLING
-                }
-            }
-
-            val nonActiveBatches = remember(filteredHistory) {
-                filteredHistory.filter {
-                    it.status == JobStatus.SUCCESS ||
-                    it.status == JobStatus.FAILED ||
-                    it.status == JobStatus.CANCELLED
-                }
-            }
-
-            val recentBatches = remember(nonActiveBatches) {
-                nonActiveBatches.take(2)
-            }
-
-            val historyBatches = remember(nonActiveBatches) {
-                nonActiveBatches.drop(2)
-            }
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -123,7 +237,10 @@ fun ActivityScreen(
                         recentBatches = recentBatches,
                         historyBatches = historyBatches,
                         isCompactMode = isCompactMode,
-                        onRequestClick = onRequestClick
+                        onRequestClick = handleBatchClick,
+                        onBatchLongClick = handleBatchLongClick,
+                        isSelectionMode = isSelectionMode,
+                        selectedBatchIds = selectedBatchIds
                     )
                 }
             }

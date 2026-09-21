@@ -1,5 +1,6 @@
 package com.halovoid.bunori.ui
 
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
 import androidx.compose.animation.graphics.res.animatedVectorResource
@@ -20,6 +21,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.halovoid.bunori.R
 import com.halovoid.bunori.data.repository.UpdateRepository
+import com.halovoid.bunori.ui.core.components.ContextualBottomBar
 import com.halovoid.bunori.ui.navigation.NavGraph
 import com.halovoid.bunori.ui.navigation.Screen
 import com.halovoid.bunori.ui.navigation.AppNavigationManager
@@ -51,6 +53,8 @@ fun MainScreen() {
         }
     }
 
+    val contextualConfig by AppNavigationManager.contextualBottomBar.collectAsStateWithLifecycle()
+
     val isAppUpdateAvailable by UpdateRepository.getInstance(navController.context)
         .isAppUpdateAvailable.collectAsStateWithLifecycle()
     val isCrawlerUpdateAvailable by UpdateRepository.getInstance(navController.context)
@@ -70,21 +74,33 @@ fun MainScreen() {
 
     Scaffold(
         bottomBar = {
-            if (showNavBar) {
-                BunoriNavigationBar(
-                    mainTabs = mainTabs,
-                    currentDestination = currentDestination,
-                    isAppUpdateAvailable = isAppUpdateAvailable,
-                    isCrawlerUpdateAvailable = isCrawlerUpdateAvailable,
-                    onNavigate = { route ->
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+            Box(
+                contentAlignment = androidx.compose.ui.Alignment.BottomCenter,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (showNavBar) {
+                    BunoriNavigationBar(
+                        mainTabs = mainTabs,
+                        currentDestination = currentDestination,
+                        isAppUpdateAvailable = isAppUpdateAvailable,
+                        isCrawlerUpdateAvailable = isCrawlerUpdateAvailable,
+                        onNavigate = { route ->
+                            AppNavigationManager.clearContextualBottomBar()
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
                         }
-                    }
+                    )
+                }
+
+                ContextualBottomBar(
+                    visible = contextualConfig.visible,
+                    selectedCount = contextualConfig.selectedCount,
+                    actions = contextualConfig.actions
                 )
             }
         }

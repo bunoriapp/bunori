@@ -7,16 +7,14 @@ import com.halovoid.bunori.data.db.dao.TaskDao
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.crawlerName
-import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.PreferenceRepository
-import com.halovoid.bunori.data.scheduler.CrawlerRateLimiter
+import com.halovoid.bunori.data.scheduler.SourceRateLimiter
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.sync.Semaphore
-import java.util.PriorityQueue
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -28,7 +26,7 @@ class JobScheduler(
     private val retryPolicy: RetryPolicy = ExponentialBackoffPolicy(),
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
     private val preferenceRepository: PreferenceRepository? = null,
-    private val rateLimiter: CrawlerRateLimiter = CrawlerRateLimiter()
+    private val rateLimiter: SourceRateLimiter = SourceRateLimiter()
 ) {
     private val trigger = Channel<Unit>(Channel.CONFLATED)
     private var pollingJob: Job? = null
