@@ -77,14 +77,16 @@ class BextLoader(private val context: Context) {
         // 2. Write icon if present
         var iconFile: File? = null
         if (pkg.iconBytes != null) {
-            val file = File(targetDir, "icon.png")
+            val ext = pkg.manifest.iconPath?.substringAfterLast('.', "webp") ?: "webp"
+            val file = File(targetDir, "icon.$ext")
             FileOutputStream(file).use { fos ->
                 fos.write(pkg.iconBytes)
             }
             iconFile = file
         } else {
-            val existing = File(targetDir, "icon.png")
-            if (existing.exists() && existing.length() > 0) {
+            val existing = File(targetDir, "icon.webp").takeIf { it.exists() && it.length() > 0 }
+                ?: File(targetDir, "icon.png").takeIf { it.exists() && it.length() > 0 }
+            if (existing != null) {
                 iconFile = existing
             }
         }

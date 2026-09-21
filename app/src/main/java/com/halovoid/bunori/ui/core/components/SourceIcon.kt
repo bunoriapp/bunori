@@ -81,6 +81,9 @@ fun SourceIcon(
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(currentData)
+                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                    .networkCachePolicy(coil.request.CachePolicy.ENABLED)
                     .crossfade(true)
                     .build(),
                 contentDescription = fallbackText,
