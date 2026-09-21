@@ -72,6 +72,25 @@ data class ExtensionUiItem(
             }
             return null
         }
+
+    val isDeprecated: Boolean
+        get() = loadedExtension?.manifest?.isDeprecated == true || repoEntry?.isDeprecated == true
+
+    val deprecationReason: String?
+        get() = loadedExtension?.manifest?.deprecationReason
+            ?: repoEntry?.deprecationReason
+
+    val suggestedAlternative: String?
+        get() = loadedExtension?.manifest?.suggestedAlternative
+            ?: repoEntry?.suggestedAlternative
+
+    val authors: List<String>
+        get() = loadedExtension?.manifest?.authors?.takeIf { it.isNotEmpty() }
+            ?: repoEntry?.authors
+            ?: emptyList()
+
+    val latestChangelog: String?
+        get() = repoEntry?.latestChangelog
 }
 
 class SourceViewModel(

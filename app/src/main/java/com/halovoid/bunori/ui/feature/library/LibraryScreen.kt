@@ -11,13 +11,18 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.CollectionsBookmark
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,6 +41,7 @@ fun LibraryScreen(
 ) {
     val novels by viewModel.novels.collectAsStateWithLifecycle()
     val isCompactMode by viewModel.libraryCompactView.collectAsStateWithLifecycle()
+    val showAllSavedNovels by viewModel.showAllSavedNovels.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     var selectedDomain by remember { mutableStateOf("Any") }
     
@@ -61,7 +67,7 @@ fun LibraryScreen(
                 .padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             ScreenHeader(
-                title = "Novels",
+                title = if (showAllSavedNovels) "All Novels" else "Novels",
                 subtitle = if (novels.isNotEmpty()) "${filteredNovels.size} novels" else null,
                 isExpanded = isSearching,
                 expandedContent = {
@@ -131,6 +137,21 @@ fun LibraryScreen(
                     }
                 }
             )
+
+            if (showAllSavedNovels) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Showing all saved novels (including unliked)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryText
+                    )
+                }
+            }
 
             if (filteredNovels.isEmpty()) {
                 MutedEmptyState(

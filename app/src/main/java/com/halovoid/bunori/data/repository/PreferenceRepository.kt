@@ -41,6 +41,8 @@ private val LAST_CACHE_CLEAR_TIME = androidx.datastore.preferences.core.longPref
 private val THEME_MODE = stringPreferencesKey("theme_mode")
 private val SELECTED_THEME_ID = stringPreferencesKey("selected_theme_id")
 private val IS_AMOLED_MODE = booleanPreferencesKey("is_amoled_mode")
+private val IS_OFFLINE_MODE = booleanPreferencesKey("is_offline_mode")
+private val SHOW_ALL_SAVED_NOVELS = booleanPreferencesKey("show_all_saved_novels")
 private val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
 private val CUSTOM_USER_AGENT = stringPreferencesKey("custom_user_agent")
 const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/extensions/index.min.json"
@@ -90,11 +92,14 @@ interface PreferenceRepository {
     val themeMode: Flow<String>
     val selectedThemeId: Flow<String>
     val isAmoledMode: Flow<Boolean>
+    val isOfflineMode: Flow<Boolean>
+    val showAllSavedNovels: Flow<Boolean>
     val extensionRepoUrl: Flow<String>
     val customUserAgent: Flow<String?>
     val readerSettings: Flow<ReaderSettings>
     val customFonts: Flow<List<CustomFont>>
 
+    suspend fun setShowAllSavedNovels(show: Boolean)
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setExportFolder(uri: Uri)
     suspend fun clearExportFolder()
@@ -118,6 +123,7 @@ interface PreferenceRepository {
     suspend fun setThemeMode(mode: String)
     suspend fun setSelectedThemeId(themeId: String)
     suspend fun setAmoledMode(enabled: Boolean)
+    suspend fun setOfflineMode(enabled: Boolean)
     suspend fun setExtensionRepoUrl(url: String)
     fun getSavedSourcesForNovel(novelUrl: String): Flow<Set<String>?>
     suspend fun saveSourcesForNovel(novelUrl: String, sources: Set<String>)
@@ -272,6 +278,22 @@ class PreferenceRepositoryImpl private constructor(
             preferences[IS_AMOLED_MODE] ?: false
         }
 
+    override val isOfflineMode: Flow<Boolean> =
+        context.appDataStore.data.map { preferences ->
+            preferences[IS_OFFLINE_MODE] ?: false
+        }
+
+    override val showAllSavedNovels: Flow<Boolean> =
+        context.appDataStore.data.map { preferences ->
+            preferences[SHOW_ALL_SAVED_NOVELS] ?: false
+        }
+
+    override suspend fun setShowAllSavedNovels(show: Boolean) {
+        context.appDataStore.edit { preferences ->
+            preferences[SHOW_ALL_SAVED_NOVELS] = show
+        }
+    }
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[ONBOARDING_COMPLETED] = completed.toString()
@@ -407,6 +429,12 @@ class PreferenceRepositoryImpl private constructor(
     override suspend fun setAmoledMode(enabled: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[IS_AMOLED_MODE] = enabled
+        }
+    }
+
+    override suspend fun setOfflineMode(enabled: Boolean) {
+        context.appDataStore.edit { preferences ->
+            preferences[IS_OFFLINE_MODE] = enabled
         }
     }
 

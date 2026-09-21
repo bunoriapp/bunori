@@ -257,9 +257,8 @@ fun NavGraph(navController: NavHostController) {
             )
         }
         composable(Screen.Library.route) {
-            val libraryViewModel: LibraryViewModel = viewModel(
-                factory = remember { ViewModelFactory(application) }
-            )
+            val factory = remember { ViewModelFactory(application) }
+            val libraryViewModel: LibraryViewModel = viewModel(factory = factory)
             LibraryScreen(
                 viewModel = libraryViewModel,
                 onNovelClick = { crawlerName, novelUrl ->

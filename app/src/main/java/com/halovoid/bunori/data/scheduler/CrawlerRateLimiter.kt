@@ -9,21 +9,23 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class CrawlerRateLimiter {
     private val mutexes = ConcurrentHashMap<String, Mutex>()
-    private val lastAccessTimes = ConcurrentHashMap<String, Long>()
+    private val nextAllowedTime = ConcurrentHashMap<String, Long>()
 
     suspend fun acquire(crawlerName: String, cooldownMs: Long, maxJitterMs: Long = 0L) {
         if (cooldownMs <= 0) return
         val mutex = mutexes.computeIfAbsent(crawlerName) { Mutex() }
-        mutex.withLock {
+
+        val waitMs = mutex.withLock {
             val now = System.currentTimeMillis()
-            val last = lastAccessTimes[crawlerName] ?: 0L
             val jitter = if (maxJitterMs > 0) Random.nextLong(0, maxJitterMs + 1) else 0L
             val targetInterval = cooldownMs + jitter
-            val elapsed = now - last
-            if (elapsed < targetInterval) {
-                delay((targetInterval - elapsed).milliseconds)
-            }
-            lastAccessTimes[crawlerName] = System.currentTimeMillis()
+
+            val earliestStart = maxOf(now, (nextAllowedTime[crawlerName] ?: 0L))
+            nextAllowedTime[crawlerName] = earliestStart + targetInterval
+
+            (earliestStart - now).coerceAtLeast(0)
         }
+
+        if (waitMs > 0) delay(waitMs.milliseconds)
     }
 }

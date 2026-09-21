@@ -5,6 +5,8 @@ import com.halovoid.bunori.data.db.AppDatabase
 import com.halovoid.bunori.data.db.mappers.toDomain
 import com.halovoid.bunori.data.db.mappers.toEntity
 import com.halovoid.bunori.domain.models.Download
+import com.halovoid.bunori.domain.models.DownloadedNovelSummary
+import com.halovoid.bunori.domain.models.NovelDownloadStats
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 

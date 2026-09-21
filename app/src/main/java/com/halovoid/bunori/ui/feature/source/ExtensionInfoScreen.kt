@@ -1,5 +1,6 @@
 package com.halovoid.bunori.ui.feature.source
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,15 +18,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Update
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AltRoute
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.DataObject
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Speed
@@ -67,6 +71,7 @@ import com.halovoid.bunori.ui.feature.source.components.ConfigDivider
 import com.halovoid.bunori.ui.feature.source.components.ConfigItemRow
 import java.net.URI
 
+@SuppressLint("DefaultLocale")
 @Composable
 fun ExtensionInfoScreen(
     extensionId: String,
@@ -313,6 +318,79 @@ fun ExtensionInfoScreen(
                 }
             }
 
+            if (item.authors.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "by ${item.authors.joinToString(", ")}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SecondaryText,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+
+            if (item.isDeprecated) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    color = ErrorRed.copy(alpha = 0.05f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.2f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "DEPRECATED EXTENSION",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = ErrorRed.copy(alpha = 0.8f)
+                            )
+                        }
+                        if (!item.deprecationReason.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = item.deprecationReason!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = PrimaryText
+                            )
+                        }
+                        if (!item.suggestedAlternative.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Suggested alternative: ${item.suggestedAlternative}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = BrandAccent,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (!item.latestChangelog.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    color = DarkSurface,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, BorderColor),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            text = "What's New in this Version",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryText
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = item.latestChangelog!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryText
+                        )
+                    }
+                }
+            }
+
             val versionText = when {
                 item.hasUpdate -> "v${item.installedVersion} → v${item.repoVersion}"
                 item.installedVersion != null -> "v${item.installedVersion}"
@@ -441,6 +519,17 @@ fun ExtensionInfoScreen(
                     subtitle = entryClass,
                     value = "Active"
                 )
+
+                if (item.authors.isNotEmpty()) {
+                    ConfigDivider()
+
+                    ConfigItemRow(
+                        icon = Icons.Outlined.Person,
+                        title = "Authors",
+                        subtitle = "Extension maintainers",
+                        value = item.authors.joinToString(", ")
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))

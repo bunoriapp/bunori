@@ -47,14 +47,32 @@ fun ExtensionRow(
         Column(
             modifier = Modifier.weight(1f)
         ) {
-            Text(
-                text = item.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = PrimaryText,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = PrimaryText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (item.isDeprecated) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        color = ErrorRed.copy(alpha = 0.05f),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "DEPRECATED",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = ErrorRed.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(2.dp))
 
@@ -70,12 +88,16 @@ fun ExtensionRow(
             val statusPrefix = if (item.isActionInProgress) {
                 if (item.isInstalled) "Updating • " else "Installing • "
             } else ""
-            val metadata = "$statusPrefix$langText • $versionText$ageRatingText"
+            val metadata = if (item.isDeprecated && !item.deprecationReason.isNullOrBlank()) {
+                "${item.deprecationReason} • $langText • $versionText"
+            } else {
+                "$statusPrefix$langText • $versionText$ageRatingText"
+            }
 
             Text(
                 text = metadata,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (item.hasUpdate && !item.isActionInProgress) BrandAccent else SecondaryText,
+                color = if (item.isDeprecated) SecondaryText.copy(alpha = 0.85f) else if (item.hasUpdate && !item.isActionInProgress) BrandAccent else SecondaryText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

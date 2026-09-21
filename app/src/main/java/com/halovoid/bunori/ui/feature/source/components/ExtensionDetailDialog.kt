@@ -86,6 +86,74 @@ fun ExtensionDetailDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                if (item.isDeprecated) {
+                    Surface(
+                        color = Color(0xFFEF4444).copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.35f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = "DEPRECATED EXTENSION",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFEF4444)
+                            )
+                            if (!item.deprecationReason.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = item.deprecationReason!!,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = PrimaryText
+                                )
+                            }
+                            if (!item.suggestedAlternative.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Migrate to: ${item.suggestedAlternative}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = BrandAccent,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (!item.latestChangelog.isNullOrBlank()) {
+                    Surface(
+                        color = DarkSurfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = "What's New",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryText
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = item.latestChangelog!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SecondaryText
+                            )
+                        }
+                    }
+                }
+
+                if (item.authors.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Authors", style = MaterialTheme.typography.bodySmall, color = SecondaryText)
+                        Text(item.authors.joinToString(", "), style = MaterialTheme.typography.bodySmall, color = PrimaryText, fontWeight = FontWeight.Medium)
+                    }
+                }
+
                 if (item.baseUrl.isNotEmpty()) {
                     Row(
                         modifier = Modifier

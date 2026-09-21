@@ -39,8 +39,30 @@ interface NovelDao {
     suspend fun upsertNovel(novel: NovelEntity)
 
     @Query("""
+        SELECT * FROM novels
+        UNION
+        SELECT 
+            novelUrl AS url,
+            novelTitle AS title,
+            'Saved' AS author,
+            NULL AS coverUrl,
+            NULL AS description,
+            scanlationSource AS crawlerName,
+            NULL AS alternativeNames,
+            NULL AS titleHash,
+            NULL AS coverHttpsUrl,
+            0 AS inLibrary,
+            0 AS refreshExpiry
+        FROM downloads
+        WHERE novelUrl NOT IN (SELECT url FROM novels) AND isCache = 0
+        GROUP BY novelUrl
+    """)
+    fun getAllSavedNovelsFlow(): Flow<List<NovelEntity>>
+
+    @Query("""
         SELECT * FROM novels 
         WHERE inLibrary = 0
+          AND url NOT IN (SELECT DISTINCT novelUrl FROM downloads WHERE isCache = 0)
     """)
     suspend fun getPrunableNovels(): List<NovelEntity>
 

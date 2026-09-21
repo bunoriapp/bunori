@@ -4,6 +4,8 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import com.halovoid.bunori.data.db.entities.DownloadEntity
+import com.halovoid.bunori.domain.models.DownloadedNovelSummary
+import com.halovoid.bunori.domain.models.NovelDownloadStats
 import kotlinx.coroutines.flow.Flow
 
 @Dao

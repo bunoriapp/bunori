@@ -9,7 +9,9 @@ import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.crawlerName
 import com.halovoid.bunori.data.scheduler.CrawlerRateLimiter
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 class JobRunner(
@@ -19,7 +21,9 @@ class JobRunner(
     private val retryPolicy: RetryPolicy,
     private val config: SchedulerConfig,
     private val rateLimiter: CrawlerRateLimiter? = null,
-    private val onCrawlerBlocked: (suspend (crawlerName: String, task: TaskEntity) -> Unit)? = null
+    private val onCrawlerBlocked: (suspend (crawlerName: String, task: TaskEntity) -> Unit)? = null,
+    private val releaseSlot: (() -> Unit)? = null,
+    private val acquireSlot: (suspend () -> Unit)? = null
 ) {
     companion object {
         private const val DEFAULT_MAX_ATTEMPTS = 3
@@ -93,7 +97,19 @@ class JobRunner(
                         JobStateMachine.transition(latest.status, JobEvent.HANDLER_FAILURE_RETRYABLE)
                         taskDao.markRetrying(latest.id, attemptsSoFar, result.error.message)
                         val delayMs = retryPolicy.getNextDelay(attemptsSoFar)
-                        delay(delayMs.milliseconds)
+
+                        // free the concurrency slot while backing off so other ready tasks aren't straved
+                        releaseSlot?.invoke()
+                        try {
+                            delay(delayMs.milliseconds)
+                        } finally {
+                            // must reacquire even if this coroutine is being canceled mid-delay
+                            // otherwise Job-scheduler's unconditional pool.release() in its own
+                            // finally block would over release the semaphore
+                            withContext(NonCancellable) {
+                                acquireSlot?.invoke()
+                            }
+                        }
 
                         val postDelay = taskDao.getTaskById(currentTask.id)
                         if (postDelay == null || postDelay.status == JobStatus.CANCELLED || postDelay.status == JobStatus.PAUSED) {

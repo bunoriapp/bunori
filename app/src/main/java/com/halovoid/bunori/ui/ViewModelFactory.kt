@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.halovoid.bunori.data.repository.ChapterRepository
+import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.ReaderRepository
@@ -68,7 +69,8 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
                     ChapterRepository.getInstance(application),
                     NovelRepository.getInstance(application),
                     ReaderRepository.getInstance(application),
-                    PreferenceRepository.getInstance(application)
+                    PreferenceRepository.getInstance(application),
+                    DownloadRepository.getInstance(application)
                 ) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

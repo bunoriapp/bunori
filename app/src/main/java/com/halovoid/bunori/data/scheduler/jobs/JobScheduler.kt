@@ -229,13 +229,11 @@ class JobScheduler(
                         retryPolicy,
                         config,
                         rateLimiter,
-                        onCrawlerBlocked = { blockedName, _ ->
-                            blockCrawler(blockedName)
-                        }
+                        onCrawlerBlocked = { blockedName, _ -> blockCrawler(blockedName) },
+                        releaseSlot = { pool.release() },
+                        acquireSlot = { pool.acquire() }
                     )
-                    runner.run(task) {
-                        activeJobs.remove(task.id)
-                    }
+                    runner.run(task) { activeJobs.remove(task.id) }
                 } catch (e: Exception) {
                     activeJobs.remove(task.id)
                 } finally {
@@ -268,6 +266,7 @@ class JobScheduler(
 internal class WorkerPool(maxConcurrent: Int) {
     private val semaphore = Semaphore(maxConcurrent)
     fun tryAcquire(): Boolean = semaphore.tryAcquire()
+    suspend fun acquire() = semaphore.acquire() // suspend only until a slot is free
     fun release() = semaphore.release()
 }
 

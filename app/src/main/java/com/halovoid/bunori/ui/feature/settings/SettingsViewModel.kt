@@ -107,6 +107,18 @@ class SettingsViewModel(
         initialValue = false
     )
 
+    val showAllSavedNovels: StateFlow<Boolean> = preferenceRepository.showAllSavedNovels.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    fun setShowAllSavedNovels(show: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setShowAllSavedNovels(show)
+        }
+    }
+
     val activityCompactView: StateFlow<Boolean> = preferenceRepository.activityCompactView.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -196,6 +208,12 @@ class SettingsViewModel(
     )
 
     val isAmoledMode: StateFlow<Boolean> = preferenceRepository.isAmoledMode.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val isOfflineMode: StateFlow<Boolean> = preferenceRepository.isOfflineMode.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = false
@@ -468,6 +486,12 @@ class SettingsViewModel(
     fun setAmoledMode(enabled: Boolean) {
         viewModelScope.launch {
             preferenceRepository.setAmoledMode(enabled)
+        }
+    }
+
+    fun setOfflineMode(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setOfflineMode(enabled)
         }
     }
 

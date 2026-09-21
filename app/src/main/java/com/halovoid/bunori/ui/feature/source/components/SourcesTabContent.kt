@@ -1,4 +1,4 @@
-package com.halovoid.bunori.ui.feature.browse.components
+package com.halovoid.bunori.ui.feature.source.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*

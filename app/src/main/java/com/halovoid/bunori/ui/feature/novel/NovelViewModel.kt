@@ -104,9 +104,24 @@ class NovelViewModel(
                 novelRepository.getNovelByUrlFlow(url),
                 chapterRepository.getChaptersFlow(url)
             ) { details, chapters ->
-                details?.copy(
-                    chapters = chapters
-                )
+                if (details != null) {
+                    details.copy(chapters = chapters)
+                } else {
+                    val downloads = downloadRepository.getDownloadsForNovel(url)
+                    if (downloads.isNotEmpty()) {
+                        val first = downloads.first()
+                        Novel(
+                            url = url,
+                            title = first.novelTitle.ifBlank { "Saved Novel" },
+                            author = "Saved",
+                            crawlerName = first.scanlationSource.takeIf { it.isNotBlank() && it != "Not Provided" } ?: "Saved",
+                            inLibrary = false,
+                            chapters = emptyList()
+                        )
+                    } else {
+                        null
+                    }
+                }
             }
         }
         .stateIn(
@@ -160,19 +175,35 @@ class NovelViewModel(
         .flatMapLatest { nov ->
             combine(
                 chapterRepository.getChaptersFlow(nov.url),
-                downloadRepository.getDownloadedChapterUrlsFlow(nov.url)
-            ) { rawChapters, downloadedUrls ->
+                downloadRepository.getDownloadedChapterUrlsFlow(nov.url),
+                downloadRepository.getDownloadsForNovelFlow(nov.url)
+            ) { rawChapters, downloadedUrls, downloads ->
                 val downloadedSet = downloadedUrls.toSet()
-                rawChapters.map { chapter ->
-                    val effSource = if (chapter.scanlationSource.isBlank() || chapter.scanlationSource == "NotProvided" || chapter.scanlationSource == "Not Provided") {
-                        nov.crawlerName
-                    } else {
-                        chapter.scanlationSource
+                if (rawChapters.isNotEmpty()) {
+                    rawChapters.map { chapter ->
+                        val effSource = if (chapter.scanlationSource.isBlank() || chapter.scanlationSource == "NotProvided" || chapter.scanlationSource == "Not Provided") {
+                            nov.crawlerName
+                        } else {
+                            chapter.scanlationSource
+                        }
+                        chapter.copy(isDownloaded = downloadedSet.contains(chapter.url)).apply {
+                            sourceUrl = chapter.sourceUrl
+                            scanlationSource = effSource
+                            read = chapter.read
+                        }
                     }
-                    chapter.copy(isDownloaded = downloadedSet.contains(chapter.url)).apply {
-                        sourceUrl = chapter.sourceUrl
-                        scanlationSource = effSource
-                        read = chapter.read
+                } else {
+                    downloads.mapIndexed { idx, dl ->
+                        Chapter(
+                            id = if (dl.id > 0) dl.id.toInt() else (idx + 1),
+                            url = dl.chapterUrl,
+                            title = dl.chapterTitle.ifBlank { "Chapter ${dl.chapterIndex}" },
+                            index = dl.chapterIndex,
+                            novelUrl = dl.novelUrl,
+                            isDownloaded = true,
+                            read = false,
+                            scanlationSource = dl.scanlationSource
+                        )
                     }
                 }
             }

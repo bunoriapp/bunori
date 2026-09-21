@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
  */
 interface NovelRepository {
     fun getAllNovels(): Flow<List<Novel>>
+    fun getAllSavedNovelsFlow(): Flow<List<Novel>>
     fun getNovelByUrlFlow(url: String): Flow<Novel?>
     suspend fun getNovelByUrl(novelUrl: String): Novel?
     suspend fun saveNovel(novel: Novel)
@@ -48,6 +49,12 @@ class NovelRepositoryImpl private constructor(context: Context) : NovelRepositor
 
     override fun getAllNovels(): Flow<List<Novel>> {
         return novelDao.getAllNovels()
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(Dispatchers.IO)
+    }
+
+    override fun getAllSavedNovelsFlow(): Flow<List<Novel>> {
+        return novelDao.getAllSavedNovelsFlow()
             .map { list -> list.map { it.toDomain() } }
             .flowOn(Dispatchers.IO)
     }

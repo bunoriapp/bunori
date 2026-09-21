@@ -33,6 +33,7 @@ fun GeneralPreferencesScreen(
     val ignoreImg by viewModel.ignoreImages.collectAsStateWithLifecycle()
     val friendlyPath by viewModel.friendlyPath.collectAsStateWithLifecycle("")
     val cacheClearFreq by viewModel.cacheClearFrequency.collectAsStateWithLifecycle()
+    val showAllSavedNovels by viewModel.showAllSavedNovels.collectAsStateWithLifecycle()
     
     var showResetDialog by remember { mutableStateOf(false) }
     var showCacheClearSheet by remember { mutableStateOf(false) }
@@ -108,6 +109,45 @@ fun GeneralPreferencesScreen(
                     text = "Limit parallel download tasks. A lower count reduces crawler network stress and prevents IP temp-bans.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = SecondaryText
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = BorderColor.copy(alpha = 0.2f), thickness = 0.5.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SectionHeader(text = "Library")
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { viewModel.setShowAllSavedNovels(!showAllSavedNovels) }
+                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Show All Saved Novels",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = PrimaryText
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Display all downloaded and cached novels in library, even if not added as favorite.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SecondaryText
+                    )
+                }
+                Switch(
+                    checked = showAllSavedNovels,
+                    onCheckedChange = { viewModel.setShowAllSavedNovels(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = PrimaryText,
+                        checkedTrackColor = BrandAccent,
+                        uncheckedThumbColor = SecondaryText,
+                        uncheckedTrackColor = DarkBackground
+                    )
                 )
             }
 

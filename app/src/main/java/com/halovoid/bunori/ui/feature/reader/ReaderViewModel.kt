@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.data.repository.ChapterRepository
+import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.ReaderRepository
@@ -61,7 +62,8 @@ class ReaderViewModel(
     private val chapterRepository: ChapterRepository,
     private val novelRepository: NovelRepository,
     private val readerRepository: ReaderRepository,
-    private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
+    private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application),
+    private val downloadRepository: DownloadRepository = DownloadRepository.getInstance(application)
 ) : AndroidViewModel(application) {
 
     // --- Reader Settings & Custom Fonts Flow ---
@@ -112,6 +114,11 @@ class ReaderViewModel(
     private val _tocChapters = MutableStateFlow<List<Chapter>>(emptyList())
     val tocChapters: StateFlow<List<Chapter>> = _tocChapters.asStateFlow()
 
+    private fun findChapterPosition(idOrIndex: Int): Int? {
+        return chapterIndexById[idOrIndex]
+            ?: allChapters.indexOfFirst { it.index == idOrIndex }.takeIf { it >= 0 }
+    }
+
     /**
      * Initializes the reader.
      * Inherits the reading sequence from [playlistChapterIds] if provided,
@@ -127,13 +134,30 @@ class ReaderViewModel(
             _blockedChapter.value = null
 
             crawlerName = novelRepository.getNovelByUrl(novelUrl)?.crawlerName.orEmpty()
-            val dbChapters = chapterRepository.getChaptersByNovelUrl(novelUrl)
+            var dbChapters = chapterRepository.getChaptersByNovelUrl(novelUrl)
+
+            // Resilient fallback to downloads table when chapters table is empty (e.g., offline mode)
+            if (dbChapters.isEmpty()) {
+                val downloads = downloadRepository.getDownloadsForNovel(novelUrl)
+                dbChapters = downloads.mapIndexed { idx, dl ->
+                    Chapter(
+                        id = if (dl.id > 0) dl.id.toInt() else (idx + 1),
+                        novelUrl = dl.novelUrl,
+                        url = dl.chapterUrl,
+                        title = dl.chapterTitle.ifBlank { "Chapter ${dl.chapterIndex}" },
+                        index = dl.chapterIndex,
+                        scanlationSource = dl.scanlationSource,
+                        read = false
+                    )
+                }
+            }
 
             // Honor active playlist context (scanlation filter, downloaded filter, sort order)
             val playlist = playlistChapterIds ?: ReadingPlaylistHolder.getPlaylist(novelUrl)
             allChapters = if (!playlist.isNullOrEmpty()) {
                 val chapterMap = dbChapters.associateBy { it.id }
-                playlist.mapNotNull { chapterMap[it] }
+                val indexMap = dbChapters.associateBy { it.index }
+                playlist.mapNotNull { chapterMap[it] ?: indexMap[it] }
             } else {
                 dbChapters.sortedBy { it.index }
             }
@@ -146,7 +170,7 @@ class ReaderViewModel(
             _tocChapters.value = allChapters
             _totalChapters.value = allChapters.size
 
-            val startPos = chapterIndexById[initialChapterId] ?: 0
+            val startPos = findChapterPosition(initialChapterId) ?: 0
             centerPos = startPos
             val initialChapter = allChapters.getOrNull(startPos)
             if (initialChapter != null) {
@@ -171,7 +195,7 @@ class ReaderViewModel(
     fun loadNextChapter(afterChapterId: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val currentPos = chapterIndexById[afterChapterId] ?: return@launch
+                val currentPos = findChapterPosition(afterChapterId) ?: return@launch
                 val nextPos = currentPos + 1
                 if (nextPos !in allChapters.indices) {
                     _commands.emit(ReaderCommand.SetHasMore(hasPrevious = currentPos > 0, hasNext = false))
@@ -186,7 +210,7 @@ class ReaderViewModel(
             } catch (e: Exception) {
                 android.util.Log.e("ReaderViewModel", "Failed to load next chapter after $afterChapterId: ${e.message}", e)
                 // Unblock JS sentinel so infinite scroll does not stay locked forever
-                val currentPos = chapterIndexById[afterChapterId] ?: -1
+                val currentPos = findChapterPosition(afterChapterId) ?: -1
                 _commands.emit(ReaderCommand.SetHasMore(hasPrevious = currentPos > 0, hasNext = true))
             }
         }
@@ -198,7 +222,7 @@ class ReaderViewModel(
     fun loadPreviousChapter(beforeChapterId: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val currentPos = chapterIndexById[beforeChapterId] ?: return@launch
+                val currentPos = findChapterPosition(beforeChapterId) ?: return@launch
                 val prevPos = currentPos - 1
                 if (prevPos !in allChapters.indices) {
                     _commands.emit(ReaderCommand.SetHasMore(hasPrevious = false, hasNext = currentPos < allChapters.size - 1))
@@ -213,7 +237,7 @@ class ReaderViewModel(
             } catch (e: Exception) {
                 android.util.Log.e("ReaderViewModel", "Failed to load previous chapter before $beforeChapterId: ${e.message}", e)
                 // Unblock JS sentinel so infinite scroll does not stay locked forever
-                val currentPos = chapterIndexById[beforeChapterId] ?: -1
+                val currentPos = findChapterPosition(beforeChapterId) ?: -1
                 _commands.emit(ReaderCommand.SetHasMore(hasPrevious = true, hasNext = currentPos < allChapters.size - 1))
             }
         }
@@ -223,7 +247,7 @@ class ReaderViewModel(
      * Called by WebView bridge when center 50% viewport chapter changes.
      */
     fun onActiveChapterChanged(chapterId: Int, title: String = "", index: Int = 0) {
-        val pos = chapterIndexById[chapterId] ?: return
+        val pos = findChapterPosition(chapterId) ?: return
         if (pos == centerPos) return
         centerPos = pos
 
@@ -236,13 +260,13 @@ class ReaderViewModel(
      * Marks a chapter completed in the database and updates playlist state.
      */
     fun onChapterCompleted(chapterId: Int) {
-        val pos = chapterIndexById[chapterId] ?: return
+        val pos = findChapterPosition(chapterId) ?: return
         val chapter = allChapters.getOrNull(pos) ?: return
         if (!chapter.read) {
             viewModelScope.launch(Dispatchers.IO) {
-                chapterRepository.updateChapterReadStatus(chapterId, true)
+                chapterRepository.updateChapterReadStatus(chapter.id, true)
                 allChapters = allChapters.map { ch ->
-                    if (ch.id == chapterId) ch.apply { read = true } else ch
+                    if (ch.id == chapter.id) ch.apply { read = true } else ch
                 }
                 _tocChapters.value = allChapters
             }
@@ -273,7 +297,7 @@ class ReaderViewModel(
      * Called when the user jumps to a chapter from TOC, Prev/Next buttons, or page turns.
      */
     fun jumpToChapter(chapterId: Int, startAtEnd: Boolean = false) {
-        val pos = chapterIndexById[chapterId] ?: return
+        val pos = findChapterPosition(chapterId) ?: return
         val targetChapter = allChapters.getOrNull(pos) ?: return
 
         centerPos = pos
@@ -299,7 +323,7 @@ class ReaderViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 rawContentCache.remove(chapterId)
-                val pos = chapterIndexById[chapterId] ?: centerPos
+                val pos = findChapterPosition(chapterId) ?: centerPos
                 val chapter = allChapters.getOrNull(pos) ?: return@launch
 
                 val payload = fetchChapterPayload(chapter)
@@ -361,14 +385,6 @@ class ReaderViewModel(
 
     fun updateShowTapZoneOverlay(enabled: Boolean) = viewModelScope.launch {
         preferenceRepository.updateShowTapZoneOverlay(enabled)
-    }
-
-    fun updateCustomCss(css: String) = viewModelScope.launch {
-        preferenceRepository.updateCustomCss(css)
-    }
-
-    fun updateCustomJs(js: String) = viewModelScope.launch {
-        preferenceRepository.updateCustomJs(js)
     }
 
     fun updateCustomCode(css: String, js: String) = viewModelScope.launch {

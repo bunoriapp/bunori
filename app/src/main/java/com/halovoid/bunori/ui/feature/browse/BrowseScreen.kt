@@ -11,6 +11,7 @@ import com.halovoid.bunori.ui.feature.browse.components.*
 import com.halovoid.bunori.ui.feature.source.SourceScreen
 import com.halovoid.bunori.ui.feature.source.SourceViewModel
 import com.halovoid.bunori.ui.feature.activity.components.JobActionHandler
+import com.halovoid.bunori.ui.feature.source.components.SourcesTabContent
 
 enum class BrowseTab(val title: String) {
     SOURCES("Sources"),

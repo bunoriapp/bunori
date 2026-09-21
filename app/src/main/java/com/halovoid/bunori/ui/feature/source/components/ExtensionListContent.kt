@@ -55,7 +55,10 @@ fun ExtensionListContent(
         filteredItems.filter { it.isInstalled && !it.hasUpdate && !it.isActionInProgress }.sortedBy { it.name.lowercase() }
     }
     val available = remember(filteredItems) {
-        filteredItems.filter { !it.isInstalled && !it.hasUpdate && !it.isActionInProgress }.sortedBy { it.name.lowercase() }
+        filteredItems.filter { !it.isInstalled && !it.hasUpdate && !it.isActionInProgress && !it.isDeprecated }.sortedBy { it.name.lowercase() }
+    }
+    val deprecated = remember(filteredItems) {
+        filteredItems.filter { !it.isInstalled && !it.hasUpdate && !it.isActionInProgress && it.isDeprecated }.sortedBy { it.name.lowercase() }
     }
 
     val availableGroups = remember(available) {
@@ -321,6 +324,45 @@ fun ExtensionListContent(
                                 onItemClick = { onSelectItemForDetails(item) }
                             )
                         }
+                    }
+                }
+
+                if (deprecated.isNotEmpty()) {
+                    item(key = "section_header_deprecated") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Deprecated",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = SecondaryText
+                            )
+                            Surface(
+                                color = SecondaryText.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "${deprecated.size}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SecondaryText,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    items(deprecated, key = { "deprecated_${it.id}" }) { item ->
+                        ExtensionRow(
+                            item = item,
+                            onActionClick = { item.repoEntry?.let { viewModel.installExtension(it) } },
+                            onItemClick = { onSelectItemForDetails(item) }
+                        )
                     }
                 }
             }
