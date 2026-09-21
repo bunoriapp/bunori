@@ -200,18 +200,18 @@ fun ChapterRow(
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp,
-                            color = ErrorRed
+                            color = PrimaryText
                         )
                     }
-                    JobStatus.FAILED -> {
+                    JobStatus.FAILED, JobStatus.CANCELLED -> {
                         IconButton(
                             onClick = { onFetchChapter(chapter) },
                             modifier = Modifier.fillMaxSize()
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Failed - Tap to Retry",
-                                tint = ErrorRed,
+                                contentDescription = "Retry Chapter",
+                                tint = PrimaryText,
                                 modifier = Modifier.size(20.dp)
                             )
                         }

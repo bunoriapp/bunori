@@ -24,7 +24,7 @@ fun WelcomeScreen(
 ) {
     OnboardingStep(
         title = "Welcome to Bunori",
-        subtitle = "A complete platform for discovering, reading, and downloading web novels with modular extensions.",
+        subtitle = "A complete platform for discovering, reading, and downloading web novels",
         onNext = onNext,
         isScrollable = false
     ) {
@@ -62,7 +62,7 @@ fun WelcomeScreen(
                 )
 
                 FeatureItem(
-                    title = "A Reader Built for Long-Form Reading",
+                    title = "A Reader for Long Form Reading",
                     description = "Tailor typography, margins, reading rulers, tap gestures, and true AMOLED dark mode to your comfort."
                 )
 

@@ -3,6 +3,8 @@ package com.halovoid.bunori.ui.feature.activity.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -71,30 +73,108 @@ fun DownloadRangeDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Chapter ${currentRange.start.toInt()}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = PrimaryText,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    // Start chapter stepper: [ - ] Ch. X [ + ]
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(1.dp)
+                    ) {
+                        IconButton(
+                            onClick = {
+                                val newStart = (currentRange.start - 1f).coerceAtLeast(minChapterIndex)
+                                currentRange = newStart..currentRange.endInclusive
+                            },
+                            enabled = currentRange.start > minChapterIndex,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "Decrease start chapter",
+                                modifier = Modifier.size(16.dp),
+                                tint = if (currentRange.start > minChapterIndex) PrimaryText else SecondaryText.copy(alpha = 0.3f)
+                            )
+                        }
+
+                        Text(
+                            text = "Ch. ${currentRange.start.toInt()}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = PrimaryText,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        IconButton(
+                            onClick = {
+                                val newStart = (currentRange.start + 1f).coerceAtMost(currentRange.endInclusive)
+                                currentRange = newStart..currentRange.endInclusive
+                            },
+                            enabled = currentRange.start < currentRange.endInclusive,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Increase start chapter",
+                                modifier = Modifier.size(16.dp),
+                                tint = if (currentRange.start < currentRange.endInclusive) PrimaryText else SecondaryText.copy(alpha = 0.3f)
+                            )
+                        }
+                    }
+
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = BrandAccent.copy(alpha = 0.12f)
                     ) {
                         Text(
-                            text = "$selectedCount ${if (selectedCount == 1) "chapter" else "chapters"}",
+                            text = "$selectedCount ${if (selectedCount == 1) "ch" else "chs"}",
                             style = MaterialTheme.typography.labelSmall,
                             color = BrandAccent,
                             fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
-                    Text(
-                        text = "Chapter ${currentRange.endInclusive.toInt()}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = PrimaryText,
-                        fontWeight = FontWeight.SemiBold
-                    )
+
+                    // End chapter stepper: [ - ] Ch. Y [ + ]
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(1.dp)
+                    ) {
+                        IconButton(
+                            onClick = {
+                                val newEnd = (currentRange.endInclusive - 1f).coerceAtLeast(currentRange.start)
+                                currentRange = currentRange.start..newEnd
+                            },
+                            enabled = currentRange.endInclusive > currentRange.start,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "Decrease end chapter",
+                                modifier = Modifier.size(16.dp),
+                                tint = if (currentRange.endInclusive > currentRange.start) PrimaryText else SecondaryText.copy(alpha = 0.3f)
+                            )
+                        }
+
+                        Text(
+                            text = "Ch. ${currentRange.endInclusive.toInt()}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = PrimaryText,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        IconButton(
+                            onClick = {
+                                val newEnd = (currentRange.endInclusive + 1f).coerceAtMost(maxChapterIndex)
+                                currentRange = currentRange.start..newEnd
+                            },
+                            enabled = currentRange.endInclusive < maxChapterIndex,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Increase end chapter",
+                                modifier = Modifier.size(16.dp),
+                                tint = if (currentRange.endInclusive < maxChapterIndex) PrimaryText else SecondaryText.copy(alpha = 0.3f)
+                            )
+                        }
+                    }
                 }
 
                 if (sources.isNotEmpty()) {
