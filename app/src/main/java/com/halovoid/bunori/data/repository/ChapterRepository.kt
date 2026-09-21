@@ -5,10 +5,29 @@ import com.halovoid.bunori.data.db.AppDatabase
 import com.halovoid.bunori.data.db.mappers.toDomain
 import com.halovoid.bunori.data.db.mappers.toEntity
 import com.halovoid.bunori.domain.models.Chapter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
-class ChapterRepository private constructor(context: Context) {
+/**
+ * Main repository interface for managing chapter data.
+ */
+interface ChapterRepository {
+    suspend fun getChaptersByNovelUrl(url: String): List<Chapter>
+    fun getChaptersFlow(url: String): Flow<List<Chapter>>
+    suspend fun upsertChapters(chapters: List<Chapter>)
+    suspend fun getChapterById(id: Int): Chapter
+    suspend fun updateChapterReadStatus(chapterId: Int, isRead: Boolean)
+    suspend fun updateChaptersReadStatus(chapterIds: List<Int>, isRead: Boolean)
+
+    companion object {
+        fun getInstance(context: Context): ChapterRepository = ChapterRepositoryImpl.getInstance(context)
+    }
+}
+
+class ChapterRepositoryImpl private constructor(context: Context) : ChapterRepository {
     private val db = AppDatabase.getDatabase(context)
     private val chapterDao = db.chapterDao()
 
@@ -18,47 +37,38 @@ class ChapterRepository private constructor(context: Context) {
 
         fun getInstance(context: Context): ChapterRepository {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: ChapterRepository(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: ChapterRepositoryImpl(context.applicationContext).also { INSTANCE = it }
             }
         }
     }
 
-    fun getChaptersByNovelUrl(url: String): List<Chapter> {
-        return chapterDao.getChapterFromNovel(url).map { it -> it.toDomain() }
+    override suspend fun getChaptersByNovelUrl(url: String): List<Chapter> = withContext(Dispatchers.IO) {
+        chapterDao.getChapterFromNovel(url).map { it.toDomain() }
     }
 
-    fun getChaptersFlow(url: String): Flow<List<Chapter>> {
-        return chapterDao.getChaptersFlow(url).map { list -> list.map { it.toDomain() } }
+    override fun getChaptersFlow(url: String): Flow<List<Chapter>> {
+        return chapterDao.getChaptersFlow(url)
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(Dispatchers.IO)
     }
 
-    suspend fun upsertChapters(chapters: List<Chapter>) {
-        chapterDao.upsertChapters(chapters.map { it.toEntity() })
+    override suspend fun upsertChapters(chapters: List<Chapter>) = withContext(Dispatchers.IO) {
+        if (chapters.isNotEmpty()) {
+            chapterDao.upsertChapters(chapters.map { it.toEntity() })
+        }
     }
 
-    suspend fun insertChapters(chapters: List<Chapter>) {
-        chapterDao.upsertChapters(chapters.map { it.toEntity() })
+    override suspend fun getChapterById(id: Int): Chapter = withContext(Dispatchers.IO) {
+        chapterDao.getChapterById(id).toDomain()
     }
 
-    fun getChapterById(id: Int) : Chapter {
-        return chapterDao.getChapterById(id).toDomain()
-    }
-
-    suspend fun updateChapter(chapter: Chapter) {
-        chapterDao.updateChapter(chapter = chapter.toEntity())
-    }
-
-    suspend fun updateChapterReadStatus(chapterId: Int, isRead: Boolean) {
+    override suspend fun updateChapterReadStatus(chapterId: Int, isRead: Boolean) = withContext(Dispatchers.IO) {
         chapterDao.updateChapterReadStatus(chapterId, isRead)
     }
 
-    suspend fun updateChapterReadStatus(chapterUrl: String, isRead: Boolean) {
-        chapterDao.updateChapterReadStatusByUrl(chapterUrl, isRead)
+    override suspend fun updateChaptersReadStatus(chapterIds: List<Int>, isRead: Boolean) = withContext(Dispatchers.IO) {
+        if (chapterIds.isNotEmpty()) {
+            chapterDao.updateChaptersReadStatus(chapterIds, isRead)
+        }
     }
-
-    suspend fun updateChaptersReadStatus(chapterIds: List<Int>, isRead: Boolean) {
-        chapterDao.updateChaptersReadStatus(chapterIds, isRead)
-    }
-
-    fun getChapterCount(novelUrl: String): Flow<Int> =
-        chapterDao.getChapterCountFlow(novelUrl)
 }

@@ -7,7 +7,6 @@ import com.halovoid.bunori.data.db.dao.TaskDao
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.crawlerName
-import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.scheduler.CrawlerRateLimiter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -34,7 +33,8 @@ class JobRunner(
                 return
             }
 
-            taskDao.updateStatus(currentTask.id, JobStatus.RUNNING)
+            val claimedStatus = JobStateMachine.transition(currentTask.status, JobEvent.CLAIMED)
+            taskDao.updateStatus(currentTask.id, claimedStatus)
             batchDao.updateStatus(currentTask.batchId, JobStatus.RUNNING)
 
             val handler = handlerRegistry.getHandler(currentTask.type)
@@ -90,6 +90,7 @@ class JobRunner(
                             return
                         }
 
+                        JobStateMachine.transition(latest.status, JobEvent.HANDLER_FAILURE_RETRYABLE)
                         taskDao.markRetrying(latest.id, attemptsSoFar, result.error.message)
                         val delayMs = retryPolicy.getNextDelay(attemptsSoFar)
                         delay(delayMs.milliseconds)
@@ -107,13 +108,14 @@ class JobRunner(
                 val latestTask = taskDao.getTaskById(task.id)
                 val batch = batchDao.getBatchById(task.batchId)
 
-                if (batch?.status == JobStatus.PAUSED || latestTask?.status == JobStatus.PAUSED) {
-                    taskDao.updateStatus(task.id, JobStatus.PAUSED)
+                val targetStatus = if (batch?.status == JobStatus.PAUSED || latestTask?.status == JobStatus.PAUSED) {
+                    JobStateMachine.transition(task.status, JobEvent.PAUSE_REQUESTED)
                 } else if (batch?.status == JobStatus.CANCELLED || latestTask?.status == JobStatus.CANCELLED) {
-                    taskDao.updateStatus(task.id, JobStatus.CANCELLED)
+                    JobStateMachine.transition(task.status, JobEvent.CANCEL_REQUESTED)
                 } else {
-                    taskDao.updateStatus(task.id, JobStatus.PENDING)
+                    JobStatus.PENDING
                 }
+                taskDao.updateStatus(task.id, targetStatus)
                 syncBatchCompletion(task.batchId)
             }
             throw e
@@ -131,23 +133,27 @@ class JobRunner(
     }
 
     private suspend fun markSuccess(task: TaskEntity) {
+        JobStateMachine.transition(task.status, JobEvent.HANDLER_SUCCESS)
         taskDao.markSuccess(task.id)
         syncBatchCompletion(task.batchId)
     }
 
     private suspend fun fail(task: TaskEntity, errorMessage: String, attempts: Int) {
+        JobStateMachine.transition(task.status, JobEvent.HANDLER_FAILURE_FINAL)
         taskDao.markFailed(task.id, errorMessage, attempts)
         syncBatchCompletion(task.batchId)
     }
 
     private suspend fun markCancelled(task: TaskEntity) {
-        taskDao.updateStatus(task.id, JobStatus.CANCELLED)
+        val targetStatus = JobStateMachine.transition(task.status, JobEvent.CANCEL_REQUESTED)
+        taskDao.updateStatus(task.id, targetStatus)
         syncBatchCompletion(task.batchId)
     }
 
     private suspend fun markBlocked(task: TaskEntity) {
-        taskDao.updateStatus(task.id, JobStatus.BLOCKED)
-        batchDao.updateStatus(task.batchId, JobStatus.BLOCKED)
+        val targetStatus = JobStateMachine.transition(task.status, JobEvent.BLOCKED_BY_PROTECTION)
+        taskDao.updateStatus(task.id, targetStatus)
+        batchDao.updateStatus(task.batchId, targetStatus)
         val crawler = task.crawlerName
         if (crawler != null) {
             onCrawlerBlocked?.invoke(crawler, task)

@@ -22,14 +22,8 @@ interface BatchDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBatch(batch: BatchEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBatches(batches: List<BatchEntity>)
-
     @Query("SELECT * FROM batches WHERE id = :id")
     suspend fun getBatchById(id: String): BatchEntity?
-
-    @Query("SELECT * FROM batches WHERE id = :id")
-    fun getBatchByIdFlow(id: String): Flow<BatchEntity?>
 
     @Query("""
         SELECT 
@@ -106,7 +100,4 @@ interface BatchDao {
 
     @Query("UPDATE batches SET status = :status, error = CASE WHEN :status = 'SUCCESS' THEN NULL ELSE error END, completedAt = :completedAt, updatedAt = :updatedAt WHERE id = :id")
     suspend fun markCompleted(id: String, status: JobStatus, completedAt: Long = System.currentTimeMillis(), updatedAt: Long = System.currentTimeMillis())
-
-    @Query("DELETE FROM batches WHERE id = :id")
-    suspend fun deleteById(id: String)
 }

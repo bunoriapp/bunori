@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.factory.JobFactory
 import com.halovoid.bunori.data.repository.BatchRepository
+import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.domain.usecase.SaveNovelUseCase
@@ -56,26 +57,31 @@ class BrowseViewModel(
         }
     }
 
+    private val chapterRepository: ChapterRepository = ChapterRepository.getInstance(application)
+
     fun saveNovelStub(novel: Novel, onSaved: () -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val existing = novelRepository.getNovelDetails(novel.url)
+                val existing = novelRepository.getNovelByUrl(novel.url)
                 if (existing == null) {
-                    novelRepository.saveNovelMetadata(novel)
+                    novelRepository.saveNovel(novel)
                     startNovelCrawlUseCase(
                         context = getApplication(),
                         crawlerName = novel.crawlerName,
                         url = novel.url,
                         title = novel.title
                     )
-                } else if (existing.chapters.isEmpty()) {
-                    startNovelCrawlUseCase(
-                        context = getApplication(),
-                        crawlerName = novel.crawlerName,
-                        url = novel.url,
-                        title = novel.title
-                    )
+                } else {
+                    val chapters = chapterRepository.getChaptersByNovelUrl(novel.url)
+                    if (chapters.isEmpty()) {
+                        startNovelCrawlUseCase(
+                            context = getApplication(),
+                            crawlerName = novel.crawlerName,
+                            url = novel.url,
+                            title = novel.title
+                        )
+                    }
                 }
                 onSaved()
             } catch (e: Exception) {

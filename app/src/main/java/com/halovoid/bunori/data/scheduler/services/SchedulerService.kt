@@ -21,7 +21,6 @@ import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.handlers.ArtifactHandler
 import com.halovoid.bunori.data.handlers.ChapterHandler
 import com.halovoid.bunori.data.handlers.NovelMetadataHandler
-import com.halovoid.bunori.data.handlers.RangeDownloadHandler
 import com.halovoid.bunori.data.handlers.utility.crawlerName
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
@@ -75,13 +74,6 @@ class SchedulerService : Service() {
             } else {
                 context.startService(intent)
             }
-        }
-
-        fun stopService(context: Context) {
-            val intent = Intent(context, SchedulerService::class.java).apply {
-                action = ACTION_STOP
-            }
-            context.startService(intent)
         }
 
         fun cancelJob(context: Context, jobId: String) {
@@ -241,7 +233,6 @@ class SchedulerService : Service() {
             novelRepository, chapterRepository, crawlerFactory, storageRepository, generatorFactory, artifactRepository, downloadRepository
         ))
         registry.register(JobType.BACKUP, BackupService(applicationContext))
-        registry.register(JobType.RANGE_DOWNLOAD, RangeDownloadHandler(chapterRepository, taskDao))
 
         scheduler = JobScheduler(batchDao, taskDao, registry, preferenceRepository = preferenceRepository)
         scheduler.setOnEmptyListener {
@@ -295,7 +286,7 @@ class SchedulerService : Service() {
             }
             ACTION_UNBLOCK_CRAWLER -> {
                 ensureForeground()
-                val crawlerName = intent?.getStringExtra(EXTRA_CRAWLER_NAME)
+                val crawlerName = intent.getStringExtra(EXTRA_CRAWLER_NAME)
                 if (crawlerName != null) {
                     notifiedBlockedCrawlers.remove(crawlerName)
                     notificationManager.dismissCloudflareAlert(crawlerName)

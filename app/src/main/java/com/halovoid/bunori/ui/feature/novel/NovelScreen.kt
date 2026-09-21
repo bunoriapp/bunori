@@ -86,7 +86,6 @@ sealed interface NovelDialogState {
 @Composable
 fun NovelScreen(
     novelUrl: String,
-    onRequestClick: (String) -> Unit,
     onChapterClick: (String, Int) -> Unit,
     onArtifactsClick: () -> Unit,
     onBack: () -> Unit
@@ -130,7 +129,7 @@ fun NovelScreen(
     val coroutineScope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
 
-    val requestHistory by viewModel.rootRequests.collectAsStateWithLifecycle()
+    val batchHistory by viewModel.batches.collectAsStateWithLifecycle()
     val chapterStatuses by viewModel.chapterStatuses.collectAsStateWithLifecycle()
 
     val ongoingStatuses = remember {
@@ -143,8 +142,8 @@ fun NovelScreen(
         )
     }
 
-    val activeRequest = remember(requestHistory) {
-        requestHistory.find { it.rstatus in ongoingStatuses }
+    val activeBatch = remember(batchHistory) {
+        batchHistory.find { it.status in ongoingStatuses }
     }
 
     var activeDialog by remember { mutableStateOf<NovelDialogState?>(null) }
@@ -264,7 +263,7 @@ fun NovelScreen(
                         item {
                             NovelActionRow(
                                 inLibrary = currentNovel.inLibrary,
-                                isActivityRunning = requestHistory.any { it.rstatus in ongoingStatuses },
+                                isActivityRunning = activeBatch != null,
                                 artifactsExist = chapters.isNotEmpty(),
                                 downloadEnabled = chapters.isNotEmpty(),
                                 onFavoriteClick = { viewModel.toggleLibrary(currentNovel) },
@@ -328,7 +327,7 @@ fun NovelScreen(
                     novel = currentNovel,
                     isOpaque = isTopBarOpaque,
                     showTitle = showTitleInTopBar,
-                    isActivityRunning = activeRequest != null,
+                    isActivityRunning = activeBatch != null,
                     onBack = onBack,
                     onJumpToChapterClick = { activeDialog = NovelDialogState.JumpToChapter },
                     onFilterClick = { activeDialog = NovelDialogState.FilterSheet },

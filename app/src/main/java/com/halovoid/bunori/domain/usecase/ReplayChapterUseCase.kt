@@ -8,6 +8,7 @@ import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.core.logging.AppLog
+import androidx.core.net.toUri
 
 /**
  * Single business action for deleting an existing chapter download and re-queuing a fetch request.
@@ -22,13 +23,15 @@ class ReplayChapterUseCase(
         val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
         if (download != null) {
             try {
-                storageRepository.delete(Uri.parse(download.fileLocation))
+                storageRepository.delete(download.fileLocation.toUri())
             } catch (e: Exception) {
                 AppLog.w("ReplayChapterUseCase", "Failed to delete chapter file at ${download.fileLocation} on replay", e)
             }
             downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
         }
-        val request = jobFactory.chapter(novel, chapter)
-        batchRepository.insertBatchWithChapterTasks(request, listOf(chapter))
+        val batch = jobFactory.createChapterBatch(novel, chapter)
+        val tasks = jobFactory.createChapterTasks(batch.id, novel.crawlerName, listOf(chapter), batch.priority)
+        batchRepository.insertBatch(batch)
+        batchRepository.insertTasks(tasks)
     }
 }

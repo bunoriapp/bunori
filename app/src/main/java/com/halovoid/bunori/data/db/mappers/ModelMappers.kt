@@ -2,6 +2,7 @@ package com.halovoid.bunori.data.db.mappers
 
 import com.halovoid.bunori.data.db.dao.BatchWithStats
 import com.halovoid.bunori.data.db.entities.ArtifactEntity
+import com.halovoid.bunori.data.db.entities.BatchEntity
 import com.halovoid.bunori.data.db.entities.ChapterEntity
 import com.halovoid.bunori.data.db.entities.DownloadEntity
 import com.halovoid.bunori.data.db.entities.JobStatus
@@ -12,6 +13,7 @@ import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Download
 import com.halovoid.bunori.domain.models.Novel
+import com.halovoid.bunori.domain.models.Task
 
 // Novel Mappings
 fun NovelEntity.toDomain(): Novel = Novel(
@@ -108,8 +110,6 @@ fun BatchWithStats.toDomain(): Batch {
     return Batch(
         id = batch.id,
         name = batch.name,
-        parentNovel = batch.novelUrl,
-        url = null,
         novelUrl = batch.novelUrl,
         priority = batch.priority,
         type = batch.type,
@@ -121,32 +121,63 @@ fun BatchWithStats.toDomain(): Batch {
         progressFailed = failedTasks,
         progressCancelled = cancelledTasks,
         status = effectiveStatus,
-        rstatus = effectiveStatus,
         metadata = batch.metadata,
         error = batch.error
     )
 }
 
-fun TaskEntity.toDomain(): Batch = Batch(
+fun BatchEntity.toDomain(): Batch = Batch(
     id = id,
     name = name,
-    parentNovel = novelUrl,
-    dependsOn = batchId,
-    url = url,
     novelUrl = novelUrl,
     priority = priority,
     type = type,
     createdAt = createdAt,
     updatedAt = updatedAt,
     completedAt = completedAt,
-    progressTotal = 1,
-    progressSuccess = if (status == JobStatus.SUCCESS) 1 else 0,
-    progressFailed = if (status == JobStatus.FAILED) 1 else 0,
-    progressCancelled = if (status == JobStatus.CANCELLED) 1 else 0,
+    progressTotal = 0,
+    progressSuccess = 0,
+    progressFailed = 0,
+    progressCancelled = 0,
     status = status,
-    rstatus = status,
     metadata = metadata,
     error = error
+)
+
+fun TaskEntity.toDomain(): Task = Task(
+    id = id,
+    batchId = batchId,
+    name = name,
+    url = url,
+    novelUrl = novelUrl,
+    priority = priority,
+    type = type,
+    status = status,
+    attemptCount = attemptCount,
+    maxAttempts = maxAttempts,
+    error = error,
+    metadata = metadata,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    completedAt = completedAt
+)
+
+fun Task.toEntity(): TaskEntity = TaskEntity(
+    id = id,
+    batchId = batchId,
+    name = name,
+    url = url,
+    novelUrl = novelUrl,
+    priority = priority,
+    type = type,
+    status = status,
+    attemptCount = attemptCount,
+    maxAttempts = maxAttempts,
+    error = error,
+    metadata = metadata,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    completedAt = completedAt
 )
 
 // Download

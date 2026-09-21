@@ -3,6 +3,7 @@ package com.halovoid.bunori.data.factory
 import com.halovoid.bunori.data.db.entities.BatchEntity
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
+import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ExportFormat
@@ -10,7 +11,7 @@ import org.json.JSONObject
 
 class JobFactory {
 
-    fun metadata(novel: Novel): BatchEntity {
+    fun createMetadataBatch(novel: Novel): BatchEntity {
         val metadata = JSONObject().apply {
             put("crawlerName", novel.crawlerName)
         }.toString()
@@ -26,7 +27,25 @@ class JobFactory {
         )
     }
 
-    fun metadataFromUrl(crawlerName: String, url: String, title: String): BatchEntity {
+    fun createMetadataTask(batchId: String, novel: Novel): TaskEntity {
+        val metadata = JSONObject().apply {
+            put("crawlerName", novel.crawlerName)
+        }.toString()
+
+        return TaskEntity(
+            id = "${batchId}_task",
+            batchId = batchId,
+            name = "Metadata: ${novel.title}",
+            url = novel.url,
+            novelUrl = novel.url,
+            type = JobType.NOVEL_METADATA,
+            priority = 0,
+            metadata = metadata,
+            status = JobStatus.PENDING
+        )
+    }
+
+    fun createMetadataBatchFromUrl(crawlerName: String, url: String, title: String): BatchEntity {
         val metadata = JSONObject().apply {
             put("crawlerName", crawlerName)
         }.toString()
@@ -42,7 +61,25 @@ class JobFactory {
         )
     }
 
-    fun rangeDownload(novel: Novel, start: Int, end: Int, chapterCount: Int): BatchEntity {
+    fun createMetadataTaskFromUrl(batchId: String, crawlerName: String, url: String, title: String): TaskEntity {
+        val metadata = JSONObject().apply {
+            put("crawlerName", crawlerName)
+        }.toString()
+
+        return TaskEntity(
+            id = "${batchId}_task",
+            batchId = batchId,
+            name = "Metadata: $title",
+            url = url,
+            novelUrl = url,
+            type = JobType.NOVEL_METADATA,
+            priority = 0,
+            metadata = metadata,
+            status = JobStatus.PENDING
+        )
+    }
+
+    fun createRangeDownloadBatch(novel: Novel, start: Int, end: Int): BatchEntity {
         val metadata = JSONObject().apply {
             put("crawlerName", novel.crawlerName)
             put("startIndex", start)
@@ -59,7 +96,7 @@ class JobFactory {
         )
     }
 
-    fun chapter(novel: Novel, chapter: Chapter): BatchEntity {
+    fun createChapterBatch(novel: Novel, chapter: Chapter): BatchEntity {
         val metadata = JSONObject().apply {
             put("chapterId", chapter.id)
             put("crawlerName", novel.crawlerName)
@@ -76,7 +113,30 @@ class JobFactory {
         )
     }
 
-    fun export(novel: Novel, format: ExportFormat, start: Int, end: Int, selectedSources: Set<String>? = null): BatchEntity {
+    fun createChapterTasks(batchId: String, crawlerName: String, chapters: List<Chapter>, priority: Int = 0): List<TaskEntity> {
+        return chapters.map { chapter ->
+            val taskMetadata = JSONObject().apply {
+                put("chapterId", chapter.id)
+                put("crawlerName", crawlerName)
+            }.toString()
+
+            val effectiveUrl = chapter.sourceUrl?.takeIf { it.isNotBlank() } ?: chapter.url
+
+            TaskEntity(
+                id = "${batchId}_ch_${chapter.index}_${chapter.id}",
+                batchId = batchId,
+                name = chapter.title.ifBlank { "Chapter ${chapter.index}" },
+                url = effectiveUrl,
+                novelUrl = chapter.novelUrl,
+                type = JobType.CHAPTER,
+                priority = priority,
+                metadata = taskMetadata,
+                status = JobStatus.PENDING
+            )
+        }
+    }
+
+    fun createExportBatch(novel: Novel, format: ExportFormat, start: Int, end: Int, selectedSources: Set<String>? = null): BatchEntity {
         val metadata = JSONObject().apply {
             put("format", format.toString())
             put("crawlerName", novel.crawlerName)
@@ -92,6 +152,30 @@ class JobFactory {
             type = JobType.ARTIFACT,
             novelUrl = novel.url,
             name = "Export: ${novel.title} ($format) [$start-$end]",
+            metadata = metadata,
+            status = JobStatus.PENDING
+        )
+    }
+
+    fun createExportTask(batchId: String, novel: Novel, format: ExportFormat, start: Int, end: Int, selectedSources: Set<String>? = null): TaskEntity {
+        val metadata = JSONObject().apply {
+            put("format", format.toString())
+            put("crawlerName", novel.crawlerName)
+            put("startIndex", start)
+            put("endIndex", end)
+            if (!selectedSources.isNullOrEmpty()) {
+                put("selectedSources", org.json.JSONArray(selectedSources.toList()))
+            }
+        }.toString()
+
+        return TaskEntity(
+            id = "${batchId}_task",
+            batchId = batchId,
+            name = "Export: ${novel.title} ($format)",
+            url = null,
+            novelUrl = novel.url,
+            type = JobType.ARTIFACT,
+            priority = 0,
             metadata = metadata,
             status = JobStatus.PENDING
         )

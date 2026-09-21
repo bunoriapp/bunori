@@ -13,8 +13,10 @@ class StartNovelCrawlUseCase(
     private val jobFactory: JobFactory = JobFactory()
 ) {
     suspend operator fun invoke(context: Context, crawlerName: String, url: String, title: String) {
-        val request = jobFactory.metadataFromUrl(crawlerName, url, title)
-        batchRepository.insertBatches(listOf(request))
+        val batch = jobFactory.createMetadataBatchFromUrl(crawlerName, url, title)
+        val task = jobFactory.createMetadataTaskFromUrl(batch.id, crawlerName, url, title)
+        batchRepository.insertBatch(batch)
+        batchRepository.insertTask(task)
         SchedulerService.startService(context)
     }
 }

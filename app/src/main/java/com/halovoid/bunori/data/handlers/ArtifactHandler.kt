@@ -40,7 +40,7 @@ class ArtifactHandler(
 
         try {
             // 1. Fetch All Necessary data
-            val novel = novelRepository.getNovelDetails(task.novelUrl)
+            val novel = novelRepository.getNovelByUrl(task.novelUrl)
                 ?: return@withContext JobResult.Failure(Exception("Novel not found in database"))
             val allChapters = chapterRepository.getChaptersByNovelUrl(task.novelUrl)
 
@@ -100,7 +100,7 @@ class ArtifactHandler(
                 artifactDestination = finalUri.toString(),
                 artifactName = fileName
             )
-            artifactRepository.insertArtifacts(artifact)
+            artifactRepository.insertArtifact(artifact)
 
             // 6. Cleanup Temp File
             tempFile.delete()

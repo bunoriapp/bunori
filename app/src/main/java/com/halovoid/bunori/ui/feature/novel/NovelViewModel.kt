@@ -2,6 +2,7 @@ package com.halovoid.bunori.ui.feature.novel
 
 import android.app.Application
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.data.db.entities.JobStatus
@@ -79,6 +80,11 @@ class NovelViewModel(
         batchRepository,
         jobFactory
     ),
+    private val downloadRangeUseCase: com.halovoid.bunori.domain.usecase.DownloadRangeUseCase = com.halovoid.bunori.domain.usecase.DownloadRangeUseCase(
+        ChapterRepository.getInstance(application),
+        batchRepository,
+        jobFactory
+    ),
     private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
 ) : AndroidViewModel(application) {
     private val novelRepository = NovelRepository.getInstance(application)
@@ -86,6 +92,7 @@ class NovelViewModel(
     private val artifactRepository = ArtifactRepository.getInstance(application)
     private val chapterRepository = ChapterRepository.getInstance(application)
     private val downloadRepository = DownloadRepositoryImpl.getInstance(application)
+    private val storageRepository = StorageRepositoryImpl.getInstance(application)
 
     private val _novelUrl = MutableStateFlow<String?>(null)
 
@@ -136,7 +143,7 @@ class NovelViewModel(
     val sortState: StateFlow<ChapterSortState> = _sortState.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val rootRequests: StateFlow<List<Batch>> = novel
+    val batches: StateFlow<List<Batch>> = novel
         .filterNotNull()
         .flatMapLatest { nov ->
             batchRepository.getBatchesByNovelFlow(nov.url)
@@ -411,9 +418,11 @@ class NovelViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val startIndex = start ?: 1
             val endIndex = end ?: Int.MAX_VALUE
-            val request = jobFactory.export(novel, format, startIndex, endIndex, selectedSources)
+            val batch = jobFactory.createExportBatch(novel, format, startIndex, endIndex, selectedSources)
+            val task = jobFactory.createExportTask(batch.id, novel, format, startIndex, endIndex, selectedSources)
 
-            batchRepository.insertBatches(listOf(request))
+            batchRepository.insertBatch(batch)
+            batchRepository.insertTask(task)
             SchedulerService.startService(getApplication())
         }
     }
@@ -423,17 +432,21 @@ class NovelViewModel(
             if (chaptersToDownload.isEmpty()) return@launch
             val start = chaptersToDownload.minOf { it.index }
             val end = chaptersToDownload.maxOf { it.index }
-            val request = jobFactory.rangeDownload(novel, start, end, chaptersToDownload.size)
-            batchRepository.insertBatchWithChapterTasks(request, chaptersToDownload)
+            val batch = jobFactory.createRangeDownloadBatch(novel, start, end)
+            val tasks = jobFactory.createChapterTasks(batch.id, novel.crawlerName, chaptersToDownload, batch.priority)
+            batchRepository.insertBatch(batch)
+            batchRepository.insertTasks(tasks)
             SchedulerService.startService(getApplication())
         }
     }
 
     fun fetchNovelMetadata(novel: Novel) {
         viewModelScope.launch(Dispatchers.IO) {
-            val request = jobFactory.metadata(novel)
+            val batch = jobFactory.createMetadataBatch(novel)
+            val task = jobFactory.createMetadataTask(batch.id, novel)
 
-            batchRepository.insertBatches(listOf(request))
+            batchRepository.insertBatch(batch)
+            batchRepository.insertTask(task)
             SchedulerService.startService(getApplication())
         }
     }
@@ -442,19 +455,16 @@ class NovelViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val start = _chapterRange.value.start.toInt()
             val end = _chapterRange.value.endInclusive.toInt()
-            val rangeChapters = chapters.value.filter { it.index in start..end }
-            if (rangeChapters.isEmpty()) return@launch
-
-            val request = jobFactory.rangeDownload(novel, start, end, rangeChapters.size)
-            batchRepository.insertBatchWithChapterTasks(request, rangeChapters)
-            SchedulerService.startService(getApplication())
+            downloadRangeUseCase(getApplication(), novel, start, end)
         }
     }
 
     fun fetchChapter(novel: Novel, chapter: Chapter) {
         viewModelScope.launch(Dispatchers.IO) {
-            val request = jobFactory.chapter(novel, chapter)
-            batchRepository.insertBatchWithChapterTasks(request, listOf(chapter))
+            val batch = jobFactory.createChapterBatch(novel, chapter)
+            val tasks = jobFactory.createChapterTasks(batch.id, novel.crawlerName, listOf(chapter), batch.priority)
+            batchRepository.insertBatch(batch)
+            batchRepository.insertTasks(tasks)
             SchedulerService.startService(getApplication())
         }
     }
@@ -473,12 +483,13 @@ class NovelViewModel(
 
     fun copyArtifactToUri(artifact: Artifact, destinationUri: Uri, onComplete: (Uri?) -> Unit, onFileMissing: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
-            if (!artifactRepository.artifactExists(artifact)) {
+            val sourceUri = artifact.artifactDestination.toUri()
+            if (!storageRepository.uriExists(sourceUri)) {
                 artifactRepository.removeArtifact(artifact)
                 withContext(Dispatchers.Main) { onFileMissing() }
                 return@launch
             }
-            val result = artifactRepository.copyArtifactToUri(artifact, destinationUri)
+            val result = storageRepository.copyFile(sourceUri, destinationUri)
             withContext(Dispatchers.Main) { onComplete(result) }
         }
     }

@@ -52,9 +52,6 @@ class ActivityViewModel(
         initialValue = GlobalActivityStats(0, 0)
     )
 
-//    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.
-//    val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
-
     fun setCompactMode(compact: Boolean) {
         viewModelScope.launch {
             preferenceRepository.setActivityCompactView(compact)
@@ -67,9 +64,9 @@ class ActivityViewModel(
         }
     }
 
-    fun replayBatch(batchtId: String) {
+    fun replayBatch(batchId: String) {
         viewModelScope.launch {
-            batchRepository.replayBatch(batchtId)
+            batchRepository.replayBatch(batchId)
         }
     }
 

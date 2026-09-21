@@ -89,7 +89,7 @@ class NovelMetadataHandler(
             }
 
             // 5. Persist the updated data to the database
-            val existingNovel = novelRepository.getNovelDetails(task.novelUrl)
+            val existingNovel = novelRepository.getNovelByUrl(task.novelUrl)
             val novelToSave = updatedNovel.copy(
                 url = task.novelUrl,
                 chapters = mergedChapters,
@@ -97,7 +97,10 @@ class NovelMetadataHandler(
                 titleHash = existingNovel?.titleHash,
                 refreshExpiry = System.currentTimeMillis() + 2 * 24 * 60 * 60 * 1000L
             )
-            novelRepository.saveNovelMetadata(novelToSave)
+            novelRepository.saveNovel(novelToSave)
+            if (novelToSave.chapters.isNotEmpty()) {
+                chapterRepository.upsertChapters(novelToSave.chapters)
+            }
 
             // Metadata for totalProgressUpdate is not changed in this request
             // Currently user would need to manually do a full novel fetch

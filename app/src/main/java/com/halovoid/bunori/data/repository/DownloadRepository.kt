@@ -24,6 +24,10 @@ interface DownloadRepository {
     suspend fun deleteDownloadsForNovel(novelUrl: String)
     suspend fun getAllCachedDownloads(): List<Download>
     suspend fun deleteAllCachedDownloads()
+
+    companion object {
+        fun getInstance(context: Context): DownloadRepository = DownloadRepositoryImpl.getInstance(context)
+    }
 }
 
 class DownloadRepositoryImpl private constructor(context: Context) : DownloadRepository {

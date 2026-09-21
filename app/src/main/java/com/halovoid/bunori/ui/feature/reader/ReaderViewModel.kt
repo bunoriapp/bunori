@@ -126,7 +126,7 @@ class ReaderViewModel(
             _isBlockedOrEmpty.value = false
             _blockedChapter.value = null
 
-            crawlerName = novelRepository.getNovelDetails(novelUrl)?.crawlerName.orEmpty()
+            crawlerName = novelRepository.getNovelByUrl(novelUrl)?.crawlerName.orEmpty()
             val dbChapters = chapterRepository.getChaptersByNovelUrl(novelUrl)
 
             // Honor active playlist context (scanlation filter, downloaded filter, sort order)

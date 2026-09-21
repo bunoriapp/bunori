@@ -3,19 +3,19 @@ package com.halovoid.bunori.data.repository
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import com.halovoid.bunori.data.preferences.appDataStore
 import com.halovoid.bunori.domain.models.CustomFont
 import com.halovoid.bunori.domain.models.ReaderSettings
 import com.halovoid.bunori.domain.models.ReaderTextAlign
 import com.halovoid.bunori.domain.models.ReaderTheme
 import com.halovoid.bunori.domain.models.ReadingMode
 import kotlinx.coroutines.flow.Flow
-import com.halovoid.bunori.data.preferences.appDataStore
 import kotlinx.coroutines.flow.map
 
 private val EXPORT_FOLDER_URI = stringPreferencesKey("export_folder_uri")
@@ -64,9 +64,92 @@ private val READER_CUSTOM_JS = stringPreferencesKey("reader_custom_js")
 private val READER_CUSTOM_FONTS = stringSetPreferencesKey("reader_custom_fonts")
 private val CUSTOM_DOMAIN_SELECTORS = stringSetPreferencesKey("custom_domain_selectors")
 
-class PreferenceRepository private constructor(
+/**
+ * Main repository interface for managing user preferences and DataStore state.
+ */
+interface PreferenceRepository {
+    val exportFolderUri: Flow<Uri?>
+    val isOnboardingCompleted: Flow<Boolean>
+    val currentDexTag: Flow<String?>
+    val betaModeApp: Flow<Boolean>
+    val betaModeCrawlers: Flow<Boolean>
+    val ignoreImages: Flow<Boolean>
+    val maxConcurrentJobs: Flow<Int>
+    val searchCompactView: Flow<Boolean>
+    val libraryCompactView: Flow<Boolean>
+    val activityCompactView: Flow<Boolean>
+    val defaultChapterDownloadFilter: Flow<String>
+    val defaultChapterSortType: Flow<String>
+    val defaultChapterSortOrder: Flow<String>
+    val defaultSourceFilter: Flow<String>
+    val backupFrequency: Flow<String>
+    val novelPruneFrequency: Flow<String>
+    val cacheClearFrequency: Flow<String>
+    val lastNovelPruneTime: Flow<Long>
+    val lastCacheClearTime: Flow<Long>
+    val themeMode: Flow<String>
+    val selectedThemeId: Flow<String>
+    val isAmoledMode: Flow<Boolean>
+    val extensionRepoUrl: Flow<String>
+    val customUserAgent: Flow<String?>
+    val readerSettings: Flow<ReaderSettings>
+    val customFonts: Flow<List<CustomFont>>
+
+    suspend fun setOnboardingCompleted(completed: Boolean)
+    suspend fun setExportFolder(uri: Uri)
+    suspend fun clearExportFolder()
+    suspend fun setCurrentDexTag(tag: String)
+    suspend fun setBetaModeApp(enabled: Boolean)
+    suspend fun setBetaModeCrawlers(enabled: Boolean)
+    suspend fun setIgnoreImages(enabled: Boolean)
+    suspend fun setMaxConcurrentJobs(jobs: Int)
+    suspend fun setSearchCompactView(compact: Boolean)
+    suspend fun setLibraryCompactView(compact: Boolean)
+    suspend fun setActivityCompactView(compact: Boolean)
+    suspend fun setDefaultChapterDownloadFilter(filter: String)
+    suspend fun setDefaultChapterSortType(type: String)
+    suspend fun setDefaultChapterSortOrder(order: String)
+    suspend fun setDefaultSourceFilter(filter: String)
+    suspend fun setBackupFrequency(frequency: String)
+    suspend fun setNovelPruneFrequency(frequency: String)
+    suspend fun setCacheClearFrequency(frequency: String)
+    suspend fun setLastNovelPruneTime(timeMs: Long)
+    suspend fun setLastCacheClearTime(timeMs: Long)
+    suspend fun setThemeMode(mode: String)
+    suspend fun setSelectedThemeId(themeId: String)
+    suspend fun setAmoledMode(enabled: Boolean)
+    suspend fun setExtensionRepoUrl(url: String)
+    fun getSavedSourcesForNovel(novelUrl: String): Flow<Set<String>?>
+    suspend fun saveSourcesForNovel(novelUrl: String, sources: Set<String>)
+    suspend fun setCustomUserAgent(userAgent: String?)
+    suspend fun updateReaderSettings(settings: ReaderSettings)
+    suspend fun updateReaderTheme(theme: ReaderTheme)
+    suspend fun updateReadingMode(mode: ReadingMode)
+    suspend fun updateReaderFont(fontFamily: String)
+    suspend fun updateReaderFontSize(sizeSp: Int)
+    suspend fun updateReaderLineHeight(lineHeight: Float)
+    suspend fun updateReaderPadding(paddingDp: Int)
+    suspend fun updateReaderTextAlign(align: ReaderTextAlign)
+    suspend fun updateVolumeKeyPageTurn(enabled: Boolean)
+    suspend fun updateKeepScreenAwake(enabled: Boolean)
+    suspend fun updateDimImages(enabled: Boolean)
+    suspend fun updateShowTapZoneOverlay(enabled: Boolean)
+    suspend fun updateCustomCss(css: String)
+    suspend fun updateCustomJs(js: String)
+    suspend fun updateCustomCode(css: String, js: String)
+    suspend fun addCustomFont(font: CustomFont)
+    suspend fun removeCustomFont(font: CustomFont)
+    fun getDomainSelector(domain: String): Flow<String?>
+    suspend fun saveDomainSelector(domain: String, selector: String)
+
+    companion object {
+        fun getInstance(context: Context): PreferenceRepository = PreferenceRepositoryImpl.getInstance(context)
+    }
+}
+
+class PreferenceRepositoryImpl private constructor(
     private val context: Context
-) {
+) : PreferenceRepository {
     companion object {
         @SuppressLint("StaticFieldLeak")
         @Volatile
@@ -74,260 +157,260 @@ class PreferenceRepository private constructor(
 
         fun getInstance(context: Context): PreferenceRepository {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: PreferenceRepository(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: PreferenceRepositoryImpl(context.applicationContext).also { INSTANCE = it }
             }
         }
     }
 
-    val exportFolderUri: Flow<Uri?> =
+    override val exportFolderUri: Flow<Uri?> =
         context.appDataStore.data.map { preferences ->
             preferences[EXPORT_FOLDER_URI]?.let(Uri::parse)
         }
 
-    val isOnboardingCompleted: Flow<Boolean> =
+    override val isOnboardingCompleted: Flow<Boolean> =
         context.appDataStore.data.map { preferences ->
             preferences[ONBOARDING_COMPLETED]?.toBoolean() ?: false
         }
 
-    val currentDexTag: Flow<String?> =
+    override val currentDexTag: Flow<String?> =
         context.appDataStore.data.map { preferences ->
             preferences[CURRENT_DEX_TAG]
         }
 
-    val betaModeApp: Flow<Boolean> =
+    override val betaModeApp: Flow<Boolean> =
         context.appDataStore.data.map { preferences ->
             preferences[BETA_MODE_APP] ?: false
         }
 
-    val betaModeCrawlers: Flow<Boolean> =
+    override val betaModeCrawlers: Flow<Boolean> =
         context.appDataStore.data.map { preferences ->
             preferences[BETA_MODE_CRAWLERS] ?: false
         }
 
-    val ignoreImages: Flow<Boolean> =
+    override val ignoreImages: Flow<Boolean> =
         context.appDataStore.data.map { preferences ->
             preferences[IGNORE_IMAGES] ?: false
         }
 
-    val maxConcurrentJobs: Flow<Int> =
+    override val maxConcurrentJobs: Flow<Int> =
         context.appDataStore.data.map { preferences ->
             preferences[MAX_CONCURRENT_JOBS] ?: 3
         }
 
-    val searchCompactView: Flow<Boolean> =
+    override val searchCompactView: Flow<Boolean> =
         context.appDataStore.data.map { preferences ->
             preferences[SEARCH_COMPACT_VIEW] ?: false
         }
 
-    val libraryCompactView: Flow<Boolean> =
+    override val libraryCompactView: Flow<Boolean> =
         context.appDataStore.data.map { preferences ->
             preferences[LIBRARY_COMPACT_VIEW] ?: false
         }
 
-    val activityCompactView: Flow<Boolean> =
+    override val activityCompactView: Flow<Boolean> =
         context.appDataStore.data.map { preferences ->
             preferences[ACTIVITY_COMPACT_VIEW] ?: false
         }
 
-    val defaultChapterDownloadFilter: Flow<String> =
+    override val defaultChapterDownloadFilter: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[DEFAULT_CHAPTER_DOWNLOAD_FILTER] ?: "ALL"
         }
 
-    val defaultChapterSortType: Flow<String> =
+    override val defaultChapterSortType: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[DEFAULT_CHAPTER_SORT_TYPE] ?: "CHAPTER_NUMBER"
         }
 
-    val defaultChapterSortOrder: Flow<String> =
+    override val defaultChapterSortOrder: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[DEFAULT_CHAPTER_SORT_ORDER] ?: "ASCENDING"
         }
 
-    val defaultSourceFilter: Flow<String> =
+    override val defaultSourceFilter: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[DEFAULT_SOURCE_FILTER] ?: "ALL"
         }
 
-    val backupFrequency: Flow<String> =
+    override val backupFrequency: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[BACKUP_FREQUENCY] ?: "Off"
         }
 
-    val novelPruneFrequency: Flow<String> =
+    override val novelPruneFrequency: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[NOVEL_PRUNE_FREQUENCY] ?: "Every 10 Days"
         }
 
-    val cacheClearFrequency: Flow<String> =
+    override val cacheClearFrequency: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[CACHE_CLEAR_FREQUENCY] ?: "Every 4 Days"
         }
 
-    val lastNovelPruneTime: Flow<Long> =
+    override val lastNovelPruneTime: Flow<Long> =
         context.appDataStore.data.map { preferences ->
             preferences[LAST_NOVEL_PRUNE_TIME] ?: 0L
         }
 
-    val lastCacheClearTime: Flow<Long> =
+    override val lastCacheClearTime: Flow<Long> =
         context.appDataStore.data.map { preferences ->
             preferences[LAST_CACHE_CLEAR_TIME] ?: 0L
         }
 
-    val themeMode: Flow<String> =
+    override val themeMode: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[THEME_MODE] ?: "SYSTEM"
         }
 
-    val selectedThemeId: Flow<String> =
+    override val selectedThemeId: Flow<String> =
         context.appDataStore.data.map { preferences ->
             preferences[SELECTED_THEME_ID] ?: "DEFAULT"
         }
 
-    val isAmoledMode: Flow<Boolean> =
+    override val isAmoledMode: Flow<Boolean> =
         context.appDataStore.data.map { preferences ->
             preferences[IS_AMOLED_MODE] ?: false
         }
 
-    suspend fun setOnboardingCompleted(completed: Boolean) {
+    override suspend fun setOnboardingCompleted(completed: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[ONBOARDING_COMPLETED] = completed.toString()
         }
     }
 
-    suspend fun setExportFolder(uri: Uri) {
+    override suspend fun setExportFolder(uri: Uri) {
         context.appDataStore.edit { preferences ->
             preferences[EXPORT_FOLDER_URI] = uri.toString()
         }
     }
 
-    suspend fun clearExportFolder() {
+    override suspend fun clearExportFolder() {
         context.appDataStore.edit { preferences ->
             preferences.remove(EXPORT_FOLDER_URI)
         }
     }
 
-    suspend fun setCurrentDexTag(tag: String) {
+    override suspend fun setCurrentDexTag(tag: String) {
         context.appDataStore.edit { preferences ->
             preferences[CURRENT_DEX_TAG] = tag
         }
     }
 
-    suspend fun setBetaModeApp(enabled: Boolean) {
+    override suspend fun setBetaModeApp(enabled: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[BETA_MODE_APP] = enabled
         }
     }
 
-    suspend fun setBetaModeCrawlers(enabled: Boolean) {
+    override suspend fun setBetaModeCrawlers(enabled: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[BETA_MODE_CRAWLERS] = enabled
         }
     }
 
-    suspend fun setIgnoreImages(enabled: Boolean) {
+    override suspend fun setIgnoreImages(enabled: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[IGNORE_IMAGES] = enabled
         }
     }
 
-    suspend fun setMaxConcurrentJobs(jobs: Int) {
+    override suspend fun setMaxConcurrentJobs(jobs: Int) {
         context.appDataStore.edit { preferences ->
             preferences[MAX_CONCURRENT_JOBS] = jobs
         }
     }
 
-    suspend fun setSearchCompactView(compact: Boolean) {
+    override suspend fun setSearchCompactView(compact: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[SEARCH_COMPACT_VIEW] = compact
         }
     }
 
-    suspend fun setLibraryCompactView(compact: Boolean) {
+    override suspend fun setLibraryCompactView(compact: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[LIBRARY_COMPACT_VIEW] = compact
         }
     }
 
-    suspend fun setActivityCompactView(compact: Boolean) {
+    override suspend fun setActivityCompactView(compact: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[ACTIVITY_COMPACT_VIEW] = compact
         }
     }
 
-    suspend fun setDefaultChapterDownloadFilter(filter: String) {
+    override suspend fun setDefaultChapterDownloadFilter(filter: String) {
         context.appDataStore.edit { preferences ->
             preferences[DEFAULT_CHAPTER_DOWNLOAD_FILTER] = filter
         }
     }
 
-    suspend fun setDefaultChapterSortType(type: String) {
+    override suspend fun setDefaultChapterSortType(type: String) {
         context.appDataStore.edit { preferences ->
             preferences[DEFAULT_CHAPTER_SORT_TYPE] = type
         }
     }
 
-    suspend fun setDefaultChapterSortOrder(order: String) {
+    override suspend fun setDefaultChapterSortOrder(order: String) {
         context.appDataStore.edit { preferences ->
             preferences[DEFAULT_CHAPTER_SORT_ORDER] = order
         }
     }
 
-    suspend fun setDefaultSourceFilter(filter: String) {
+    override suspend fun setDefaultSourceFilter(filter: String) {
         context.appDataStore.edit { preferences ->
             preferences[DEFAULT_SOURCE_FILTER] = filter
         }
     }
 
-    suspend fun setBackupFrequency(frequency: String) {
+    override suspend fun setBackupFrequency(frequency: String) {
         context.appDataStore.edit { preferences ->
             preferences[BACKUP_FREQUENCY] = frequency
         }
     }
 
-    suspend fun setNovelPruneFrequency(frequency: String) {
+    override suspend fun setNovelPruneFrequency(frequency: String) {
         context.appDataStore.edit { preferences ->
             preferences[NOVEL_PRUNE_FREQUENCY] = frequency
         }
     }
 
-    suspend fun setCacheClearFrequency(frequency: String) {
+    override suspend fun setCacheClearFrequency(frequency: String) {
         context.appDataStore.edit { preferences ->
             preferences[CACHE_CLEAR_FREQUENCY] = frequency
         }
     }
 
-    suspend fun setLastNovelPruneTime(timeMs: Long) {
+    override suspend fun setLastNovelPruneTime(timeMs: Long) {
         context.appDataStore.edit { preferences ->
             preferences[LAST_NOVEL_PRUNE_TIME] = timeMs
         }
     }
 
-    suspend fun setLastCacheClearTime(timeMs: Long) {
+    override suspend fun setLastCacheClearTime(timeMs: Long) {
         context.appDataStore.edit { preferences ->
             preferences[LAST_CACHE_CLEAR_TIME] = timeMs
         }
     }
 
-    suspend fun setThemeMode(mode: String) {
+    override suspend fun setThemeMode(mode: String) {
         context.appDataStore.edit { preferences ->
             preferences[THEME_MODE] = mode
         }
     }
 
-    suspend fun setSelectedThemeId(themeId: String) {
+    override suspend fun setSelectedThemeId(themeId: String) {
         context.appDataStore.edit { preferences ->
             preferences[SELECTED_THEME_ID] = themeId
         }
     }
 
-    suspend fun setAmoledMode(enabled: Boolean) {
+    override suspend fun setAmoledMode(enabled: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[IS_AMOLED_MODE] = enabled
         }
     }
 
-    val extensionRepoUrl: Flow<String> =
+    override val extensionRepoUrl: Flow<String> =
         context.appDataStore.data.map { preferences ->
             val stored = preferences[EXTENSION_REPO_URL]
             if (stored.isNullOrBlank() || isDeprecatedRepoUrl(stored)) {
@@ -337,7 +420,7 @@ class PreferenceRepository private constructor(
             }
         }
 
-    suspend fun setExtensionRepoUrl(url: String) {
+    override suspend fun setExtensionRepoUrl(url: String) {
         context.appDataStore.edit { preferences ->
             val trimmed = url.trim()
             if (trimmed.isEmpty() || trimmed == DEFAULT_EXTENSION_REPO_URL || isDeprecatedRepoUrl(trimmed)) {
@@ -348,14 +431,14 @@ class PreferenceRepository private constructor(
         }
     }
 
-    fun getSavedSourcesForNovel(novelUrl: String): Flow<Set<String>?> {
+    override fun getSavedSourcesForNovel(novelUrl: String): Flow<Set<String>?> {
         val key = stringSetPreferencesKey("novel_sources_${novelUrl.hashCode()}")
         return context.appDataStore.data.map { preferences ->
             preferences[key]
         }
     }
 
-    suspend fun saveSourcesForNovel(novelUrl: String, sources: Set<String>) {
+    override suspend fun saveSourcesForNovel(novelUrl: String, sources: Set<String>) {
         val key = stringSetPreferencesKey("novel_sources_${novelUrl.hashCode()}")
         context.appDataStore.edit { preferences ->
             if (sources.isEmpty()) {
@@ -366,12 +449,12 @@ class PreferenceRepository private constructor(
         }
     }
 
-    val customUserAgent: Flow<String?> =
+    override val customUserAgent: Flow<String?> =
         context.appDataStore.data.map { preferences ->
             preferences[CUSTOM_USER_AGENT]
         }
 
-    suspend fun setCustomUserAgent(userAgent: String?) {
+    override suspend fun setCustomUserAgent(userAgent: String?) {
         context.appDataStore.edit { preferences ->
             if (userAgent.isNullOrBlank()) {
                 preferences.remove(CUSTOM_USER_AGENT)
@@ -381,7 +464,7 @@ class PreferenceRepository private constructor(
         }
     }
 
-    val readerSettings: Flow<ReaderSettings> =
+    override val readerSettings: Flow<ReaderSettings> =
         context.appDataStore.data.map { prefs ->
             val themeStr = prefs[READER_THEME] ?: ReaderTheme.DARK.name
             val theme = runCatching { ReaderTheme.valueOf(themeStr) }.getOrDefault(ReaderTheme.DARK)
@@ -411,7 +494,7 @@ class PreferenceRepository private constructor(
             )
         }
 
-    suspend fun updateReaderSettings(settings: ReaderSettings) {
+    override suspend fun updateReaderSettings(settings: ReaderSettings) {
         context.appDataStore.edit { prefs ->
             prefs[READER_THEME] = settings.theme.name
             prefs[READER_READING_MODE] = settings.readingMode.name
@@ -431,92 +514,92 @@ class PreferenceRepository private constructor(
         }
     }
 
-    suspend fun updateReaderTheme(theme: ReaderTheme) {
+    override suspend fun updateReaderTheme(theme: ReaderTheme) {
         context.appDataStore.edit { it[READER_THEME] = theme.name }
     }
 
-    suspend fun updateReadingMode(mode: ReadingMode) {
+    override suspend fun updateReadingMode(mode: ReadingMode) {
         context.appDataStore.edit { it[READER_READING_MODE] = mode.name }
     }
 
-    suspend fun updateReaderFont(fontFamily: String) {
+    override suspend fun updateReaderFont(fontFamily: String) {
         context.appDataStore.edit { it[READER_FONT_FAMILY] = fontFamily }
     }
 
-    suspend fun updateReaderFontSize(sizeSp: Int) {
+    override suspend fun updateReaderFontSize(sizeSp: Int) {
         context.appDataStore.edit { it[READER_FONT_SIZE] = sizeSp }
     }
 
-    suspend fun updateReaderLineHeight(lineHeight: Float) {
+    override suspend fun updateReaderLineHeight(lineHeight: Float) {
         context.appDataStore.edit { it[READER_LINE_HEIGHT] = lineHeight }
     }
 
-    suspend fun updateReaderPadding(paddingDp: Int) {
+    override suspend fun updateReaderPadding(paddingDp: Int) {
         context.appDataStore.edit { it[READER_PADDING_H] = paddingDp }
     }
 
-    suspend fun updateReaderTextAlign(align: ReaderTextAlign) {
+    override suspend fun updateReaderTextAlign(align: ReaderTextAlign) {
         context.appDataStore.edit { it[READER_TEXT_ALIGN] = align.name }
     }
 
-    suspend fun updateVolumeKeyPageTurn(enabled: Boolean) {
+    override suspend fun updateVolumeKeyPageTurn(enabled: Boolean) {
         context.appDataStore.edit { it[READER_VOLUME_KEY_PAGE_TURN] = enabled }
     }
 
-    suspend fun updateKeepScreenAwake(enabled: Boolean) {
+    override suspend fun updateKeepScreenAwake(enabled: Boolean) {
         context.appDataStore.edit { it[READER_KEEP_SCREEN_AWAKE] = enabled }
     }
 
-    suspend fun updateDimImages(enabled: Boolean) {
+    override suspend fun updateDimImages(enabled: Boolean) {
         context.appDataStore.edit { it[READER_DIM_IMAGES] = enabled }
     }
 
-    suspend fun updateShowTapZoneOverlay(enabled: Boolean) {
+    override suspend fun updateShowTapZoneOverlay(enabled: Boolean) {
         context.appDataStore.edit { it[READER_SHOW_TAP_ZONE_OVERLAY] = enabled }
     }
 
-    suspend fun updateCustomCss(css: String) {
+    override suspend fun updateCustomCss(css: String) {
         context.appDataStore.edit { it[READER_CUSTOM_CSS] = css }
     }
 
-    suspend fun updateCustomJs(js: String) {
+    override suspend fun updateCustomJs(js: String) {
         context.appDataStore.edit { it[READER_CUSTOM_JS] = js }
     }
 
-    suspend fun updateCustomCode(css: String, js: String) {
+    override suspend fun updateCustomCode(css: String, js: String) {
         context.appDataStore.edit {
             it[READER_CUSTOM_CSS] = css
             it[READER_CUSTOM_JS] = js
         }
     }
 
-    val customFonts: Flow<List<CustomFont>> =
+    override val customFonts: Flow<List<CustomFont>> =
         context.appDataStore.data.map { prefs ->
             val set = prefs[READER_CUSTOM_FONTS] ?: emptySet()
             set.mapNotNull { CustomFont.fromStorageString(it) }
         }
 
-    suspend fun addCustomFont(font: CustomFont) {
+    override suspend fun addCustomFont(font: CustomFont) {
         context.appDataStore.edit { prefs ->
             val current = prefs[READER_CUSTOM_FONTS] ?: emptySet()
             prefs[READER_CUSTOM_FONTS] = current + font.toStorageString()
         }
     }
 
-    suspend fun removeCustomFont(font: CustomFont) {
+    override suspend fun removeCustomFont(font: CustomFont) {
         context.appDataStore.edit { prefs ->
             val current = prefs[READER_CUSTOM_FONTS] ?: emptySet()
             prefs[READER_CUSTOM_FONTS] = current - font.toStorageString()
         }
     }
 
-    fun getDomainSelector(domain: String): Flow<String?> =
+    override fun getDomainSelector(domain: String): Flow<String?> =
         context.appDataStore.data.map { prefs ->
             val set = prefs[CUSTOM_DOMAIN_SELECTORS] ?: emptySet()
             set.firstOrNull { it.startsWith("$domain|") }?.substringAfter('|')
         }
 
-    suspend fun saveDomainSelector(domain: String, selector: String) {
+    override suspend fun saveDomainSelector(domain: String, selector: String) {
         context.appDataStore.edit { prefs ->
             val current = prefs[CUSTOM_DOMAIN_SELECTORS] ?: emptySet()
             val filtered = current.filterNot { it.startsWith("$domain|") }.toSet()
@@ -531,4 +614,3 @@ private fun isDeprecatedRepoUrl(url: String): Boolean {
            url.endsWith("/repo/index.json") ||
            url.endsWith("/repo/index.min.json")
 }
-

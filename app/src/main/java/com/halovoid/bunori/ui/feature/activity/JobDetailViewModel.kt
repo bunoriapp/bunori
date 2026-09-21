@@ -8,10 +8,14 @@ import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.BatchRepository
+import com.halovoid.bunori.data.repository.StorageRepository
+import com.halovoid.bunori.data.repository.StorageRepositoryImpl
 import com.halovoid.bunori.domain.models.Artifact
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Batch
+import com.halovoid.bunori.domain.models.Task
 import com.halovoid.bunori.ui.core.logging.AppLog
+import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -23,10 +27,11 @@ class JobDetailViewModel(
 ) : AndroidViewModel(application) {
     private val chapterRepository = ChapterRepository.getInstance(application)
     private val artifactRepository = ArtifactRepository.getInstance(application)
+    private val storageRepository: StorageRepository = StorageRepositoryImpl.getInstance(application)
 
-    private val _requestId = MutableStateFlow<String?>(null)
-    fun setRequestId(id: String) {
-        _requestId.value = id
+    private val _batchId = MutableStateFlow<String?>(null)
+    fun setBatchId(id: String) {
+        _batchId.value = id
     }
 
     private val _statusFilter = MutableStateFlow<JobStatus?>(null)
@@ -36,16 +41,16 @@ class JobDetailViewModel(
         _statusFilter.value = status
     }
 
-    val cancellingRequestIds: StateFlow<Set<String>> = batchRepository.cancellingBatchIds
+    val cancellingBatchIds: StateFlow<Set<String>> = batchRepository.cancellingBatchIds
     val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
     fun resolveWebView(batchId: String, url: String) {
         viewModelScope.launch {
-            AppLog.i("RequestDetailViewModel", "Starting WebView resolution for $batchId at $url")
+            AppLog.i("JobDetailViewModel", "Starting WebView resolution for $batchId at $url")
             val success = com.halovoid.bunori.api.core.scrapper.Scrapper.globalResolver?.resolve(url) ?: false
-            AppLog.i("RequestDetailViewModel", "Resolution result: $success")
+            AppLog.i("JobDetailViewModel", "Resolution result: $success")
             if (success) {
-                AppLog.i("RequestDetailViewModel", "Resuming request $batchId")
+                AppLog.i("JobDetailViewModel", "Resuming batch $batchId")
                 batchRepository.resumeBatch(batchId)
             }
         }
@@ -90,12 +95,12 @@ class JobDetailViewModel(
         _selectedTaskIds.value = emptySet()
     }
 
-    fun selectAllTasks(tasks: List<Batch>) {
+    fun selectAllTasks(tasks: List<Task>) {
         _isSelectionMode.value = true
         _selectedTaskIds.value = tasks.map { it.id }.toSet()
     }
 
-    fun selectTasksByStatus(status: JobStatus, tasks: List<Batch>) {
+    fun selectTasksByStatus(status: JobStatus, tasks: List<Task>) {
         val matchingIds = tasks.filter { it.status == status }.map { it.id }.toSet()
         if (matchingIds.isNotEmpty()) {
             _isSelectionMode.value = true
@@ -124,14 +129,14 @@ class JobDetailViewModel(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val linkedRequests: StateFlow<List<Batch>> = combine(_requestId.filterNotNull(), _statusFilter) { id, status ->
+    val tasks: StateFlow<List<Task>> = combine(_batchId.filterNotNull(), _statusFilter) { id, status ->
         id to status
     }
         .flatMapLatest { (id, status) ->
-            batchRepository.getBatchByDependenceFlow(id).map { batches ->
-                val filtered = if (status == null) batches else batches.filter { it.status == status }
+            batchRepository.getTasksByBatchIdFlow(id).map { taskList ->
+                val filtered = if (status == null) taskList else taskList.filter { it.status == status }
                 filtered.sortedWith(
-                    compareBy<Batch> { statusPriority(it.status) }
+                    compareBy<Task> { statusPriority(it.status) }
                         .thenBy { it.name }
                         .thenBy { it.id }
                 )
@@ -144,17 +149,18 @@ class JobDetailViewModel(
         )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val chapterMetadata: StateFlow<Chapter?> = _requestId
+    val chapterMetadata: StateFlow<Chapter?> = _batchId
         .filterNotNull()
         .flatMapLatest { id ->
             batchRepository.getBatchByIdFlow(id)
         }
         .filterNotNull()
-        .map { request ->
-            val novelUrl = request.novelUrl ?: request.parentNovel
-            if (novelUrl != null && request.url != null) {
-                val chapters = chapterRepository.getChaptersByNovelUrl(novelUrl)
-                chapters.find { it.url == request.url }
+        .map { batch ->
+            val tasks = batchRepository.getTasksByBatchId(batch.id)
+            val task = tasks.firstOrNull()
+            if (task?.url != null) {
+                val chapters = chapterRepository.getChaptersByNovelUrl(batch.novelUrl)
+                chapters.find { it.url == task.url }
             } else null
         }
         .flowOn(Dispatchers.IO)
@@ -165,15 +171,15 @@ class JobDetailViewModel(
         )
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val artifactMetadata: StateFlow<Artifact?> = _requestId
+    val artifactMetadata: StateFlow<Artifact?> = _batchId
         .filterNotNull()
         .flatMapLatest { id ->
             batchRepository.getBatchByIdFlow(id)
         }
         .filterNotNull()
-        .map { request ->
-            val artifacts = artifactRepository.getArtifactForBatch(request.id)
-            artifacts.find { it.requestId == request.id }
+        .map { batch ->
+            val artifacts = artifactRepository.getArtifactForBatch(batch.id)
+            artifacts.find { it.requestId == batch.id }
         }
         .flowOn(Dispatchers.IO)
         .stateIn(
@@ -212,12 +218,13 @@ class JobDetailViewModel(
 
     fun copyArtifactToUri(artifact: Artifact, destinationUri: Uri, onComplete: (Uri?) -> Unit, onFileMissing: () -> Unit) {
         viewModelScope.launch {
-            if (!artifactRepository.artifactExists(artifact)) {
+            val sourceUri = artifact.artifactDestination.toUri()
+            if (!storageRepository.uriExists(sourceUri)) {
                 artifactRepository.removeArtifact(artifact)
                 onFileMissing()
                 return@launch
             }
-            val result = artifactRepository.copyArtifactToUri(artifact, destinationUri)
+            val result = storageRepository.copyFile(sourceUri, destinationUri)
             onComplete(result)
         }
     }

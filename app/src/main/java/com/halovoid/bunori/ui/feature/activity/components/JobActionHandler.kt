@@ -17,7 +17,7 @@ fun JobActionHandler(
             onConfirm = {
                 val req = securityDialogBatch!!
                 securityDialogBatch = null
-                onResolveWebview(req.id, req.url ?: req.novelUrl)
+                onResolveWebview(req.id, req.novelUrl)
             },
             onDismiss = { securityDialogBatch = null }
         )

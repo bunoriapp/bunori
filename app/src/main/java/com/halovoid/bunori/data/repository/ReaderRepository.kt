@@ -10,12 +10,32 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-class ReaderRepository private constructor(
+/**
+ * Main repository interface for reader content fetching and cached chapter management.
+ */
+interface ReaderRepository {
+    suspend fun getChapterContent(chapter: Chapter, crawlerName: String): String
+    suspend fun saveExtractedChapter(
+        novelUrl: String,
+        chapterUrl: String,
+        chapterId: Int,
+        chapterIndex: Int,
+        chapterTitle: String,
+        scanlationSource: String,
+        html: String
+    ): Boolean
+
+    companion object {
+        fun getInstance(context: Context): ReaderRepository = ReaderRepositoryImpl.getInstance(context)
+    }
+}
+
+class ReaderRepositoryImpl private constructor(
     private val context: Context,
     private val downloadRepository: DownloadRepository = DownloadRepositoryImpl.getInstance(context),
     private val novelRepository: NovelRepository = NovelRepository.getInstance(context),
     private val storageRepository: StorageRepository = StorageRepositoryImpl.getInstance(context)
-) {
+) : ReaderRepository {
     companion object {
         @SuppressLint("StaticFieldLeak")
         @Volatile
@@ -23,12 +43,12 @@ class ReaderRepository private constructor(
 
         fun getInstance(context: Context): ReaderRepository {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: ReaderRepository(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: ReaderRepositoryImpl(context.applicationContext).also { INSTANCE = it }
             }
         }
     }
 
-    suspend fun getChapterContent(chapter: Chapter, crawlerName: String): String =
+    override suspend fun getChapterContent(chapter: Chapter, crawlerName: String): String =
         withContext(Dispatchers.IO) {
             val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
             val now = System.currentTimeMillis()
@@ -46,7 +66,7 @@ class ReaderRepository private constructor(
             html ?: "<p>Couldn't load this chapter. Check your connection and try again</p>"
         }
 
-    suspend fun saveExtractedChapter(
+    override suspend fun saveExtractedChapter(
         novelUrl: String,
         chapterUrl: String,
         chapterId: Int,
@@ -62,7 +82,7 @@ class ReaderRepository private constructor(
             val cacheFile = File(cacheDir, safeFileName)
             writeCompressed(cacheFile, html)
 
-            val novel = novelRepository.getNovelDetails(novelUrl)
+            val novel = novelRepository.getNovelByUrl(novelUrl)
             val novelTitle = novel?.title ?: "Novel"
 
             val cachedDownload = Download(
@@ -110,7 +130,7 @@ class ReaderRepository private constructor(
                 val cacheFile = File(cacheDir, safeFileName)
                 writeCompressed(cacheFile, html)
 
-                val novel = novelRepository.getNovelDetails(chapter.novelUrl)
+                val novel = novelRepository.getNovelByUrl(chapter.novelUrl)
                 val novelTitle = novel?.title ?: "Novel"
 
                 val cachedDownload = Download(

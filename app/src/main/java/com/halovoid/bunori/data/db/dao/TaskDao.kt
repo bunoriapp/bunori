@@ -60,7 +60,7 @@ interface TaskDao {
     @Query("""
         UPDATE tasks 
         SET status = 'PENDING', error = NULL, attemptCount = 0, updatedAt = :now 
-        WHERE (batchId = :batchId OR id = :batchId) AND (status = 'PAUSED' OR status = 'BLOCKED')
+        WHERE batchId = :batchId AND (status = 'PAUSED' OR status = 'BLOCKED')
     """)
     suspend fun resumeTasksForBatch(batchId: String, now: Long = System.currentTimeMillis())
 
@@ -72,10 +72,4 @@ interface TaskDao {
 
     @Query("UPDATE tasks SET status = 'CANCELLED', updatedAt = :now WHERE id IN (:taskIds) AND status != 'SUCCESS'")
     suspend fun cancelTasks(taskIds: List<String>, now: Long = System.currentTimeMillis())
-
-    @Query("DELETE FROM tasks WHERE batchId = :batchId")
-    suspend fun deleteByBatchId(batchId: String)
-
-    @Query("DELETE FROM tasks WHERE id = :id")
-    suspend fun deleteTaskById(id: String)
 }

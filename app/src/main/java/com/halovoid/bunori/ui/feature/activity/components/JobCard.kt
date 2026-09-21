@@ -413,7 +413,7 @@ fun JobCard(
                 trackColor = DarkSurfaceVariant
             )
 
-            val isCompleted = batch.rstatus == JobStatus.SUCCESS ||
+            val isCompleted = batch.status == JobStatus.SUCCESS ||
                     (batch.progressTotal > 0 && batch.progressSuccess >= batch.progressTotal)
 
             if (!batch.error.isNullOrBlank() && !isCompleted) {

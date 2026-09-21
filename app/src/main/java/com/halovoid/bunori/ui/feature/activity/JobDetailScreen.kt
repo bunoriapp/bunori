@@ -63,10 +63,10 @@ fun JobDetailScreen(
     val viewModel: JobDetailViewModel = viewModel(factory = factory)
 
     val record by viewModel.getBatch(batchId).collectAsState(initial = null)
-    val linkedRequests by viewModel.linkedRequests.collectAsStateWithLifecycle()
+    val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
     val selectedTaskIds by viewModel.selectedTaskIds.collectAsStateWithLifecycle()
-    val cancellingRequestIds by viewModel.cancellingRequestIds.collectAsStateWithLifecycle()
+    val cancellingBatchIds by viewModel.cancellingBatchIds.collectAsStateWithLifecycle()
     val activeActionIds by viewModel.activeActionIds.collectAsStateWithLifecycle()
     val chapterMetadata by viewModel.chapterMetadata.collectAsState()
     val artifactMetadata by viewModel.artifactMetadata.collectAsState()
@@ -79,14 +79,14 @@ fun JobDetailScreen(
     var showCancelDialog by remember { mutableStateOf(false) }
     var showStatusFilterSheet by remember { mutableStateOf(false) }
 
-    val selectedTasks = remember(linkedRequests, selectedTaskIds) {
-        linkedRequests.filter { it.id in selectedTaskIds }
+    val selectedTasks = remember(tasks, selectedTaskIds) {
+        tasks.filter { it.id in selectedTaskIds }
     }
     val hasRunningOrCompleted = selectedTasks.any { it.status == JobStatus.RUNNING || it.status == JobStatus.SUCCESS }
     val canCancel = selectedTasks.isNotEmpty() && !hasRunningOrCompleted
     val canReplay = selectedTasks.isNotEmpty() && selectedTasks.none { it.status == JobStatus.RUNNING }
-    val distinctStatuses = remember(linkedRequests) {
-        linkedRequests.map { it.status }.distinct()
+    val distinctStatuses = remember(tasks) {
+        tasks.map { it.status }.distinct()
     }
 
     if (securityDialogBatch != null) {
@@ -95,7 +95,7 @@ fun JobDetailScreen(
             onConfirm = {
                 val req = securityDialogBatch!!
                 securityDialogBatch = null
-                viewModel.resolveWebView(req.id, req.url ?: req.novelUrl)
+                viewModel.resolveWebView(req.id, req.novelUrl)
             },
             onDismiss = { securityDialogBatch = null }
         )
@@ -150,10 +150,10 @@ fun JobDetailScreen(
     }
 
     LaunchedEffect(batchId) {
-        viewModel.setRequestId(batchId)
+        viewModel.setBatchId(batchId)
     }
 
-    val isCancelling = record != null && cancellingRequestIds.contains(record!!.id)
+    val isCancelling = record != null && cancellingBatchIds.contains(record!!.id)
     val isActionPending = record != null && activeActionIds.contains(record!!.id)
 
     if (showStatusFilterSheet) {
@@ -164,7 +164,7 @@ fun JobDetailScreen(
         ) {
             AppBottomSheetGroup {
                 distinctStatuses.forEachIndexed { index, status ->
-                    val count = linkedRequests.count { it.status == status }
+                    val count = tasks.count { it.status == status }
                     ListItem(
                         headlineContent = {
                             Text(
@@ -187,7 +187,7 @@ fun JobDetailScreen(
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier.clickable {
-                            viewModel.selectTasksByStatus(status, linkedRequests)
+                            viewModel.selectTasksByStatus(status, tasks)
                             showStatusFilterSheet = false
                         }
                     )
@@ -297,13 +297,13 @@ fun JobDetailScreen(
                 selectedCount = selectedTaskIds.size,
                 actions = listOf(
                     ContextualAction(
-                        title = if (selectedTaskIds.size == linkedRequests.size) "Deselect" else "Select All",
-                        icon = if (selectedTaskIds.size == linkedRequests.size) Icons.Default.Deselect else Icons.Default.SelectAll,
+                        title = if (selectedTaskIds.size == tasks.size) "Deselect" else "Select All",
+                        icon = if (selectedTaskIds.size == tasks.size) Icons.Default.Deselect else Icons.Default.SelectAll,
                         onClick = {
-                            if (selectedTaskIds.size == linkedRequests.size) {
+                            if (selectedTaskIds.size == tasks.size) {
                                 viewModel.clearSelection()
                             } else {
-                                viewModel.selectAllTasks(linkedRequests)
+                                viewModel.selectAllTasks(tasks)
                             }
                         }
                     ),
@@ -385,7 +385,7 @@ fun JobDetailScreen(
                                     }
                                     try {
                                         context.startActivity(Intent.createChooser(intent, "Open with"))
-                                    } catch (e: Exception) {
+                                    } catch (_: Exception) {
                                         scope.launch {
                                             val docType = if (it.artifactName.endsWith(".pdf", ignoreCase = true)) "PDF" else "EPUB"
                                             snackbarHostState.showSnackbar("No app found to open $docType")
@@ -400,10 +400,10 @@ fun JobDetailScreen(
                     }
                 }
 
-                if (linkedRequests.isNotEmpty()) {
+                if (tasks.isNotEmpty()) {
                     item {
                         Text(
-                            text = "Tasks (${linkedRequests.size})",
+                            text = "Tasks (${tasks.size})",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = PrimaryText,
@@ -411,7 +411,7 @@ fun JobDetailScreen(
                         )
                     }
 
-                    items(linkedRequests, key = { it.id }) { task ->
+                    items(tasks, key = { it.id }) { task ->
                         val isSelected = selectedTaskIds.contains(task.id)
                         TaskDetailItem(
                             task = task,
@@ -453,7 +453,7 @@ private fun formatStatusName(status: JobStatus): String {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TaskDetailItem(
-    task: Batch,
+    task: com.halovoid.bunori.domain.models.Task,
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {},

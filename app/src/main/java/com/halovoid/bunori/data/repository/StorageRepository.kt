@@ -72,6 +72,19 @@ interface StorageRepository {
         relativePath: String,
         fileName: String
     ): Boolean
+
+    suspend fun copyFile(
+        sourceUri: Uri,
+        destinationUri: Uri
+    ): Uri?
+
+    suspend fun uriExists(
+        uri: Uri
+    ): Boolean
+
+    companion object {
+        fun getInstance(context: Context): StorageRepository = StorageRepositoryImpl.getInstance(context)
+    }
 }
 
 class StorageRepositoryImpl private constructor(
@@ -220,6 +233,28 @@ class StorageRepositoryImpl private constructor(
             val rootUri = getRootUri()
             val targetDirUri = getDirectory(rootUri, relativePath, createIfMissing = false) ?: return@withContext false
             findChildUri(rootUri, targetDirUri, fileName) != null
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    override suspend fun copyFile(sourceUri: Uri, destinationUri: Uri): Uri? = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                context.contentResolver.openOutputStream(destinationUri)?.use { output ->
+                    input.copyTo(output)
+                }
+            }
+            destinationUri
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    override suspend fun uriExists(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openInputStream(uri)?.use { true } ?: false
         } catch (_: Exception) {
             false
         }

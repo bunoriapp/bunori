@@ -435,9 +435,6 @@ fun NavGraph(navController: NavHostController) {
             )
             NovelScreen(
                 novelUrl = novelUrl,
-                onRequestClick = { requestId ->
-                    navController.navigate(Screen.JobDetail.createRoute(requestId))
-                },
                 onChapterClick = { url, chapterId ->
                     navController.navigate(Screen.Reader.createRoute(url, chapterId))
                 },

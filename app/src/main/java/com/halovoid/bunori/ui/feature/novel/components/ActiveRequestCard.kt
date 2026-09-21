@@ -48,7 +48,7 @@ fun ActiveRequestCard(
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                StatusIndicator(batch.rstatus)
+                StatusIndicator(batch.status)
             }
 
             Spacer(modifier = Modifier.height(8.dp))

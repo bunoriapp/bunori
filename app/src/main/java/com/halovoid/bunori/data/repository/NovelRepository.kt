@@ -7,26 +7,33 @@ import com.halovoid.bunori.data.db.mappers.toEntity
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.utils.SimhashUtils
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 /**
- * Main repository for managing novel data in the Data layer.
- * Coordinates between the [com.halovoid.bunori.api.core.crawler.Crawler]s (Network)
- * and [com.halovoid.bunori.data.db.AppDatabase] (Local Storage).
+ * Main repository interface for managing novel metadata.
  */
-class NovelRepository private constructor(context: Context) {
-    /** Access to the Room database instance. */
+interface NovelRepository {
+    fun getAllNovels(): Flow<List<Novel>>
+    fun getNovelByUrlFlow(url: String): Flow<Novel?>
+    suspend fun getNovelByUrl(novelUrl: String): Novel?
+    suspend fun saveNovel(novel: Novel)
+    suspend fun toggleLibrary(url: String, inLibrary: Boolean)
+    suspend fun getSimilarNovels(hash: Long, threshold: Int): List<Novel>
+    suspend fun getPrunableNovels(): List<Novel>
+    suspend fun deleteNovelsByUrl(urls: List<String>)
+    suspend fun deleteNovel(novel: Novel)
+
+    companion object {
+        fun getInstance(context: Context): NovelRepository = NovelRepositoryImpl.getInstance(context)
+    }
+}
+
+class NovelRepositoryImpl private constructor(context: Context) : NovelRepository {
     private val db = AppDatabase.getDatabase(context)
-    /** Data Access Object for novel-related database operations. */
     private val novelDao = db.novelDao()
-    private val chapterDao = db.chapterDao()
 
     companion object {
         @Volatile
@@ -34,56 +41,28 @@ class NovelRepository private constructor(context: Context) {
 
         fun getInstance(context: Context): NovelRepository {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: NovelRepository(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: NovelRepositoryImpl(context.applicationContext).also { INSTANCE = it }
             }
         }
     }
 
-    /**
-     * Retrieves all novels saved in the local database.
-     * @return A [Flow] emitting the latest list of [com.halovoid.bunori.domain.models.Novel]s.
-     */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    fun getAllNovels(): Flow<List<Novel>> {
-        return novelDao.getAllNovels().flatMapLatest { novelEntities ->
-            if (novelEntities.isEmpty()) {
-                flowOf(emptyList())
-            } else {
-                val flows = novelEntities.map { novelEntity ->
-                    chapterDao.getChaptersFlow(novelEntity.url).map { chapterEntities ->
-                        novelEntity.toDomain().copy(
-                            chapters = chapterEntities.map { it.toDomain() }
-                        )
-                    }
-                }
-                combine(*flows.toTypedArray()) { novels ->
-                    novels.toList()
-                }
-            }
-        }.flowOn(Dispatchers.IO)
+    override fun getAllNovels(): Flow<List<Novel>> {
+        return novelDao.getAllNovels()
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(Dispatchers.IO)
     }
 
-    fun getNovelByUrlFlow(url: String): Flow<Novel?> {
-        return novelDao.getNovelByUrlFlow(url).map { it?.toDomain() }
+    override fun getNovelByUrlFlow(url: String): Flow<Novel?> {
+        return novelDao.getNovelByUrlFlow(url)
+            .map { it?.toDomain() }
+            .flowOn(Dispatchers.IO)
     }
 
-    /**
-     * Retrieves full details for a novel.
-     *
-     * @param novelUrl The URL of the novel.
-     * @return The populated [com.halovoid.bunori.domain.models.Novel] or null if not found.
-     */
-    suspend fun getNovelDetails(novelUrl: String): Novel? = withContext(Dispatchers.IO) {
-        val novel = novelDao.getNovelByUrl(novelUrl)?.toDomain() ?: return@withContext null
-        val chapters = chapterDao.getChapterFromNovel(novelUrl).map { it.toDomain() }
-        novel.copy(chapters = chapters)
+    override suspend fun getNovelByUrl(novelUrl: String): Novel? = withContext(Dispatchers.IO) {
+        novelDao.getNovelByUrl(novelUrl)?.toDomain()
     }
 
-    /**
-     * Persists a novel and its chapters to the local Room database.
-     * @param novel The novel to save.
-     */
-    suspend fun saveNovelMetadata(novel: Novel) = withContext(Dispatchers.IO) {
+    override suspend fun saveNovel(novel: Novel) = withContext(Dispatchers.IO) {
         val existing = novelDao.getNovelByUrl(novel.url)
         val inLibrary = if (existing != null && existing.inLibrary) true else novel.inLibrary
         val titleHash = if (inLibrary) {
@@ -113,24 +92,20 @@ class NovelRepository private constructor(context: Context) {
         )
         
         novelDao.upsertNovel(novelToSave.toEntity())
-        
-        // Save chapters if present
-        if (novel.chapters.isNotEmpty()) {
-            chapterDao.upsertChapters(novel.chapters.map { it.toEntity() })
+    }
+
+    override suspend fun toggleLibrary(url: String, inLibrary: Boolean) = withContext(Dispatchers.IO) {
+        novelDao.updateLibraryStatus(url, inLibrary)
+        if (inLibrary) {
+            val novel = novelDao.getNovelByUrl(url)
+            if (novel != null && novel.titleHash == null) {
+                val hash = SimhashUtils.generateSimhash(novel.title)
+                novelDao.updateTitleHash(url, hash)
+            }
         }
     }
 
-    suspend fun toggleLibrary(url: String, inLibrary: Boolean) = withContext(Dispatchers.IO) {
-        val novel = novelDao.getNovelByUrl(url) ?: return@withContext
-        val hash = if (inLibrary) {
-            novel.titleHash ?: SimhashUtils.generateSimhash(novel.title)
-        } else {
-            null
-        }
-        novelDao.updateLibraryStatus(url, inLibrary, hash)
-    }
-
-    suspend fun getSimilarNovels(hash: Long, threshold: Int): List<Novel> = withContext(Dispatchers.IO) {
+    override suspend fun getSimilarNovels(hash: Long, threshold: Int): List<Novel> = withContext(Dispatchers.IO) {
         novelDao.getAllNovelsOnce().map { it.toDomain() }.filter { existingNovel ->
             existingNovel.titleHash?.let { existingHash ->
                 SimhashUtils.hammingDistance(hash, existingHash) <= threshold
@@ -138,21 +113,17 @@ class NovelRepository private constructor(context: Context) {
         }
     }
 
-    suspend fun getPrunableNovels(): List<Novel> = withContext(Dispatchers.IO) {
+    override suspend fun getPrunableNovels(): List<Novel> = withContext(Dispatchers.IO) {
         novelDao.getPrunableNovels().map { it.toDomain() }
     }
 
-    suspend fun deleteNovelsByUrl(urls: List<String>) = withContext(Dispatchers.IO) {
+    override suspend fun deleteNovelsByUrl(urls: List<String>) = withContext(Dispatchers.IO) {
         if (urls.isNotEmpty()) {
             novelDao.deleteNovelsByUrl(urls)
         }
     }
 
-    /**
-     * Deletes a novel and its chapters from the local database.
-     * @param novel The novel to delete.
-     */
-    suspend fun deleteNovel(novel: Novel) = withContext(Dispatchers.IO) {
+    override suspend fun deleteNovel(novel: Novel) = withContext(Dispatchers.IO) {
         val entity = novel.toEntity()
         novelDao.deleteNovel(entity)
     }

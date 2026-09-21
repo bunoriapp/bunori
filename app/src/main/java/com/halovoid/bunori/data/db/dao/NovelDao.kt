@@ -23,8 +23,11 @@ interface NovelDao {
     @Query("SELECT * FROM novels WHERE url = :url")
     fun getNovelByUrlFlow(url: String): Flow<NovelEntity?>
 
-    @Query("UPDATE novels SET inLibrary = :inLibrary, titleHash = :titleHash WHERE url = :url")
-    suspend fun updateLibraryStatus(url: String, inLibrary: Boolean, titleHash: Long?)
+    @Query("UPDATE novels SET inLibrary = :inLibrary WHERE url = :url")
+    suspend fun updateLibraryStatus(url: String, inLibrary: Boolean)
+
+    @Query("UPDATE novels SET titleHash = :titleHash WHERE url = :url")
+    suspend fun updateTitleHash(url: String, titleHash: Long?)
 
     @Query("UPDATE novels SET refreshExpiry = :refreshExpiry WHERE url = :url")
     suspend fun updateRefreshExpiry(url: String, refreshExpiry: Long)

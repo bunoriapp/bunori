@@ -47,7 +47,7 @@ class ChapterHandler(
             ?: crawlerFactory.getCrawler(chapter.scanlationSource)
             ?: return JobResult.Failure(Exception("No Crawler Found for name: $crawlerName"))
 
-        val novel = novelRepository.getNovelDetails(chapter.novelUrl)
+        val novel = novelRepository.getNovelByUrl(chapter.novelUrl)
         val novelTitle = novel?.title ?: "Novel"
 
         // Cache Promotion: Check if valid cached version is already available locally
