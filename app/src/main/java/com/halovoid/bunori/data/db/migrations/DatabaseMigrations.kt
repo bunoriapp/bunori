@@ -15,13 +15,13 @@ object DatabaseMigrations {
         private fun sanitizeLegacyPaths(db: SupportSQLiteDatabase) {
             try {
                 // 1. Sanitize downloads table fileLocation
-                db.query("SELECT id, fileLocation FROM downloads WHERE fileLocation LIKE 'content://%'").use { cursor ->
+                db.query("SELECT id, fileLocation FROM downloads WHERE fileLocation LIKE 'content://%' OR fileLocation LIKE 'file://%'").use { cursor ->
                     val idIdx = cursor.getColumnIndex("id")
                     val locIdx = cursor.getColumnIndex("fileLocation")
                     while (cursor.moveToNext()) {
                         val id = cursor.getLong(idIdx)
                         val loc = cursor.getString(locIdx)
-                        if (loc != null && loc.startsWith("content://", ignoreCase = true)) {
+                        if (loc != null && (loc.startsWith("content://", ignoreCase = true) || loc.startsWith("file://", ignoreCase = true))) {
                             val decoded = Uri.decode(loc)
                             val novelIndex = decoded.indexOf("novels/")
                             if (novelIndex != -1) {
@@ -33,13 +33,13 @@ object DatabaseMigrations {
                 }
 
                 // 2. Sanitize novels table coverUrl
-                db.query("SELECT url, coverUrl FROM novels WHERE coverUrl LIKE 'content://%'").use { cursor ->
+                db.query("SELECT url, coverUrl FROM novels WHERE coverUrl LIKE 'content://%' OR coverUrl LIKE 'file://%'").use { cursor ->
                     val urlIdx = cursor.getColumnIndex("url")
                     val coverIdx = cursor.getColumnIndex("coverUrl")
                     while (cursor.moveToNext()) {
                         val url = cursor.getString(urlIdx)
                         val cover = cursor.getString(coverIdx)
-                        if (cover != null && cover.startsWith("content://", ignoreCase = true)) {
+                        if (cover != null && (cover.startsWith("content://", ignoreCase = true) || cover.startsWith("file://", ignoreCase = true))) {
                             val decoded = Uri.decode(cover)
                             val novelIndex = decoded.indexOf("novels/")
                             if (novelIndex != -1) {

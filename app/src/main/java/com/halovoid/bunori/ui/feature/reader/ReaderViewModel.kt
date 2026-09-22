@@ -254,6 +254,11 @@ class ReaderViewModel(
         val chapter = allChapters.getOrNull(pos) ?: return
         _currentChapter.value = chapter
         _currentChapterNumber.value = pos + 1
+
+        val cachedContent = rawContentCache[chapter.id]
+        if (cachedContent != null) {
+            checkBlockedOrEmpty(cachedContent, chapter)
+        }
     }
 
     /**

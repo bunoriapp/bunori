@@ -86,11 +86,7 @@ class NovelRepositoryImpl private constructor(context: Context) : NovelRepositor
             title = if (novel.title.isNotBlank()) novel.title else (existing?.title ?: novel.title),
             author = novel.author?.takeIf { it.isNotBlank() } ?: existing?.author,
             description = novel.description?.takeIf { it.isNotBlank() } ?: existing?.description,
-            coverUrl = if (existing?.coverUrl?.let { it.startsWith("file:") || it.startsWith("content:") } == true) {
-                existing.coverUrl
-            } else {
-                novel.coverUrl ?: existing?.coverUrl
-            },
+            coverUrl = existing?.coverUrl ?: novel.coverUrl,
             coverHttpsUrl = novel.coverHttpsUrl ?: existing?.coverHttpsUrl,
             crawlerName = novel.crawlerName.ifBlank { existing?.crawlerName ?: "" },
             inLibrary = inLibrary,

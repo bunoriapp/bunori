@@ -49,6 +49,7 @@ fun ReaderScreen(
     var isTocVisible by remember { mutableStateOf(false) }
     var isSettingsVisible by remember { mutableStateOf(false) }
     var isGuideVisible by remember { mutableStateOf(false) }
+    var isBlockedDialogVisible by remember { mutableStateOf(false) }
 
     // Display visual tap zone helper for 2 seconds on initial open and whenever reading mode switches (if enabled)
     LaunchedEffect(readerSettings.readingMode, readerSettings.showTapZoneOverlay) {
@@ -174,8 +175,10 @@ fun ReaderScreen(
             ReaderTopBar(
                 title = currentChapter?.title ?: "Reader",
                 subtitle = if (totalChapters > 0) "Chapter $currentChapterNumber of $totalChapters" else null,
+                isBlockedOrEmpty = isBlockedOrEmpty && blockedChapter != null,
                 onBack = onBack,
                 onOpenToc = { isTocVisible = true },
+                onOpenBlockedDialog = { isBlockedDialogVisible = true },
                 onToggleFullscreen = {
                     Log.d("BunoriReader", "ReaderScreen -> TopBar fullscreen button clicked, hiding controls")
                     isControlsVisible = false
@@ -212,16 +215,23 @@ fun ReaderScreen(
             )
         }
 
-        // 6. Dynamic Content / Cloudflare Fallback Dialog Card
-        if (isBlockedOrEmpty && blockedChapter != null) {
+        // 6. Dynamic Content / Cloudflare Fallback Dialog (shown only on demand via TopBar action icon)
+        if (isBlockedDialogVisible && blockedChapter != null) {
             BlockedChapterDialog(
                 chapter = blockedChapter!!,
                 novelUrl = novelUrl,
-                onRetry = { viewModel.reloadChapter(blockedChapter!!.id) },
-                onDismiss = { viewModel.dismissBlockedState() },
-                onOpenWebView = { intent -> extractorLauncher.launch(intent) },
-                context = context,
-                modifier = Modifier.align(Alignment.Center)
+                onRetry = {
+                    isBlockedDialogVisible = false
+                    viewModel.reloadChapter(blockedChapter!!.id)
+                },
+                onDismiss = {
+                    isBlockedDialogVisible = false
+                },
+                onOpenWebView = { intent ->
+                    isBlockedDialogVisible = false
+                    extractorLauncher.launch(intent)
+                },
+                context = context
             )
         }
     }

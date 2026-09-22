@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -18,9 +19,11 @@ import com.halovoid.bunori.ui.core.theme.*
 fun ReaderTopBar(
     title: String,
     subtitle: String?,
+    isBlockedOrEmpty: Boolean = false,
     onBack: () -> Unit,
     onOpenToc: () -> Unit,
     onToggleFullscreen: () -> Unit,
+    onOpenBlockedDialog: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -64,11 +67,21 @@ fun ReaderTopBar(
                         contentDescription = "Table of contents"
                     )
                 }
-                IconButton(onClick = onToggleFullscreen) {
-                    Icon(
-                        imageVector = Icons.Default.Fullscreen,
-                        contentDescription = "Fullscreen"
-                    )
+                if (isBlockedOrEmpty) {
+                    IconButton(onClick = onOpenBlockedDialog) {
+                        Icon(
+                            imageVector = Icons.Default.Public,
+                            contentDescription = "Resolve Verification / WebView",
+                            tint = BrandAccent
+                        )
+                    }
+                } else {
+                    IconButton(onClick = onToggleFullscreen) {
+                        Icon(
+                            imageVector = Icons.Default.Fullscreen,
+                            contentDescription = "Fullscreen"
+                        )
+                    }
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(

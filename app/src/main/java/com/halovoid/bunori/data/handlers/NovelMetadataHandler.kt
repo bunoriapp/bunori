@@ -41,7 +41,7 @@ class NovelMetadataHandler(
 
             // Refresh cover image if available and not ignored
             val shouldIgnoreImages = preferenceRepository.ignoreImages.first()
-            val coverUri = if (!shouldIgnoreImages) {
+            val coverRelPath = if (!shouldIgnoreImages) {
                 downloadAndSaveCover(novel.coverUrl, crawler, novel.url)
             } else {
                 null
@@ -49,7 +49,7 @@ class NovelMetadataHandler(
 
             // Prepare the updated novel domain model (formats titles)
             val updatedNovel = novel.let {
-                val coverLocalUrl = if (coverUri != null) coverUri.toString() else if (shouldIgnoreImages) null else it.coverUrl
+                val coverLocalUrl = coverRelPath ?: if (shouldIgnoreImages) null else it.coverUrl
                 it.copy(
                     coverUrl = coverLocalUrl,
                     coverHttpsUrl = novel.coverUrl
@@ -120,21 +120,23 @@ class NovelMetadataHandler(
         }
     }
 
-    private suspend fun downloadAndSaveCover(url: String?, crawler: Crawler, novelUrl: String): Uri? {
-        if (url.isNullOrBlank() || url.startsWith("content://")) return null
+    private suspend fun downloadAndSaveCover(url: String?, crawler: Crawler, novelUrl: String): String? {
+        if (url.isNullOrBlank()) return null
 
         return try {
             val bytes = crawler.downloadCover(url) ?: return null
             val extension = if (url.contains(".png", ignoreCase = true)) "png" else "jpg"
             val novelKey = crawler.getNovelKey(novelUrl)
             val fileName = "cover.$extension"
+            val relativeDir = "novels/$novelKey/covers"
 
             storageRepository.saveFile(
-                relativePath = "novels/$novelKey/covers",
+                relativePath = relativeDir,
                 fileName = fileName,
                 mimeType = "image/$extension",
                 data = bytes
             )
+            "$relativeDir/$fileName"
         } catch (e: Exception) {
             null
         }

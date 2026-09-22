@@ -279,7 +279,7 @@ class PdfGenerator(
     private suspend fun loadCoverBitmap(novel: Novel, reqWidthPx: Int): Bitmap? {
         novel.coverUrl?.takeIf { it.isNotBlank() }?.let { url ->
             try {
-                storageRepository.openInputStream(url.toUri())?.use { input ->
+                storageRepository.openInputStream(url)?.use { input ->
                     val bytes = input.readBytes()
                     decodeSampledBitmap(bytes, reqWidthPx)?.let { return it }
                 }

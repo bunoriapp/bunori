@@ -183,7 +183,7 @@ fun ChapterRow(
                             Icon(
                                 imageVector = Icons.Default.Pause,
                                 contentDescription = "Paused - Tap to Resume",
-                                tint = WarningAmber,
+                                tint = PrimaryText,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -192,7 +192,7 @@ fun ChapterRow(
                         Icon(
                             imageVector = Icons.Default.Shield,
                             contentDescription = "Blocked - Security Check",
-                            tint = WarningAmber,
+                            tint = PrimaryText,
                             modifier = Modifier.size(20.dp)
                         )
                     }

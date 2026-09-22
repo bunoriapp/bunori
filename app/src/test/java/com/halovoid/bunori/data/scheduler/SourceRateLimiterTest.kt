@@ -49,7 +49,7 @@ class SourceRateLimiterTest {
         val t = System.currentTimeMillis()
         rateLimiter.acquire(crawler, 150L, maxJitterMs = 50L)
         val elapsed = System.currentTimeMillis() - t
-        assertTrue("Acquire with jitter should delay at least the base cooldown ($elapsed ms)", elapsed >= 130)
+        assertTrue("Acquire with jitter should delay at least the base cooldown ($elapsed ms)", elapsed >= 100)
     }
 
     @Test

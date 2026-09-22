@@ -53,8 +53,8 @@ class RestoreService(private val context: Context) {
             val currentExportFolderUri = preferenceRepository.exportFolderUri.firstOrNull()
             val currentOnboardingCompleted = preferenceRepository.isOnboardingCompleted.firstOrNull()
 
-            // Close DB connections before replacing
-            AppDatabase.getDatabase(context).close()
+            // Close DB connections and reset singleton before replacing
+            AppDatabase.closeAndResetDatabase()
 
             // Restore database.db
             val dbFile = File(tempDir, "database.db")
@@ -145,7 +145,7 @@ class RestoreService(private val context: Context) {
             val downloadDao = db.downloadDao()
             val novelDao = db.novelDao()
 
-            // 1. Reconcile Downloads
+            // 1. Reconcile Downloads to relative paths
             val allDownloads = downloadDao.getAllDownloads()
             for (download in allDownloads) {
                 val oldLocation = download.fileLocation
@@ -154,28 +154,43 @@ class RestoreService(private val context: Context) {
                 }
 
                 if (matchingEntry != null) {
-                    val newUri = matchingEntry.value
-                    if (download.fileLocation != newUri.toString()) {
+                    val decoded = Uri.decode(oldLocation)
+                    val novelIdx = decoded.indexOf("novels/")
+                    val relPath = if (novelIdx != -1) {
+                        decoded.substring(novelIdx)
+                    } else {
+                        "novels/${download.novelUrl.hashCode()}/chapters/${matchingEntry.key}"
+                    }
+                    if (download.fileLocation != relPath) {
                         downloadDao.upsertDownload(
-                            download.copy(fileLocation = newUri.toString())
+                            download.copy(fileLocation = relPath)
                         )
                     }
                 }
             }
 
-            // 2. Reconcile Novel Covers
+            // 2. Reconcile Novel Covers to relative paths
             val allNovels = novelDao.getAllNovelsOnce()
             for (novel in allNovels) {
                 val oldCover = novel.coverUrl
-                if (oldCover != null && (oldCover.startsWith("content://") || oldCover.startsWith("file://"))) {
-                    val matchedCoverUri = restoredNovelCoversMap.entries.firstOrNull { (novelKey, _) ->
+                if (oldCover != null) {
+                    val matchedCoverEntry = restoredNovelCoversMap.entries.firstOrNull { (novelKey, _) ->
                         oldCover.contains(novelKey)
-                    }?.value
+                    }
 
-                    if (matchedCoverUri != null && oldCover != matchedCoverUri.toString()) {
-                        novelDao.upsertNovel(
-                            novel.copy(coverUrl = matchedCoverUri.toString())
-                        )
+                    if (matchedCoverEntry != null) {
+                        val decoded = Uri.decode(oldCover)
+                        val novelIdx = decoded.indexOf("novels/")
+                        val relPath = if (novelIdx != -1) {
+                            decoded.substring(novelIdx)
+                        } else {
+                            "novels/${matchedCoverEntry.key}/covers/cover.jpg"
+                        }
+                        if (novel.coverUrl != relPath) {
+                            novelDao.upsertNovel(
+                                novel.copy(coverUrl = relPath)
+                            )
+                        }
                     }
                 }
             }

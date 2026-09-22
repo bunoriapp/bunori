@@ -1,6 +1,7 @@
 package com.halovoid.bunori.ui.feature.settings
 
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -21,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.api.backup.BackupService
 import com.halovoid.bunori.api.backup.RestoreService
 import com.halovoid.bunori.data.repository.PreferenceRepository
+import com.halovoid.bunori.ui.core.components.AppDialog
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.platform.rememberFileOpenLauncher
 import com.halovoid.bunori.ui.core.theme.*
@@ -29,6 +32,7 @@ import com.halovoid.bunori.ui.feature.settings.components.CreateBackupBottomShee
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 data class BackupMetadata(
@@ -87,13 +91,22 @@ fun BackupSettingsScreen(
     var showCreateBottomSheet by remember { mutableStateOf(false) }
     val backupFrequency by viewModel.backupFrequency.collectAsStateWithLifecycle()
     var showFrequencyBottomSheet by remember { mutableStateOf(false) }
+    var showRestartDialog by remember { mutableStateOf(false) }
 
     val launchRestorePicker = rememberFileOpenLauncher(mimeTypes = arrayOf("*/*")) { uri ->
         Toast.makeText(context, "Restoring backup...", Toast.LENGTH_SHORT).show()
-        scope.launch(Dispatchers.IO) {
-            val success = RestoreService(context).restoreBackup(uri)
-            scope.launch {
-                val message = if (success) "Backup restored successfully! Please restart the app" else "Failed to restore backup."
+        scope.launch {
+            val success = withContext(Dispatchers.IO) {
+                RestoreService(context).restoreBackup(uri)
+            }
+            if (success) {
+                metadata = getLatestBackupMetadata(context)
+                val message = "Backup restored successfully! Please restart the app."
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                snackbarHostState.showSnackbar(message)
+                showRestartDialog = true
+            } else {
+                val message = "Failed to restore backup. Please ensure the file is valid."
                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 snackbarHostState.showSnackbar(message)
             }
@@ -290,17 +303,17 @@ fun BackupSettingsScreen(
                 onDismiss = { showCreateBottomSheet = false },
                 onCreateBackup = { db, ch, cov ->
                     Toast.makeText(context, "Creating backup...", Toast.LENGTH_SHORT).show()
-                    scope.launch(Dispatchers.IO) {
-                        BackupService(context).createBackup(
-                            backupDatabase = db,
-                            backupChapters = ch,
-                            backupCovers = cov
-                        )
-                        metadata = getLatestBackupMetadata(context)
-                        scope.launch {
-                            Toast.makeText(context, "Backup created successfully!", Toast.LENGTH_SHORT).show()
-                            snackbarHostState.showSnackbar("Backup created successfully!")
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            BackupService(context).createBackup(
+                                backupDatabase = db,
+                                backupChapters = ch,
+                                backupCovers = cov
+                            )
                         }
+                        metadata = getLatestBackupMetadata(context)
+                        Toast.makeText(context, "Backup created successfully!", Toast.LENGTH_SHORT).show()
+                        snackbarHostState.showSnackbar("Backup created successfully!")
                     }
                 }
             )
@@ -311,6 +324,59 @@ fun BackupSettingsScreen(
                 currentFrequency = backupFrequency,
                 onFrequencySelected = { viewModel.setBackupFrequency(it) },
                 onDismiss = { showFrequencyBottomSheet = false }
+            )
+        }
+
+        if (showRestartDialog) {
+            AppDialog(
+                onDismissRequest = { showRestartDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Restore,
+                        contentDescription = null,
+                        tint = BrandAccent,
+                        modifier = Modifier.size(28.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Restore Completed",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryText
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Backup restored successfully! Please restart the app to ensure all restored database connections, settings, and library items load cleanly.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SecondaryText
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showRestartDialog = false
+                            val packageManager = context.packageManager
+                            val intent = packageManager.getLaunchIntentForPackage(context.packageName)
+                            val componentName = intent?.component
+                            val mainIntent = Intent.makeRestartActivityTask(componentName)
+                            context.startActivity(mainIntent)
+                            Runtime.getRuntime().exit(0)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BrandAccent,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Restart App")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRestartDialog = false }) {
+                        Text("Later", color = SecondaryText)
+                    }
+                }
             )
         }
     }

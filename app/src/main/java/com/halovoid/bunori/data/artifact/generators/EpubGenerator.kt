@@ -321,8 +321,7 @@ class EpubGenerator(
             // Try reading from local coverUrl first
             if (!coverUrl.isNullOrBlank()) {
                 try {
-                    val coverUri = coverUrl.toUri()
-                    storageRepository.openInputStream(coverUri)?.use { input ->
+                    storageRepository.openInputStream(coverUrl)?.use { input ->
                         coverBytes = input.readBytes()
                         resolvedUrl = coverUrl
                     }

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Downloaded chapters can now be backed and restored properly
 - Repository URL can now be removed at the onboarding for a completely blank experience
 - Storage location selected in the new app does not change even if old backup was brought back
+- replaced absolute paths for storage with relative paths to support easier migration and file handling
 
 ### Added
 - Brought back the cancellation box to confirm before cancelling or deleting downloaded chapters
@@ -20,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Improvements
 - Allowed for swiping between tabs in Browse Screen
 - Backup and Restore show a toast bar telling there start state
+- standardised the color's of pause, resume and failed in Novel screen
+- replaced sudden content block popup with a webview icon unblock at your own choice
 
 ## [2.0.0] - 2026-09-21
 
