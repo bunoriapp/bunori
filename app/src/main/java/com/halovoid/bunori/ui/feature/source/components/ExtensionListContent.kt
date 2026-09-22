@@ -132,7 +132,7 @@ fun ExtensionListContent(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 16.dp)
+                contentPadding = PaddingValues(top = 4.dp, bottom = 32.dp)
             ) {
                 if (installing.isNotEmpty()) {
                     item(key = "section_header_installing") {

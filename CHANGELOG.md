@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backup and Restore show a toast bar telling there start state
 - standardised the color's of pause, resume and failed in Novel screen
 - replaced sudden content block popup with a webview icon unblock at your own choice
+- extension list now takes full space available in the extension tab box
 
 ## [2.0.0] - 2026-09-21
 

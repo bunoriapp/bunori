@@ -134,15 +134,15 @@ fun SourceScreen(
                     viewModel = viewModel,
                     onNavigateToExtensionSettings = onNavigateToExtensionSettings,
                     onNavigateToExtensionInfo = onNavigateToExtensionInfo,
-                    onSelectItemForDetails = { selectedItemForDetails = it }
+                    onSelectItemForDetails = { selectedItemForDetails = it },
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
     } else {
-        Scaffold(
-            containerColor = Color.Transparent,
-            snackbarHost = { SnackbarHost(snackbarHostState) }
-        ) { innerPadding ->
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
             ExtensionListContent(
                 extensionItems = extensionItems,
                 catalogState = catalogState,
@@ -151,7 +151,11 @@ fun SourceScreen(
                 onNavigateToExtensionSettings = onNavigateToExtensionSettings,
                 onNavigateToExtensionInfo = onNavigateToExtensionInfo,
                 onSelectItemForDetails = { selectedItemForDetails = it },
-                modifier = Modifier.padding(innerPadding)
+                modifier = Modifier.fillMaxSize()
+            )
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
     }
