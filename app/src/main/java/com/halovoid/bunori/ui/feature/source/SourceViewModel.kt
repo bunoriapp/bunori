@@ -209,6 +209,7 @@ class SourceViewModel(
             try {
                 val url = preferenceRepository.extensionRepoUrl.first()
                 if (url.isBlank()) {
+                    _catalogEntries.value = emptyList()
                     _catalogState.value = CatalogState.Idle
                     return@launch
                 }

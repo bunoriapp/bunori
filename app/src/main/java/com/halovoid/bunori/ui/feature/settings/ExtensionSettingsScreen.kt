@@ -80,7 +80,7 @@ fun ExtensionSettingsScreen(
 
             SettingsRow(
                 title = "Repository URL",
-                subtitle = if (extensionRepoUrl.isBlank()) "Default repository" else extensionRepoUrl,
+                subtitle = if (extensionRepoUrl.isBlank()) "None (Repository disabled)" else extensionRepoUrl,
 //                icon = Icons.Outlined.Link,
                 onClick = { showRepoDialog = true }
             )

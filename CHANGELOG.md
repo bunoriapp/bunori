@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Major Fixes
 - Fixed a bug that led to showing the activity screen while navigating rather than novel screen
+- Downloaded chapters can now be backed and restored properly
+- Repository URL can now be removed at the onboarding for a completely blank experience
 
 ### Added
 - Brought back the cancellation box to confirm before cancelling or deleting downloaded chapters

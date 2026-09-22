@@ -77,7 +77,7 @@ class BackupService(private val context: Context): JobHandler {
         return fallbackFile
     }
 
-    private fun writeBackupToStream(
+    private suspend fun writeBackupToStream(
         outputStream: OutputStream,
         backupDatabase: Boolean,
         backupChapters: Boolean,
@@ -85,9 +85,17 @@ class BackupService(private val context: Context): JobHandler {
         timestamp: Long
     ) {
         val dbFile = context.getDatabasePath("bunori.db")
-        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        val appVersion = packageInfo.versionName ?: "1.0"
-        val databaseVersion = AppDatabase.getDatabase(context).openHelper.readableDatabase.version
+        val packageInfo = try {
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        } catch (_: Exception) {
+            null
+        }
+        val appVersion = packageInfo?.versionName ?: "1.0"
+        val databaseVersion = try {
+            AppDatabase.getDatabase(context).openHelper.readableDatabase.version
+        } catch (_: Exception) {
+            1
+        }
 
         // Checkpoint SQLite WAL to ensure all tables (novels, chapters, downloads, batches, tasks, artifacts) are synced
         try {
@@ -123,15 +131,75 @@ class BackupService(private val context: Context): JobHandler {
             }
 
             if (backupChapters || backupCovers) {
+                val addedEntries = mutableSetOf<String>()
+
+                // 1. Fetch files from SAF External Storage (StorageRepository)
+                try {
+                    val storageRepository = StorageRepositoryImpl.getInstance(context)
+                    val storageFiles = storageRepository.listFilesRecursively("novels")
+                    for (fileInfo in storageFiles) {
+                        val relPath = fileInfo.relativePath
+                        val isChapter = relPath.contains("/chapters/")
+                        val isCover = relPath.contains("/covers/")
+
+                        if (isChapter && !backupChapters) continue
+                        if (isCover && !backupCovers) continue
+
+                        if (addedEntries.add(relPath)) {
+                            try {
+                                zos.putNextEntry(ZipEntry(relPath))
+                                context.contentResolver.openInputStream(fileInfo.uri)?.use { it.copyTo(zos) }
+                                zos.closeEntry()
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                // 2. Legacy internal filesDir/novels if present
                 val novelsDir = File(context.filesDir, "novels")
                 if (novelsDir.exists() && novelsDir.isDirectory) {
-                    zipDirectory(novelsDir, "novels", zos)
+                    zipDirectoryFiltered(novelsDir, "novels", zos, backupChapters, backupCovers, addedEntries)
                 }
             }
 
             val datastoreDir = File(context.filesDir, "datastore")
             if (datastoreDir.exists() && datastoreDir.isDirectory) {
                 zipDirectory(datastoreDir, "datastore", zos)
+            }
+        }
+    }
+
+    private fun zipDirectoryFiltered(
+        dir: File,
+        baseName: String,
+        zos: ZipOutputStream,
+        backupChapters: Boolean,
+        backupCovers: Boolean,
+        addedEntries: MutableSet<String>
+    ) {
+        dir.listFiles()?.forEach { file ->
+            val entryName = "$baseName/${file.name}"
+            if (file.isDirectory) {
+                zipDirectoryFiltered(file, entryName, zos, backupChapters, backupCovers, addedEntries)
+            } else {
+                val isChapter = entryName.contains("/chapters/")
+                val isCover = entryName.contains("/covers/")
+                if ((isChapter && !backupChapters) || (isCover && !backupCovers)) {
+                    return@forEach
+                }
+                if (addedEntries.add(entryName)) {
+                    try {
+                        zos.putNextEntry(ZipEntry(entryName))
+                        file.inputStream().use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
             }
         }
     }

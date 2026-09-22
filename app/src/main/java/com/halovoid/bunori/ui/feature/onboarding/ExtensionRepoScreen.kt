@@ -30,9 +30,7 @@ fun ExtensionRepoScreen(
         totalSteps = 4,
         onBack = onBack,
         onNext = {
-            if (inputUrl.isNotBlank()) {
-                viewModel.setExtensionRepoUrl(inputUrl.trim())
-            }
+            viewModel.setExtensionRepoUrl(inputUrl.trim())
             onComplete()
         }
     ) {

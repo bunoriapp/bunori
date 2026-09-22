@@ -25,6 +25,12 @@ import java.util.zip.GZIPOutputStream
 class StorageException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
 
+data class StorageFileInfo(
+    val relativePath: String,
+    val uri: Uri,
+    val size: Long
+)
+
 interface StorageRepository {
 
     /**
@@ -81,6 +87,10 @@ interface StorageRepository {
     suspend fun uriExists(
         uri: Uri
     ): Boolean
+
+    suspend fun listFilesRecursively(
+        relativePath: String
+    ): List<StorageFileInfo>
 
     companion object {
         fun getInstance(context: Context): StorageRepository = StorageRepositoryImpl.getInstance(context)
@@ -325,6 +335,57 @@ class StorageRepositoryImpl private constructor(
         } else {
             null
         }
+    }
+
+    override suspend fun listFilesRecursively(relativePath: String): List<StorageFileInfo> = withContext(Dispatchers.IO) {
+        val results = mutableListOf<StorageFileInfo>()
+        val rootUri = try {
+            getRootUri()
+        } catch (_: Exception) {
+            return@withContext emptyList()
+        }
+
+        val baseDirUri = getDirectory(rootUri, relativePath, createIfMissing = false) ?: return@withContext emptyList()
+        val baseDocId = DocumentsContract.getDocumentId(baseDirUri)
+
+        fun traverse(docId: String, currentPath: String) {
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(rootUri, docId)
+            val projection = arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_SIZE
+            )
+
+            try {
+                context.contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
+                    val idIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                    val nameIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    val mimeIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                    val sizeIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+
+                    while (cursor.moveToNext()) {
+                        val childDocId = if (idIdx != -1) cursor.getString(idIdx) else null ?: continue
+                        val displayName = if (nameIdx != -1) cursor.getString(nameIdx) else null ?: continue
+                        val mimeType = if (mimeIdx != -1) cursor.getString(mimeIdx) else ""
+                        val size = if (sizeIdx != -1 && !cursor.isNull(sizeIdx)) cursor.getLong(sizeIdx) else 0L
+                        val childRelPath = if (currentPath.isEmpty()) displayName else "$currentPath/$displayName"
+
+                        if (mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
+                            traverse(childDocId, childRelPath)
+                        } else {
+                            val fileUri = DocumentsContract.buildDocumentUriUsingTree(rootUri, childDocId)
+                            results.add(StorageFileInfo(relativePath = childRelPath, uri = fileUri, size = size))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        traverse(baseDocId, relativePath.trimEnd('/'))
+        results
     }
 
     fun createDocument(parentUri: Uri, mimeType: String, displayName: String): Uri {

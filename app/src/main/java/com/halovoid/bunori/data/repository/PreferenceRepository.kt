@@ -441,17 +441,17 @@ class PreferenceRepositoryImpl private constructor(
     override val extensionRepoUrl: Flow<String> =
         context.appDataStore.data.map { preferences ->
             val stored = preferences[EXTENSION_REPO_URL]
-            if (stored.isNullOrBlank() || isDeprecatedRepoUrl(stored)) {
-                DEFAULT_EXTENSION_REPO_URL
-            } else {
-                stored
+            when {
+                stored == null -> DEFAULT_EXTENSION_REPO_URL
+                stored.isNotBlank() && isDeprecatedRepoUrl(stored) -> DEFAULT_EXTENSION_REPO_URL
+                else -> stored
             }
         }
 
     override suspend fun setExtensionRepoUrl(url: String) {
         context.appDataStore.edit { preferences ->
             val trimmed = url.trim()
-            if (trimmed.isEmpty() || trimmed == DEFAULT_EXTENSION_REPO_URL || isDeprecatedRepoUrl(trimmed)) {
+            if (trimmed == DEFAULT_EXTENSION_REPO_URL) {
                 preferences.remove(EXTENSION_REPO_URL)
             } else {
                 preferences[EXTENSION_REPO_URL] = trimmed
