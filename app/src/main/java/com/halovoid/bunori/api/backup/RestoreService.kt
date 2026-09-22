@@ -40,8 +40,9 @@ class RestoreService(private val context: Context) {
             }
 
             // Validate manifest
-            val manifestFile = File(tempDir, "mainfest.json").takeIf { it.exists() } 
-                ?: File(tempDir, "manifest.json").takeIf { it.exists() } 
+            val manifestFile = File(tempDir, "manifest.json").takeIf { it.exists() }
+                ?: File(tempDir, "mainfest.json").takeIf { it.exists() }
+                ?: tempDir.walkTopDown().firstOrNull { it.name.equals("manifest.json", ignoreCase = true) || it.name.equals("mainfest.json", ignoreCase = true) }
                 ?: return false
 
             val manifestText = manifestFile.readText()
@@ -57,8 +58,9 @@ class RestoreService(private val context: Context) {
             AppDatabase.closeAndResetDatabase()
 
             // Restore database.db
-            val dbFile = File(tempDir, "database.db")
-            if (dbFile.exists()) {
+            val dbFile = File(tempDir, "database.db").takeIf { it.exists() }
+                ?: tempDir.walkTopDown().firstOrNull { it.name == "database.db" }
+            if (dbFile != null && dbFile.exists()) {
                 val targetDbFile = context.getDatabasePath("bunori.db")
                 targetDbFile.parentFile?.mkdirs()
                 dbFile.copyTo(targetDbFile, overwrite = true)
@@ -69,8 +71,9 @@ class RestoreService(private val context: Context) {
             }
 
             // Restore datastore/
-            val datastoreDir = File(tempDir, "datastore")
-            if (datastoreDir.exists() && datastoreDir.isDirectory) {
+            val datastoreDir = File(tempDir, "datastore").takeIf { it.exists() && it.isDirectory }
+                ?: tempDir.walkTopDown().firstOrNull { it.isDirectory && it.name == "datastore" }
+            if (datastoreDir != null && datastoreDir.exists() && datastoreDir.isDirectory) {
                 val targetDatastoreDir = File(context.filesDir, "datastore")
                 targetDatastoreDir.mkdirs()
                 datastoreDir.copyRecursively(targetDatastoreDir, overwrite = true)
@@ -85,11 +88,12 @@ class RestoreService(private val context: Context) {
             }
 
             // Restore novels/ to active StorageRepository (SAF)
-            val novelsDir = File(tempDir, "novels")
+            val novelsDir = File(tempDir, "novels").takeIf { it.exists() && it.isDirectory }
+                ?: tempDir.walkTopDown().firstOrNull { it.isDirectory && it.name == "novels" }
             val restoredFilesMap = mutableMapOf<String, Uri>()
             val restoredNovelCoversMap = mutableMapOf<String, Uri>()
 
-            if (novelsDir.exists() && novelsDir.isDirectory) {
+            if (novelsDir != null && novelsDir.exists() && novelsDir.isDirectory) {
                 val storageRepository = StorageRepositoryImpl.getInstance(context)
                 novelsDir.walkTopDown().filter { it.isFile }.forEach { file ->
                     val relativePathToFile = file.relativeTo(novelsDir).path
@@ -125,6 +129,7 @@ class RestoreService(private val context: Context) {
 
             // Reconcile database URIs with the newly restored files in SAF storage
             reconcileDatabaseUris(restoredFilesMap, restoredNovelCoversMap)
+            AppDatabase.closeAndResetDatabase()
 
             tempDir.deleteRecursively()
             true

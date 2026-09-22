@@ -25,6 +25,7 @@ import com.halovoid.bunori.api.backup.RestoreService
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.ui.core.components.AppDialog
 import com.halovoid.bunori.ui.core.components.AppTopBar
+import com.halovoid.bunori.ui.core.components.AsymptoticProgressRing
 import com.halovoid.bunori.ui.core.platform.rememberFileOpenLauncher
 import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.settings.components.BackupFrequencyBottomSheet
@@ -88,27 +89,40 @@ fun BackupSettingsScreen(
 
     var metadata by remember { mutableStateOf(getLatestBackupMetadata(context)) }
 
+    var isBackingUp by remember { mutableStateOf(false) }
+    var isRestoring by remember { mutableStateOf(false) }
+    val isOperating = isBackingUp || isRestoring
+
     var showCreateBottomSheet by remember { mutableStateOf(false) }
     val backupFrequency by viewModel.backupFrequency.collectAsStateWithLifecycle()
     var showFrequencyBottomSheet by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
 
     val launchRestorePicker = rememberFileOpenLauncher(mimeTypes = arrayOf("*/*")) { uri ->
+        isRestoring = true
         Toast.makeText(context, "Restoring backup...", Toast.LENGTH_SHORT).show()
         scope.launch {
-            val success = withContext(Dispatchers.IO) {
-                RestoreService(context).restoreBackup(uri)
-            }
-            if (success) {
-                metadata = getLatestBackupMetadata(context)
-                val message = "Backup restored successfully! Please restart the app."
+            try {
+                val success = withContext(Dispatchers.IO) {
+                    RestoreService(context).restoreBackup(uri)
+                }
+                if (success) {
+                    metadata = getLatestBackupMetadata(context)
+                    val message = "Backup restored successfully! Please restart the app."
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    snackbarHostState.showSnackbar(message)
+                    showRestartDialog = true
+                } else {
+                    val message = "Failed to restore backup. Please ensure the file is valid."
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    snackbarHostState.showSnackbar(message)
+                }
+            } catch (e: Exception) {
+                val message = "Error restoring backup: ${e.message}"
                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 snackbarHostState.showSnackbar(message)
-                showRestartDialog = true
-            } else {
-                val message = "Failed to restore backup. Please ensure the file is valid."
-                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                snackbarHostState.showSnackbar(message)
+            } finally {
+                isRestoring = false
             }
         }
     }
@@ -117,7 +131,14 @@ fun BackupSettingsScreen(
         topBar = {
             AppTopBar(
                 title = "Backup & Restore",
-                onBack = onBack
+                onBack = onBack,
+                actions = {
+                    if (isOperating) {
+                        AsymptoticProgressRing(
+                            modifier = Modifier.padding(end = 12.dp)
+                        )
+                    }
+                }
             )
         },
         containerColor = DarkBackground,
@@ -136,14 +157,14 @@ fun BackupSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showCreateBottomSheet = true }
+                    .clickable(enabled = !isOperating) { showCreateBottomSheet = true }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Backup,
                     contentDescription = null,
-                    tint = BrandAccent,
+                    tint = if (isOperating) SecondaryText.copy(alpha = 0.5f) else BrandAccent,
                     modifier = Modifier.size(22.dp)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
@@ -152,11 +173,11 @@ fun BackupSettingsScreen(
                         text = "Create Backup",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        color = PrimaryText
+                        color = if (isOperating) SecondaryText else PrimaryText
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Create a backup of your library and downloaded content",
+                        text = if (isBackingUp) "Creating backup in progress..." else "Create a backup of your library and downloaded content",
                         style = MaterialTheme.typography.bodyMedium,
                         color = SecondaryText
                     )
@@ -168,14 +189,14 @@ fun BackupSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { launchRestorePicker() }
+                    .clickable(enabled = !isOperating) { launchRestorePicker() }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Restore,
                     contentDescription = null,
-                    tint = BrandAccent,
+                    tint = if (isOperating) SecondaryText.copy(alpha = 0.5f) else BrandAccent,
                     modifier = Modifier.size(22.dp)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
@@ -184,11 +205,11 @@ fun BackupSettingsScreen(
                         text = "Restore Backup",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        color = PrimaryText
+                        color = if (isOperating) SecondaryText else PrimaryText
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Restore your library from an existing backup",
+                        text = if (isRestoring) "Restoring backup in progress..." else "Restore your library from an existing backup",
                         style = MaterialTheme.typography.bodyMedium,
                         color = SecondaryText
                     )
@@ -302,18 +323,27 @@ fun BackupSettingsScreen(
             CreateBackupBottomSheet(
                 onDismiss = { showCreateBottomSheet = false },
                 onCreateBackup = { db, ch, cov ->
+                    showCreateBottomSheet = false
+                    isBackingUp = true
                     Toast.makeText(context, "Creating backup...", Toast.LENGTH_SHORT).show()
                     scope.launch {
-                        withContext(Dispatchers.IO) {
-                            BackupService(context).createBackup(
-                                backupDatabase = db,
-                                backupChapters = ch,
-                                backupCovers = cov
-                            )
+                        try {
+                            withContext(Dispatchers.IO) {
+                                BackupService(context).createBackup(
+                                    backupDatabase = db,
+                                    backupChapters = ch,
+                                    backupCovers = cov
+                                )
+                            }
+                            metadata = getLatestBackupMetadata(context)
+                            Toast.makeText(context, "Backup created successfully!", Toast.LENGTH_SHORT).show()
+                            snackbarHostState.showSnackbar("Backup created successfully!")
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Failed to create backup: ${e.message}", Toast.LENGTH_LONG).show()
+                            snackbarHostState.showSnackbar("Failed to create backup")
+                        } finally {
+                            isBackingUp = false
                         }
-                        metadata = getLatestBackupMetadata(context)
-                        Toast.makeText(context, "Backup created successfully!", Toast.LENGTH_SHORT).show()
-                        snackbarHostState.showSnackbar("Backup created successfully!")
                     }
                 }
             )
