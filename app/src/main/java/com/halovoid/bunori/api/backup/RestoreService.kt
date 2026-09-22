@@ -3,7 +3,9 @@ package com.halovoid.bunori.api.backup
 import android.content.Context
 import android.net.Uri
 import com.halovoid.bunori.data.db.AppDatabase
+import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepositoryImpl
+import kotlinx.coroutines.flow.firstOrNull
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -46,6 +48,11 @@ class RestoreService(private val context: Context) {
             val manifest = JSONObject(manifestText)
             val contents = manifest.optJSONObject("contents")
 
+            // Preserve current device-specific preferences before replacing datastore
+            val preferenceRepository = PreferenceRepository.getInstance(context)
+            val currentExportFolderUri = preferenceRepository.exportFolderUri.firstOrNull()
+            val currentOnboardingCompleted = preferenceRepository.isOnboardingCompleted.firstOrNull()
+
             // Close DB connections before replacing
             AppDatabase.getDatabase(context).close()
 
@@ -67,6 +74,14 @@ class RestoreService(private val context: Context) {
                 val targetDatastoreDir = File(context.filesDir, "datastore")
                 targetDatastoreDir.mkdirs()
                 datastoreDir.copyRecursively(targetDatastoreDir, overwrite = true)
+
+                // Re-apply preserved storage folder location and onboarding status
+                if (currentExportFolderUri != null) {
+                    preferenceRepository.setExportFolder(currentExportFolderUri)
+                }
+                if (currentOnboardingCompleted != null) {
+                    preferenceRepository.setOnboardingCompleted(currentOnboardingCompleted)
+                }
             }
 
             // Restore novels/ to active StorageRepository (SAF)
