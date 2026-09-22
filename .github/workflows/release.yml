@@ -128,6 +128,8 @@ jobs:
             
             if [[ "$BASENAME" == *"arm64-v8a"* ]]; then
               OUT_NAME="Bunori_arm64-v8a.apk"
+            elif [[ "$BASENAME" == *"armeabi-v7a"* ]]; then
+              OUT_NAME="Bunori_armeabi-v7a.apk"
             elif [[ "$BASENAME" == *"x86_64"* ]]; then
               OUT_NAME="Bunori_x86_64.apk"
             elif [[ "$BASENAME" == *"universal"* ]]; then
