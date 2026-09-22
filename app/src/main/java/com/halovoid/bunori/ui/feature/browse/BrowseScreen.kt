@@ -1,9 +1,10 @@
 package com.halovoid.bunori.ui.feature.browse
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.ui.core.theme.*
@@ -12,6 +13,7 @@ import com.halovoid.bunori.ui.feature.source.SourceScreen
 import com.halovoid.bunori.ui.feature.source.SourceViewModel
 import com.halovoid.bunori.ui.feature.activity.components.JobActionHandler
 import com.halovoid.bunori.ui.feature.source.components.SourcesTabContent
+import kotlinx.coroutines.launch
 
 enum class BrowseTab(val title: String) {
     SOURCES("Sources"),
@@ -33,18 +35,23 @@ fun BrowseScreen(
     viewModel: BrowseViewModel,
     sourceViewModel: SourceViewModel
 ) {
-    var selectedTabOrdinal by rememberSaveable {
-        mutableStateOf(sourceViewModel.selectedTabOrdinal)
-    }
-    val selectedTab = BrowseTab.entries.getOrElse(selectedTabOrdinal) { BrowseTab.SOURCES }
-
-    fun selectTab(tab: BrowseTab) {
-        selectedTabOrdinal = tab.ordinal
-        sourceViewModel.selectedTabOrdinal = tab.ordinal
-    }
+    val pagerState = rememberPagerState(
+        initialPage = sourceViewModel.selectedTabOrdinal.coerceIn(0, BrowseTab.entries.size - 1),
+        pageCount = { BrowseTab.entries.size }
+    )
+    val coroutineScope = rememberCoroutineScope()
+    val selectedTab = BrowseTab.entries.getOrElse(pagerState.currentPage) { BrowseTab.SOURCES }
 
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+
+    LaunchedEffect(pagerState.currentPage) {
+        sourceViewModel.selectedTabOrdinal = pagerState.currentPage
+        if (selectedTab == BrowseTab.SOURCES && isSearchActive) {
+            isSearchActive = false
+            searchQuery = ""
+        }
+    }
 
     val updatesCount by sourceViewModel.updatesCount.collectAsStateWithLifecycle()
     val failedExtensions by sourceViewModel.failedExtensions.collectAsStateWithLifecycle()
@@ -83,20 +90,29 @@ fun BrowseScreen(
                     selectedTab = selectedTab,
                     updatesCount = updatesCount,
                     onTabSelected = { tab ->
-                        selectTab(tab)
-                        isSearchActive = false
-                        searchQuery = ""
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(tab.ordinal)
+                        }
                     }
                 )
 
-                Box(modifier = Modifier.weight(1f)) {
-                    when (selectedTab) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) { page ->
+                    when (BrowseTab.entries.getOrElse(page) { BrowseTab.SOURCES }) {
                         BrowseTab.SOURCES -> {
                             SourcesTabContent(
                                 installedSources = installedSources,
                                 failedExtensions = failedExtensions,
                                 onNavigateToSearch = onNavigateToSearch,
-                                onNavigateToExtensions = { selectTab(BrowseTab.EXTENSIONS) }
+                                onNavigateToExtensions = {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(BrowseTab.EXTENSIONS.ordinal)
+                                    }
+                                }
                             )
                         }
                         BrowseTab.EXTENSIONS -> {

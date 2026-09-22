@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.0.1] - 2026-09-22
+
+### Major Fixes
+- Fixed a bug that led to showing the activity screen while navigating rather than novel screen
+
+### Added
+- Brought back the cancellation box to confirm before cancelling or deleting downloaded chapters
+
+### Improvements
+- Allowed for swiping between tabs in Browse Screen
 
 ## [2.0.0] - 2026-09-21
 

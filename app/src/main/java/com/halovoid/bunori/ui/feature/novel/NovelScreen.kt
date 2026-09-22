@@ -76,6 +76,7 @@ import kotlinx.coroutines.launch
 
 sealed interface NovelDialogState {
     data object ConfirmDelete : NovelDialogState
+    data object ConfirmDeleteSelectedChapters : NovelDialogState
     data object DownloadRange : NovelDialogState
     data object FilterSheet : NovelDialogState
     data object SourceFilterSheet : NovelDialogState
@@ -201,7 +202,7 @@ fun NovelScreen(
                         icon = Icons.Outlined.DeleteSweep,
                         isDestructive = true,
                         onClick = {
-                            viewModel.deleteSelectedChapters()
+                            activeDialog = NovelDialogState.ConfirmDeleteSelectedChapters
                         }
                     )
                 )
@@ -346,6 +347,18 @@ fun NovelScreen(
                             activeDialog = null
                             viewModel.deleteNovelPermanently(currentNovel)
                             onBack()
+                        },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
+                is NovelDialogState.ConfirmDeleteSelectedChapters -> {
+                    val count = selectedChapterIds.size
+                    ConfirmDeleteDialog(
+                        title = if (count > 1) "Delete $count chapters?" else "Delete chapter?",
+                        message = "This will permanently remove downloaded files for ${if (count > 1) "$count selected chapters" else "the selected chapter"} from your device storage. This action cannot be undone.",
+                        onConfirm = {
+                            activeDialog = null
+                            viewModel.deleteSelectedChapters()
                         },
                         onDismiss = { activeDialog = null }
                     )

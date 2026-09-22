@@ -77,6 +77,7 @@ fun JobDetailScreen(
 
     var securityDialogBatch by remember { mutableStateOf<Batch?>(null) }
     var showCancelDialog by remember { mutableStateOf(false) }
+    var showCancelSelectedTasksDialog by remember { mutableStateOf(false) }
     var showStatusFilterSheet by remember { mutableStateOf(false) }
 
     val selectedTasks = remember(tasks, selectedTaskIds) {
@@ -110,6 +111,19 @@ fun JobDetailScreen(
                 viewModel.cancelBatch(record!!.id)
             },
             onDismiss = { showCancelDialog = false }
+        )
+    }
+
+    if (showCancelSelectedTasksDialog && record != null) {
+        val count = selectedTaskIds.size
+        ConfirmCancelDialog(
+            title = if (count > 1) "Cancel $count Tasks?" else "Cancel Task?",
+            message = "Are you sure you want to cancel the selected ${if (count > 1) "$count tasks" else "task"}? Progress made will be preserved, but remaining items will stop.",
+            onConfirm = {
+                showCancelSelectedTasksDialog = false
+                viewModel.cancelSelectedTasks(record!!.id)
+            },
+            onDismiss = { showCancelSelectedTasksDialog = false }
         )
     }
 
@@ -321,8 +335,9 @@ fun JobDetailScreen(
                     ContextualAction(
                         title = "Cancel",
                         icon = Icons.Default.Cancel,
+                        isDestructive = true,
                         enabled = canCancel,
-                        onClick = { record?.let { viewModel.cancelSelectedTasks(it.id) } }
+                        onClick = { showCancelSelectedTasksDialog = true }
                     )
                 )
             )

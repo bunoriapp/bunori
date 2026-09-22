@@ -34,15 +34,9 @@ fun ConfirmCancelDialog(
     AppDialog(
         onDismissRequest = onDismiss,
         title = { Text(title, color = PrimaryText) },
-        text = { 
+        text = {
             Column {
                 Text(message, color = SecondaryText)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "Note: Cancelling a large request may take a moment. Please wait for it to complete.",
-                    color = ErrorRed.copy(alpha = 0.8f),
-                    style = MaterialTheme.typography.labelSmall
-                )
             }
         },
         confirmButton = {

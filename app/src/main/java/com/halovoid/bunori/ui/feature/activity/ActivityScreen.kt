@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.db.entities.JobType
+import com.halovoid.bunori.ui.core.components.ConfirmCancelDialog
 import com.halovoid.bunori.ui.core.components.ContextualAction
 import com.halovoid.bunori.ui.core.components.ContextualBottomBar
 import com.halovoid.bunori.ui.core.components.DownloadProgressRing
@@ -58,6 +59,8 @@ fun ActivityScreen(
     JobActionHandler(
         onResolveWebview = { id, url -> viewModel.resolveWebView(id, url) }
     ) { _ ->
+        var showCancelSelectedBatchesDialog by remember { mutableStateOf(false) }
+
         val filteredHistory = remember(requestHistory, filterType) {
             if (filterType == null) requestHistory
             else requestHistory.filter { it.type == filterType }
@@ -137,7 +140,7 @@ fun ActivityScreen(
                     isDestructive = true,
                     enabled = canCancel,
                     onClick = {
-                        viewModel.cancelSelectedBatches()
+                        showCancelSelectedBatchesDialog = true
                     }
                 )
             )
@@ -151,6 +154,19 @@ fun ActivityScreen(
                     viewModel.selectBatchesBySourceDisplayName(selectedSource, filteredHistory)
                     showSourceFilterSheet = false
                 }
+            )
+        }
+
+        if (showCancelSelectedBatchesDialog) {
+            val count = selectedBatchIds.size
+            ConfirmCancelDialog(
+                title = if (count > 1) "Cancel $count Batches?" else "Cancel Batch?",
+                message = "Are you sure you want to stop the selected ${if (count > 1) "$count batches" else "batch"}? Any progress made will be preserved, but remaining tasks will stop.",
+                onConfirm = {
+                    showCancelSelectedBatchesDialog = false
+                    viewModel.cancelSelectedBatches()
+                },
+                onDismiss = { showCancelSelectedBatchesDialog = false }
             )
         }
 
