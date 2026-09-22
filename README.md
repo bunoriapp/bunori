@@ -122,7 +122,7 @@
   </tr>
 </table>
 
-*Supports `arm64-v8a` (modern Android devices) and `x86_64` (emulators).*
+*Supports `arm64-v8a` (modern Android devices) `x86_64` (emulators) and `armeabi-v7` (older devices)*
 
 
 </div>
