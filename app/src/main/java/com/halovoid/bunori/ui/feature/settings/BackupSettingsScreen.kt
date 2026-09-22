@@ -1,6 +1,7 @@
 package com.halovoid.bunori.ui.feature.settings
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -88,12 +89,13 @@ fun BackupSettingsScreen(
     var showFrequencyBottomSheet by remember { mutableStateOf(false) }
 
     val launchRestorePicker = rememberFileOpenLauncher(mimeTypes = arrayOf("*/*")) { uri ->
+        Toast.makeText(context, "Restoring backup...", Toast.LENGTH_SHORT).show()
         scope.launch(Dispatchers.IO) {
             val success = RestoreService(context).restoreBackup(uri)
             scope.launch {
-                snackbarHostState.showSnackbar(
-                    if (success) "Backup restored successfully! Please restart the app" else "Failed to restore backup."
-                )
+                val message = if (success) "Backup restored successfully! Please restart the app" else "Failed to restore backup."
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                snackbarHostState.showSnackbar(message)
             }
         }
     }
@@ -287,6 +289,7 @@ fun BackupSettingsScreen(
             CreateBackupBottomSheet(
                 onDismiss = { showCreateBottomSheet = false },
                 onCreateBackup = { db, ch, cov ->
+                    Toast.makeText(context, "Creating backup...", Toast.LENGTH_SHORT).show()
                     scope.launch(Dispatchers.IO) {
                         BackupService(context).createBackup(
                             backupDatabase = db,
@@ -295,6 +298,7 @@ fun BackupSettingsScreen(
                         )
                         metadata = getLatestBackupMetadata(context)
                         scope.launch {
+                            Toast.makeText(context, "Backup created successfully!", Toast.LENGTH_SHORT).show()
                             snackbarHostState.showSnackbar("Backup created successfully!")
                         }
                     }

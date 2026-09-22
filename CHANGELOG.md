@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Improvements
 - Allowed for swiping between tabs in Browse Screen
+- Backup and Restore show a toast bar telling there start state
 
 ## [2.0.0] - 2026-09-21
 
