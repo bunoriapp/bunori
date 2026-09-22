@@ -24,12 +24,15 @@ import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.ViewModelFactory
 import com.halovoid.bunori.ui.core.components.ExportWarningDialog
+import com.halovoid.bunori.ui.core.platform.openFile
 import com.halovoid.bunori.ui.core.platform.rememberFileExportLauncher
 import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ArtifactCard
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ArtifactExportDialog
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ExportFormat
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed interface ArtifactsDialogState {
     data object SelectFormat : ArtifactsDialogState
@@ -87,11 +90,7 @@ fun NovelArtifactsScreen(
                             )
                             if (result == SnackbarResult.ActionPerformed) {
                                 val mimeType = if (artifact.artifactName.endsWith(".pdf", ignoreCase = true)) "application/pdf" else "application/epub+zip"
-                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(resultUri, mimeType)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(Intent.createChooser(intent, "Open with"))
+                                context.openFile(resultUri, mimeType)
                             }
                         }
                     }
@@ -175,16 +174,8 @@ fun NovelArtifactsScreen(
                     ArtifactCard(
                         artifact = artifact,
                         onOpen = {
-                            val mimeType = if (artifact.artifactName.endsWith(".pdf", ignoreCase = true)) "application/pdf" else "application/epub+zip"
-                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(artifact.artifactDestination.toUri(), mimeType)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            try {
-                                context.startActivity(Intent.createChooser(intent, "Open with"))
-                            } catch (e: Exception) {
+                            actualViewModel.openArtifact(context, artifact) { docType ->
                                 scope.launch {
-                                    val docType = if (artifact.artifactName.endsWith(".pdf", ignoreCase = true)) "PDF" else "EPUB"
                                     snackbarHostState.showSnackbar("No app found to open $docType")
                                 }
                             }

@@ -1,6 +1,7 @@
 package com.halovoid.bunori.ui.feature.novel
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
@@ -11,6 +12,7 @@ import com.halovoid.bunori.data.factory.JobFactory
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
+import com.halovoid.bunori.data.repository.CopyResult
 import com.halovoid.bunori.data.repository.DownloadRepositoryImpl
 import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
@@ -22,6 +24,7 @@ import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.domain.usecase.DeleteChapterUseCase
 import com.halovoid.bunori.domain.usecase.ReplayChapterUseCase
+import com.halovoid.bunori.ui.core.platform.openFile
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ExportFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -513,15 +516,27 @@ class NovelViewModel(
     }
 
     fun copyArtifactToUri(artifact: Artifact, destinationUri: Uri, onComplete: (Uri?) -> Unit, onFileMissing: () -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val sourceUri = artifact.artifactDestination.toUri()
-            if (!storageRepository.uriExists(sourceUri)) {
-                artifactRepository.removeArtifact(artifact)
-                withContext(Dispatchers.Main) { onFileMissing() }
-                return@launch
+        viewModelScope.launch {
+            when (val result = storageRepository.copyLocationToUri(artifact.artifactDestination, destinationUri)) {
+                is CopyResult.Success -> withContext(Dispatchers.Main) { onComplete(result.destinationUri) }
+                is CopyResult.SourceMissing -> {
+                    artifactRepository.removeArtifact(artifact)
+                    withContext(Dispatchers.Main) { onFileMissing() }
+                }
+                is CopyResult.Error -> withContext(Dispatchers.Main) { onComplete(null) }
             }
-            val result = storageRepository.copyFile(sourceUri, destinationUri)
-            withContext(Dispatchers.Main) { onComplete(result) }
+        }
+    }
+
+    fun openArtifact(context: Context, artifact: Artifact, onNoAppFound: (String) -> Unit) {
+        viewModelScope.launch {
+            val resolvedUri = storageRepository.resolveLocationUri(artifact.artifactDestination)
+                ?: artifact.artifactDestination.toUri()
+            val mimeType = if (artifact.artifactName.endsWith(".pdf", ignoreCase = true)) "application/pdf" else "application/epub+zip"
+            val docType = if (artifact.artifactName.endsWith(".pdf", ignoreCase = true)) "PDF" else "EPUB"
+            context.openFile(resolvedUri, mimeType) {
+                onNoAppFound(docType)
+            }
         }
     }
 

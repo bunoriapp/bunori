@@ -76,7 +76,7 @@ class ArtifactHandler(
             val existingArtifacts = artifactRepository.getArtifactForBatch(task.batchId)
             existingArtifacts.forEach { existing ->
                 try {
-                    storageRepository.delete(existing.artifactDestination.toUri())
+                    storageRepository.delete(existing.artifactDestination)
                 } catch (_: Exception) { }
                 artifactRepository.removeArtifact(existing)
             }
@@ -84,9 +84,11 @@ class ArtifactHandler(
             // 4. Save Permanently to the user's selected storage
             val novelKey = crawler.getNovelKey(novel.title)
             val fileName = "${novelKey}_${System.currentTimeMillis()}.$format"
+            val relativeDir = "artifacts/$novelKey"
+            val relativePath = "$relativeDir/$fileName"
             val mimeType = if (format.equals("pdf", ignoreCase = true)) "application/pdf" else "application/epub+zip"
-            val finalUri = storageRepository.saveFile(
-                relativePath = "artifacts/$novelKey",
+            storageRepository.saveFile(
+                relativePath = relativeDir,
                 fileName = fileName,
                 mimeType = mimeType,
                 data = tempFile.readBytes()
@@ -97,7 +99,7 @@ class ArtifactHandler(
                 id = 0,
                 novelUrl = novel.url,
                 requestId = task.batchId,
-                artifactDestination = finalUri.toString(),
+                artifactDestination = relativePath,
                 artifactName = fileName
             )
             artifactRepository.insertArtifact(artifact)

@@ -1,5 +1,6 @@
 package com.halovoid.bunori.ui.core.platform
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -61,3 +62,23 @@ fun rememberFileOpenLauncher(
     }
     return { launcher.launch(mimeTypes) }
 }
+
+/**
+ * Convenience helper for launching an ACTION_VIEW intent for a file URI.
+ */
+fun Context.openFile(
+    uri: Uri,
+    mimeType: String,
+    onNoApp: () -> Unit = {}
+) {
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, mimeType)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    try {
+        startActivity(Intent.createChooser(intent, "Open with"))
+    } catch (_: Exception) {
+        onNoApp()
+    }
+}
+

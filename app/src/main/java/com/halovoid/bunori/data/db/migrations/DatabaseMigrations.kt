@@ -49,6 +49,23 @@ object DatabaseMigrations {
                         }
                     }
                 }
+                // 3. Sanitize artifacts table artifactDestination
+                db.query("SELECT id, artifactDestination FROM artifacts WHERE artifactDestination LIKE 'content://%' OR artifactDestination LIKE 'file://%'").use { cursor ->
+                    val idIdx = cursor.getColumnIndex("id")
+                    val destIdx = cursor.getColumnIndex("artifactDestination")
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getInt(idIdx)
+                        val dest = cursor.getString(destIdx)
+                        if (dest != null && (dest.startsWith("content://", ignoreCase = true) || dest.startsWith("file://", ignoreCase = true))) {
+                            val decoded = Uri.decode(dest)
+                            val artifactIndex = decoded.indexOf("artifacts/")
+                            if (artifactIndex != -1) {
+                                val relPath = decoded.substring(artifactIndex)
+                                db.execSQL("UPDATE artifacts SET artifactDestination = ? WHERE id = ?", arrayOf<Any>(relPath, id))
+                            }
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

@@ -31,6 +31,12 @@ data class StorageFileInfo(
     val size: Long
 )
 
+sealed interface CopyResult {
+    data class Success(val destinationUri: Uri) : CopyResult
+    data object SourceMissing : CopyResult
+    data class Error(val throwable: Throwable? = null) : CopyResult
+}
+
 interface StorageRepository {
 
     /**
@@ -97,6 +103,11 @@ interface StorageRepository {
         sourceUri: Uri,
         destinationUri: Uri
     ): Uri?
+
+    suspend fun copyLocationToUri(
+        location: String,
+        destinationUri: Uri
+    ): CopyResult
 
     suspend fun uriExists(
         uri: Uri
@@ -362,6 +373,19 @@ class StorageRepositoryImpl private constructor(
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    override suspend fun copyLocationToUri(location: String, destinationUri: Uri): CopyResult = withContext(Dispatchers.IO) {
+        val sourceUri = resolveLocationUri(location) ?: (try { Uri.parse(location) } catch (_: Exception) { null })
+        if (sourceUri == null || !uriExists(sourceUri)) {
+            return@withContext CopyResult.SourceMissing
+        }
+        val result = copyFile(sourceUri, destinationUri)
+        if (result != null) {
+            CopyResult.Success(destinationUri)
+        } else {
+            CopyResult.Error()
         }
     }
 
