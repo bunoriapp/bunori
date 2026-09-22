@@ -450,9 +450,8 @@ class SettingsViewModel(
                 val cached = downloadRepo.getAllCachedDownloads()
                 var count = 0
                 cached.forEach { dl ->
-                    if (dl.fileLocation.isNotBlank() && !dl.fileLocation.startsWith("content://")) {
-                        val path = dl.fileLocation.removePrefix("file://")
-                        val file = File(path)
+                    if (dl.fileLocation.isNotBlank()) {
+                        val file = File(dl.fileLocation)
                         if (file.exists() && file.delete()) count++
                     }
                 }

@@ -163,10 +163,7 @@ class ReaderRepositoryImpl private constructor(
 
     private fun deleteCacheFile(fileLocation: String) {
         try {
-            if (!fileLocation.startsWith("content://")) {
-                val path = fileLocation.removePrefix("file://")
-                File(path).delete()
-            }
+            File(fileLocation).delete()
         } catch (_: Exception) {}
     }
 }

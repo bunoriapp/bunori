@@ -25,9 +25,8 @@ class CacheClearWorker(
             // Delete individual cached download files
             cachedDownloads.forEach { download ->
                 val location = download.fileLocation
-                if (location.isNotBlank() && !location.startsWith("content://")) {
-                    val path = location.removePrefix("file://")
-                    val file = File(path)
+                if (location.isNotBlank()) {
+                    val file = File(location)
                     if (file.exists() && file.delete()) {
                         deletedFilesCount++
                     }

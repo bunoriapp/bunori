@@ -60,13 +60,7 @@ class ChapterHandler(
             val isExpired = existingDownload.expirationTime?.let { it < now } ?: false
             if (!isExpired) {
                 val cachedContent = try {
-                    val fileLoc = existingDownload.fileLocation
-                    val uri = if (fileLoc.startsWith("content://") || fileLoc.startsWith("file://") || fileLoc.startsWith("http")) {
-                        Uri.parse(fileLoc)
-                    } else {
-                        Uri.fromFile(File(fileLoc))
-                    }
-                    storageRepository.readText(uri)
+                    storageRepository.readText(existingDownload.fileLocation)
                 } catch (_: Exception) {
                     null
                 }
@@ -85,9 +79,7 @@ class ChapterHandler(
                     )
 
                     try {
-                        if (!existingDownload.fileLocation.startsWith("content://") && !existingDownload.fileLocation.startsWith("novels/")) {
-                            File(existingDownload.fileLocation.removePrefix("file://")).delete()
-                        }
+                        storageRepository.delete(existingDownload.fileLocation)
                     } catch (_: Exception) {}
 
                     downloadRepository.saveDownload(
@@ -145,7 +137,7 @@ class ChapterHandler(
     }
 
     suspend fun loadAndSaveFile(url: String, crawler: Crawler, chapter: Chapter): String {
-        if (url.startsWith("content://") || url.startsWith("novels/")) {
+        if (url.startsWith("novels/")) {
             return url
         }
 
