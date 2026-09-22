@@ -9,6 +9,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +33,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.ui.ViewModelFactory
+import com.halovoid.bunori.ui.core.theme.BrandAccent
+import com.halovoid.bunori.ui.core.theme.DarkBackground
 import com.halovoid.bunori.ui.feature.browse.BrowseScreen
 import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
 import com.halovoid.bunori.ui.feature.source.ExtensionInfoScreen
@@ -138,7 +144,17 @@ fun NavGraph(navController: NavHostController) {
         }
     }
 
-    if (startRoute == null) return
+    if (startRoute == null) {
+        Box(
+            modifier = androidx.compose.ui.Modifier
+                .fillMaxSize()
+                .background(DarkBackground),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            CircularProgressIndicator(color = BrandAccent)
+        }
+        return
+    }
 
     val mainTabRoutes = remember {
         setOf(Screen.Library.route, Screen.Browse.route, Screen.Activity.route, Screen.Support.route)
