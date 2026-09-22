@@ -380,7 +380,7 @@ class PdfGenerator(
         for (chapter in sortedChapters) {
             ensureActive()
             val download = downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
-            val rawContent = download?.fileLocation?.let { loc -> storageRepository.readText(loc.toUri()) }
+            val rawContent = download?.fileLocation?.let { loc -> storageRepository.readText(loc) }
                 ?: "<p><em>Content not available</em></p>"
             chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache, ignoreImages)
         }

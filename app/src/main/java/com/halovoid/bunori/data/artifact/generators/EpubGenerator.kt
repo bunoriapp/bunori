@@ -365,7 +365,7 @@ class EpubGenerator(
             ensureActive()
             val download = downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
             val rawContent = download?.fileLocation?.let { loc ->
-                storageRepository.readText(loc.toUri())
+                storageRepository.readText(loc)
             } ?: "<p><em>Content not available</em></p>"
             val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem, ignoreImages)
 

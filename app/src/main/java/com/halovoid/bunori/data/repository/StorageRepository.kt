@@ -40,11 +40,19 @@ interface StorageRepository {
         uri: Uri
     ): InputStream?
 
+    suspend fun openInputStream(
+        location: String
+    ): InputStream?
+
     /**
      * Convenience Function
      */
     suspend fun readText(
         uri: Uri
+    ): String?
+
+    suspend fun readText(
+        location: String
     ): String?
 
     /**
@@ -74,9 +82,15 @@ interface StorageRepository {
 
     suspend fun delete(uri: Uri)
 
+    suspend fun delete(location: String)
+
     suspend fun exists(
         relativePath: String,
         fileName: String
+    ): Boolean
+
+    suspend fun exists(
+        location: String
     ): Boolean
 
     suspend fun copyFile(
@@ -87,6 +101,10 @@ interface StorageRepository {
     suspend fun uriExists(
         uri: Uri
     ): Boolean
+
+    suspend fun resolveLocationUri(
+        location: String
+    ): Uri?
 
     suspend fun listFilesRecursively(
         relativePath: String
@@ -226,6 +244,91 @@ class StorageRepositoryImpl private constructor(
         val byteStream = ByteArrayOutputStream()
         GZIPOutputStream(byteStream).use { it.write(content.toByteArray(Charsets.UTF_8)) }
         saveFile(relativePath, fileName, "application/gzip", byteStream.toByteArray())
+    }
+
+    override suspend fun openInputStream(location: String): InputStream? = withContext(Dispatchers.IO) {
+        val trimmed = location.trim()
+        if (trimmed.isEmpty()) return@withContext null
+
+        if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+            val file = File(trimmed)
+            if (file.exists()) {
+                return@withContext wrapDecompressionIfNeeded(FileInputStream(file))
+            }
+        }
+
+        val uri = resolveLocationUri(trimmed) ?: return@withContext null
+        openInputStream(uri)
+    }
+
+    override suspend fun readText(location: String): String? = withContext(Dispatchers.IO) {
+        openInputStream(location)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+    }
+
+    override suspend fun delete(location: String) = withContext(Dispatchers.IO) {
+        val trimmed = location.trim()
+        if (trimmed.isEmpty()) return@withContext
+
+        if (trimmed.startsWith("/") || trimmed.startsWith("file://")) {
+            val path = trimmed.removePrefix("file://")
+            File(path).delete()
+            return@withContext
+        }
+
+        val uri = resolveLocationUri(trimmed)
+        if (uri != null) {
+            delete(uri)
+        }
+    }
+
+    override suspend fun exists(location: String): Boolean = withContext(Dispatchers.IO) {
+        val trimmed = location.trim()
+        if (trimmed.isEmpty()) return@withContext false
+
+        if (trimmed.startsWith("/") || trimmed.startsWith("file://")) {
+            val path = trimmed.removePrefix("file://")
+            return@withContext File(path).exists()
+        }
+
+        val uri = resolveLocationUri(trimmed) ?: return@withContext false
+        uriExists(uri)
+    }
+
+    override suspend fun resolveLocationUri(location: String): Uri? = withContext(Dispatchers.IO) {
+        val trimmed = location.trim()
+        if (trimmed.isEmpty()) return@withContext null
+
+        if (trimmed.startsWith("http://", ignoreCase = true) || 
+            trimmed.startsWith("https://", ignoreCase = true) || 
+            trimmed.startsWith("file://", ignoreCase = true)) {
+            return@withContext Uri.parse(trimmed)
+        }
+
+        if (trimmed.startsWith("/")) {
+            return@withContext Uri.fromFile(File(trimmed))
+        }
+
+        // Relative path e.g. "novels/shadowslave/chapters/0001_1.html.gz"
+        getFileUri(trimmed)
+    }
+
+    private suspend fun getFileUri(relativePath: String): Uri? {
+        val rootUri = try {
+            getRootUri()
+        } catch (_: Exception) {
+            return null
+        }
+
+        val cleanPath = relativePath.trim().trimStart('/')
+        val lastSlash = cleanPath.lastIndexOf('/')
+        if (lastSlash == -1) {
+            return findChildUri(rootUri, rootUri, cleanPath)
+        }
+
+        val dirPath = cleanPath.substring(0, lastSlash)
+        val fileName = cleanPath.substring(lastSlash + 1)
+        val targetDirUri = getDirectory(rootUri, dirPath, createIfMissing = false) ?: return null
+        return findChildUri(rootUri, targetDirUri, fileName)
     }
 
     override suspend fun delete(uri: Uri) {

@@ -109,12 +109,7 @@ class ReaderRepositoryImpl private constructor(
         val fileLocation = download.fileLocation
         if (fileLocation.isBlank()) return null
         return try {
-            val uri = if (fileLocation.startsWith("content://") || fileLocation.startsWith("file://") || fileLocation.startsWith("http")) {
-                fileLocation.toUri()
-            } else {
-                android.net.Uri.fromFile(File(fileLocation))
-            }
-            storageRepository.readText(uri)
+            storageRepository.readText(fileLocation)
         } catch (e: Exception) {
             downloadRepository.deleteDownload(download.novelUrl, download.chapterUrl)
             null

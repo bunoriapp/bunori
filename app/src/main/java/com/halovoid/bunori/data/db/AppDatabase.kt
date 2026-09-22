@@ -18,7 +18,6 @@ import com.halovoid.bunori.data.db.entities.NovelEntity
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.db.migrations.DatabaseMigrations
 
-
 /**
  * Main Room database for the application.
  * Part of the Data layer, responsible for local persistence.
@@ -47,6 +46,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "bunori.db"
                 )
+                    .addCallback(DatabaseMigrations.SANITIZE_CALLBACK)
                     .addMigrations(
                         // Database Migrations Here
                     )

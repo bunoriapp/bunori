@@ -17,7 +17,7 @@ class DeleteChapterUseCase(
         val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
         if (download != null) {
             try {
-                storageRepository.delete(Uri.parse(download.fileLocation))
+                storageRepository.delete(download.fileLocation)
             } catch (e: Exception) {
                 AppLog.w("DeleteChapterUseCase", "Failed to delete chapter file at ${download.fileLocation}", e)
             }

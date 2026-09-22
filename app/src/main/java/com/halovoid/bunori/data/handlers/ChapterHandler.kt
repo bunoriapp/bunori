@@ -76,21 +76,23 @@ class ChapterHandler(
                     val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html.gz"
                     val relativePath = "novels/$novelKey/chapters"
 
-                    val permanentUri = storageRepository.saveCompressedText(
+                    val relativeLocation = "$relativePath/$fileName"
+
+                    storageRepository.saveCompressedText(
                         relativePath = relativePath,
                         fileName = fileName,
                         content = cachedContent
                     )
 
                     try {
-                        if (!existingDownload.fileLocation.startsWith("content://")) {
+                        if (!existingDownload.fileLocation.startsWith("content://") && !existingDownload.fileLocation.startsWith("novels/")) {
                             File(existingDownload.fileLocation.removePrefix("file://")).delete()
                         }
                     } catch (_: Exception) {}
 
                     downloadRepository.saveDownload(
                         existingDownload.copy(
-                            fileLocation = permanentUri.toString(),
+                            fileLocation = relativeLocation,
                             isCache = false,
                             expirationTime = null,
                             downloadedAt = System.currentTimeMillis()
@@ -116,7 +118,7 @@ class ChapterHandler(
                 Download(
                     novelUrl = chapter.novelUrl,
                     chapterUrl = chapter.url,
-                    fileLocation = fileLocation.toString(),
+                    fileLocation = fileLocation,
                     chapterIndex = chapter.index,
                     chapterTitle = chapter.title,
                     scanlationSource = chapter.scanlationSource,
@@ -142,9 +144,9 @@ class ChapterHandler(
         }
     }
 
-    suspend fun loadAndSaveFile(url: String, crawler: Crawler, chapter: Chapter): Uri {
-        if (url.startsWith("content://")) {
-            return Uri.parse(url)
+    suspend fun loadAndSaveFile(url: String, crawler: Crawler, chapter: Chapter): String {
+        if (url.startsWith("content://") || url.startsWith("novels/")) {
+            return url
         }
 
         val chapterContent = crawler.getChapterContent(url)
@@ -159,10 +161,12 @@ class ChapterHandler(
         val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html.gz"
         val relativePath = "novels/$novelKey/chapters"
 
-        return storageRepository.saveCompressedText(
+        storageRepository.saveCompressedText(
             relativePath = relativePath,
             fileName = fileName,
             content = chapterContent
         )
+
+        return "$relativePath/$fileName"
     }
 }

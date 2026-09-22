@@ -23,7 +23,7 @@ class ReplayChapterUseCase(
         val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
         if (download != null) {
             try {
-                storageRepository.delete(download.fileLocation.toUri())
+                storageRepository.delete(download.fileLocation)
             } catch (e: Exception) {
                 AppLog.w("ReplayChapterUseCase", "Failed to delete chapter file at ${download.fileLocation} on replay", e)
             }
