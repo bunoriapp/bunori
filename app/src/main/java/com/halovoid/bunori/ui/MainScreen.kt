@@ -198,7 +198,7 @@ fun AnimatedTabIcon(
         targetValue = if (isSelected) 1.12f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
+            stiffness = Spring.StiffnessMedium
         ),
         label = "TabScale"
     )

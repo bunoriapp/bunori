@@ -1,6 +1,14 @@
 package com.halovoid.bunori.ui.navigation
 
 import android.app.Application
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -9,6 +17,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
@@ -99,7 +109,8 @@ sealed class Screen(val route: String) {
     }
 
     object Novel : Screen("novel/{crawlerName}/{novelUrl}") {
-        fun createRoute(crawlerName: String, novelUrl: String) = "novel/$crawlerName/${URLEncoder.encode(novelUrl, "UTF-8")}"
+        fun createRoute(crawlerName: String, novelUrl: String) = 
+            "novel/${URLEncoder.encode(crawlerName, "UTF-8")}/${URLEncoder.encode(novelUrl, "UTF-8")}"
     }
     object NovelArtifacts : Screen("novel_artifacts/{novelUrl}") {
         fun createRoute(novelUrl: String) = "novel_artifacts/${URLEncoder.encode(novelUrl, "UTF-8")}"
@@ -129,9 +140,64 @@ fun NavGraph(navController: NavHostController) {
 
     if (startRoute == null) return
 
+    val mainTabRoutes = remember {
+        setOf(Screen.Library.route, Screen.Browse.route, Screen.Activity.route, Screen.Support.route)
+    }
+
+    val density = LocalDensity.current
+    val slideDistance = remember(density) { with(density) { 30.dp.roundToPx() } }
+
     NavHost(
         navController = navController,
-        startDestination = startRoute!!
+        startDestination = startRoute!!,
+        enterTransition = {
+            val isTabSwitch = initialState.destination.route in mainTabRoutes && targetState.destination.route in mainTabRoutes
+            if (isTabSwitch) {
+                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing))
+            } else {
+                slideInHorizontally(
+                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                ) { slideDistance } + fadeIn(
+                    animationSpec = tween(210, delayMillis = 90, easing = FastOutSlowInEasing)
+                )
+            }
+        },
+        exitTransition = {
+            val isTabSwitch = initialState.destination.route in mainTabRoutes && targetState.destination.route in mainTabRoutes
+            if (isTabSwitch) {
+                fadeOut(animationSpec = tween(150, easing = FastOutLinearInEasing))
+            } else {
+                slideOutHorizontally(
+                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                ) { -slideDistance } + fadeOut(
+                    animationSpec = tween(90, easing = FastOutLinearInEasing)
+                )
+            }
+        },
+        popEnterTransition = {
+            val isTabSwitch = initialState.destination.route in mainTabRoutes && targetState.destination.route in mainTabRoutes
+            if (isTabSwitch) {
+                fadeIn(animationSpec = tween(200, easing = LinearOutSlowInEasing))
+            } else {
+                slideInHorizontally(
+                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                ) { -slideDistance } + fadeIn(
+                    animationSpec = tween(210, delayMillis = 90, easing = FastOutSlowInEasing)
+                )
+            }
+        },
+        popExitTransition = {
+            val isTabSwitch = initialState.destination.route in mainTabRoutes && targetState.destination.route in mainTabRoutes
+            if (isTabSwitch) {
+                fadeOut(animationSpec = tween(150, easing = FastOutLinearInEasing))
+            } else {
+                slideOutHorizontally(
+                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                ) { slideDistance } + fadeOut(
+                    animationSpec = tween(90, easing = FastOutLinearInEasing)
+                )
+            }
+        }
     ) {
         composable(Screen.Welcome.route) {
             WelcomeScreen(

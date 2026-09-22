@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
     private fun handleNavigationIntent(intent: Intent?) {
         val route = intent?.getStringExtra(AppNavigationManager.EXTRA_NAV_ROUTE)
         if (!route.isNullOrBlank()) {
+            intent.removeExtra(AppNavigationManager.EXTRA_NAV_ROUTE)
             AppNavigationManager.navigateTo(route)
         }
     }
