@@ -5,10 +5,13 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.widget.Toast
+import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.extension.api.IExtension
 import com.halovoid.bunori.extension.api.pkg.BextPackage
 import com.halovoid.bunori.extension.api.pkg.BextUtils
 import com.halovoid.bunori.wasm.WamrExtension
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.FileOutputStream
 
@@ -109,12 +112,18 @@ class BextLoader(private val context: Context) {
                     fos.write(pkg.wasmBytes)
                 }
 
-                Handler(Looper.getMainLooper()).post {
-                    Toast.makeText(
-                        context,
-                        "${pkg.manifest.name} entered slow mode due to a version mismatch. It will still work normally, but please report to the developer to resolve.",
-                        Toast.LENGTH_LONG
-                    ).show()
+                val showToast = runCatching {
+                    runBlocking { PreferenceRepository.getInstance(context).showWasmSlowModeToast.first() }
+                }.getOrDefault(true)
+
+                if (showToast) {
+                    Handler(Looper.getMainLooper()).post {
+                        Toast.makeText(
+                            context,
+                            "${pkg.manifest.name} entered slow mode due to a version mismatch. It will still work normally, but please report to the developer to resolve.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
 
                 WamrExtension(

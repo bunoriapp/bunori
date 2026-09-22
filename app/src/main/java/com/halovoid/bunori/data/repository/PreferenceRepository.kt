@@ -45,6 +45,7 @@ private val IS_OFFLINE_MODE = booleanPreferencesKey("is_offline_mode")
 private val SHOW_ALL_SAVED_NOVELS = booleanPreferencesKey("show_all_saved_novels")
 private val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
 private val CUSTOM_USER_AGENT = stringPreferencesKey("custom_user_agent")
+private val SHOW_WASM_SLOW_MODE_TOAST = booleanPreferencesKey("show_wasm_slow_mode_toast")
 const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/extensions/index.min.json"
 
 // Reader Preferences
@@ -75,6 +76,7 @@ interface PreferenceRepository {
     val currentDexTag: Flow<String?>
     val betaModeApp: Flow<Boolean>
     val betaModeCrawlers: Flow<Boolean>
+    val showWasmSlowModeToast: Flow<Boolean>
     val ignoreImages: Flow<Boolean>
     val maxConcurrentJobs: Flow<Int>
     val searchCompactView: Flow<Boolean>
@@ -106,6 +108,7 @@ interface PreferenceRepository {
     suspend fun setCurrentDexTag(tag: String)
     suspend fun setBetaModeApp(enabled: Boolean)
     suspend fun setBetaModeCrawlers(enabled: Boolean)
+    suspend fun setShowWasmSlowModeToast(enabled: Boolean)
     suspend fun setIgnoreImages(enabled: Boolean)
     suspend fun setMaxConcurrentJobs(jobs: Int)
     suspend fun setSearchCompactView(compact: Boolean)
@@ -191,6 +194,11 @@ class PreferenceRepositoryImpl private constructor(
     override val betaModeCrawlers: Flow<Boolean> =
         context.appDataStore.data.map { preferences ->
             preferences[BETA_MODE_CRAWLERS] ?: false
+        }
+
+    override val showWasmSlowModeToast: Flow<Boolean> =
+        context.appDataStore.data.map { preferences ->
+            preferences[SHOW_WASM_SLOW_MODE_TOAST] ?: true
         }
 
     override val ignoreImages: Flow<Boolean> =
@@ -327,6 +335,12 @@ class PreferenceRepositoryImpl private constructor(
     override suspend fun setBetaModeCrawlers(enabled: Boolean) {
         context.appDataStore.edit { preferences ->
             preferences[BETA_MODE_CRAWLERS] = enabled
+        }
+    }
+
+    override suspend fun setShowWasmSlowModeToast(enabled: Boolean) {
+        context.appDataStore.edit { preferences ->
+            preferences[SHOW_WASM_SLOW_MODE_TOAST] = enabled
         }
     }
 

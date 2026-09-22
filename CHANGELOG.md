@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ## [2.0.1]
 
+### Highlights
+- Bunori now supports amreabi-v7 device (only in slow mode)
+
 ### Major Fixes
 - Fixed a bug that led to showing the activity screen while navigating rather than novel screen
 - Downloaded chapters can now be backed and restored properly
@@ -17,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Brought back the cancellation box to confirm before cancelling or deleting downloaded chapters
+- slow mode toasts can be hidden from Advanced Settings Screen if you plan to always use slow mode
 
 ### Improvements
 - Allowed for swiping between tabs in Browse Screen

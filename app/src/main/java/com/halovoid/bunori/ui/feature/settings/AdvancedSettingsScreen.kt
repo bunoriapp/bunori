@@ -31,6 +31,7 @@ fun AdvancedSettingsScreen(
     onNavigateToWebView: () -> Unit = {}
 ) {
     val appBeta by viewModel.betaModeApp.collectAsStateWithLifecycle()
+    val showWasmSlowModeToast by viewModel.showWasmSlowModeToast.collectAsStateWithLifecycle()
     val novelPruneFreq by viewModel.novelPruneFrequency.collectAsStateWithLifecycle()
     val cacheClearFreq by viewModel.cacheClearFrequency.collectAsStateWithLifecycle()
 
@@ -97,7 +98,44 @@ fun AdvancedSettingsScreen(
             HorizontalDivider(color = BorderColor.copy(alpha = 0.2f), thickness = 0.5.dp)
             Spacer(modifier = Modifier.height(12.dp))
 
+            SectionHeader(text = "Extensions")
 
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { viewModel.setShowWasmSlowModeToast(!showWasmSlowModeToast) }
+                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Slow Mode Notifications",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = PrimaryText
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Show toast notifications when an extension falls back to portable WASM bytecode mode.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SecondaryText
+                    )
+                }
+                Switch(
+                    checked = showWasmSlowModeToast,
+                    onCheckedChange = { viewModel.setShowWasmSlowModeToast(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = PrimaryText,
+                        checkedTrackColor = BrandAccent,
+                        uncheckedThumbColor = SecondaryText,
+                        uncheckedTrackColor = DarkBackground
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = BorderColor.copy(alpha = 0.2f), thickness = 0.5.dp)
+            Spacer(modifier = Modifier.height(12.dp))
 
             SectionHeader(text = "Maintenance & Automation")
 

@@ -71,6 +71,12 @@ class SettingsViewModel(
         initialValue = false
     )
 
+    val showWasmSlowModeToast: StateFlow<Boolean> = preferenceRepository.showWasmSlowModeToast.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
     val customUserAgent: StateFlow<String?> = preferenceRepository.customUserAgent.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -337,6 +343,12 @@ class SettingsViewModel(
         viewModelScope.launch {
             preferenceRepository.setBetaModeCrawlers(enabled)
             checkForUpdates()
+        }
+    }
+
+    fun setShowWasmSlowModeToast(enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setShowWasmSlowModeToast(enabled)
         }
     }
 
