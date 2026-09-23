@@ -28,6 +28,12 @@ import com.halovoid.bunori.ui.core.theme.PrimaryText
 import com.halovoid.bunori.ui.feature.activity.components.*
 import com.halovoid.bunori.ui.navigation.AppNavigationManager
 
+sealed interface ActivityDialogState {
+    data object FilterMenu : ActivityDialogState
+    data object SourceFilterSheet : ActivityDialogState
+    data class CancelSelectedBatches(val count: Int) : ActivityDialogState
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActivityScreen(
@@ -41,7 +47,7 @@ fun ActivityScreen(
     val selectedBatchIds by viewModel.selectedBatchIds.collectAsStateWithLifecycle()
 
     var filterType by remember { mutableStateOf<JobType?>(null) }
-    var showFilterMenu by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<ActivityDialogState?>(null) }
 
     BackHandler(enabled = isSelectionMode) {
         viewModel.clearSelection()
@@ -54,12 +60,9 @@ fun ActivityScreen(
         }
     }
 
-    var showSourceFilterSheet by remember { mutableStateOf(false) }
-
     JobActionHandler(
         onResolveWebview = { id, url -> viewModel.resolveWebView(id, url) }
     ) { _ ->
-        var showCancelSelectedBatchesDialog by remember { mutableStateOf(false) }
 
         val filteredHistory = remember(requestHistory, filterType) {
             if (filterType == null) requestHistory
@@ -123,7 +126,7 @@ fun ActivityScreen(
                     title = "Filter",
                     icon = Icons.Default.FilterList,
                     onClick = {
-                        showSourceFilterSheet = true
+                        activeDialog = ActivityDialogState.SourceFilterSheet
                     }
                 ),
                 ContextualAction(
@@ -140,34 +143,46 @@ fun ActivityScreen(
                     isDestructive = true,
                     enabled = canCancel,
                     onClick = {
-                        showCancelSelectedBatchesDialog = true
+                        activeDialog = ActivityDialogState.CancelSelectedBatches(selectedBatchIds.size)
                     }
                 )
             )
         }
 
-        if (showSourceFilterSheet) {
-            SourceSelectionBottomSheet(
-                batches = filteredHistory,
-                onDismiss = { showSourceFilterSheet = false },
-                onSourceSelected = { selectedSource ->
-                    viewModel.selectBatchesBySourceDisplayName(selectedSource, filteredHistory)
-                    showSourceFilterSheet = false
-                }
-            )
-        }
-
-        if (showCancelSelectedBatchesDialog) {
-            val count = selectedBatchIds.size
-            ConfirmCancelDialog(
-                title = if (count > 1) "Cancel $count Batches?" else "Cancel Batch?",
-                message = "Are you sure you want to stop the selected ${if (count > 1) "$count batches" else "batch"}? Any progress made will be preserved, but remaining tasks will stop.",
-                onConfirm = {
-                    showCancelSelectedBatchesDialog = false
-                    viewModel.cancelSelectedBatches()
-                },
-                onDismiss = { showCancelSelectedBatchesDialog = false }
-            )
+        when (val dialog = activeDialog) {
+            is ActivityDialogState.SourceFilterSheet -> {
+                SourceSelectionBottomSheet(
+                    batches = filteredHistory,
+                    onDismiss = { activeDialog = null },
+                    onSourceSelected = { selectedSource ->
+                        viewModel.selectBatchesBySourceDisplayName(selectedSource, filteredHistory)
+                        activeDialog = null
+                    }
+                )
+            }
+            is ActivityDialogState.CancelSelectedBatches -> {
+                val count = dialog.count
+                ConfirmCancelDialog(
+                    title = if (count > 1) "Cancel $count Batches?" else "Cancel Batch?",
+                    message = "Are you sure you want to stop the selected ${if (count > 1) "$count batches" else "batch"}? Any progress made will be preserved, but remaining tasks will stop.",
+                    onConfirm = {
+                        activeDialog = null
+                        viewModel.cancelSelectedBatches()
+                    },
+                    onDismiss = { activeDialog = null }
+                )
+            }
+            is ActivityDialogState.FilterMenu -> {
+                FilterBottomSheet(
+                    currentFilter = filterType,
+                    onDismiss = { activeDialog = null },
+                    onFilterSelected = { selected ->
+                        filterType = selected
+                        activeDialog = null
+                    }
+                )
+            }
+            null -> Unit
         }
 
         LaunchedEffect(isSelectionMode, selectedBatchIds.size, contextualActions) {
@@ -222,7 +237,7 @@ fun ActivityScreen(
                                 tint = PrimaryText
                             )
                         }
-                        IconButton(onClick = { showFilterMenu = true }) {
+                        IconButton(onClick = { activeDialog = ActivityDialogState.FilterMenu }) {
                             Icon(
                                 imageVector = Icons.Default.FilterList,
                                 contentDescription = "Filter",
@@ -231,17 +246,6 @@ fun ActivityScreen(
                         }
                     }
                 )
-
-                if (showFilterMenu) {
-                    FilterBottomSheet(
-                        currentFilter = filterType,
-                        onDismiss = { showFilterMenu = false },
-                        onFilterSelected = { selected ->
-                            filterType = selected
-                            showFilterMenu = false
-                        }
-                    )
-                }
 
                 if (filteredHistory.isEmpty()) {
                     ActivityEmptyState(

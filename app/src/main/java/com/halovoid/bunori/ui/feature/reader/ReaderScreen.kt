@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.ReadingMode
 import com.halovoid.bunori.ui.core.platform.SystemBarHandler
 import com.halovoid.bunori.ui.core.platform.VolumeKeyEventManager
@@ -23,8 +24,14 @@ import com.halovoid.bunori.ui.feature.reader.components.*
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
+sealed interface ReaderDialogState {
+    data object TableOfContents : ReaderDialogState
+    data object SettingsSheet : ReaderDialogState
+    data class BlockedChapter(val chapter: Chapter) : ReaderDialogState
+}
+
 /**
- * WebView Reader screen for Bunori.
+ * WebView Reader screen.
  */
 @Composable
 fun ReaderScreen(
@@ -46,10 +53,8 @@ fun ReaderScreen(
     val customFonts by viewModel.customFonts.collectAsStateWithLifecycle()
 
     var isControlsVisible by remember { mutableStateOf(true) }
-    var isTocVisible by remember { mutableStateOf(false) }
-    var isSettingsVisible by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<ReaderDialogState?>(null) }
     var isGuideVisible by remember { mutableStateOf(false) }
-    var isBlockedDialogVisible by remember { mutableStateOf(false) }
 
     // Display visual tap zone helper for 2 seconds on initial open and whenever reading mode switches (if enabled)
     LaunchedEffect(readerSettings.readingMode, readerSettings.showTapZoneOverlay) {
@@ -177,8 +182,13 @@ fun ReaderScreen(
                 subtitle = if (totalChapters > 0) "Chapter $currentChapterNumber of $totalChapters" else null,
                 isBlockedOrEmpty = isBlockedOrEmpty && blockedChapter != null,
                 onBack = onBack,
-                onOpenToc = { isTocVisible = true },
-                onOpenBlockedDialog = { isBlockedDialogVisible = true },
+                onOpenToc = { activeDialog = ReaderDialogState.TableOfContents },
+                onOpenBlockedDialog = {
+                    val ch = blockedChapter
+                    if (ch != null) {
+                        activeDialog = ReaderDialogState.BlockedChapter(ch)
+                    }
+                },
                 onToggleFullscreen = {
                     Log.d("BunoriReader", "ReaderScreen -> TopBar fullscreen button clicked, hiding controls")
                     isControlsVisible = false
@@ -197,7 +207,7 @@ fun ReaderScreen(
                 progress = readingProgress,
                 currentChapterNumber = currentChapterNumber,
                 totalChapters = totalChapters,
-                onOpenSettings = { isSettingsVisible = true },
+                onOpenSettings = { activeDialog = ReaderDialogState.SettingsSheet },
                 onPreviousChapter = {
                     if (currentChapterNumber > 1 && tocChapters.isNotEmpty()) {
                         val prevChapter = tocChapters.getOrNull(currentChapterNumber - 2)
@@ -214,61 +224,60 @@ fun ReaderScreen(
                 }
             )
         }
+    }
 
-        // 6. Dynamic Content / Cloudflare Fallback Dialog (shown only on demand via TopBar action icon)
-        if (isBlockedDialogVisible && blockedChapter != null) {
+    // Modal Dialogs and Bottom Sheets
+    when (val dialog = activeDialog) {
+        is ReaderDialogState.BlockedChapter -> {
             BlockedChapterDialog(
-                chapter = blockedChapter!!,
+                chapter = dialog.chapter,
                 novelUrl = novelUrl,
                 onRetry = {
-                    isBlockedDialogVisible = false
-                    viewModel.reloadChapter(blockedChapter!!.id)
+                    activeDialog = null
+                    viewModel.reloadChapter(dialog.chapter.id)
                 },
                 onDismiss = {
-                    isBlockedDialogVisible = false
+                    activeDialog = null
                 },
                 onOpenWebView = { intent ->
-                    isBlockedDialogVisible = false
+                    activeDialog = null
                     extractorLauncher.launch(intent)
                 },
                 context = context
             )
         }
-    }
-
-    // Center Modal Dialog: Table of Contents with Search & Quick Jump
-    if (isTocVisible) {
-        TableOfContentsDialog(
-            chapters = tocChapters,
-            currentChapterId = currentChapter?.id,
-            onChapterSelected = { chapterId ->
-                viewModel.jumpToChapter(chapterId)
-                isTocVisible = false
-            },
-            onDismiss = { isTocVisible = false }
-        )
-    }
-
-    // Reader Settings Bottom Sheet
-    if (isSettingsVisible) {
-        ReaderSettingsBottomSheet(
-            settings = readerSettings,
-            customFonts = customFonts,
-            onUpdateTheme = viewModel::updateTheme,
-            onUpdateReadingMode = viewModel::updateReadingMode,
-            onUpdateFontFamily = viewModel::updateFontFamily,
-            onUpdateFontSize = viewModel::updateFontSize,
-            onUpdateLineHeight = viewModel::updateLineHeight,
-            onUpdatePadding = viewModel::updateHorizontalPadding,
-            onUpdateTextAlign = viewModel::updateTextAlign,
-            onUpdateVolumeKeyTurn = viewModel::updateVolumeKeyPageTurn,
-            onUpdateKeepScreenAwake = viewModel::updateKeepScreenAwake,
-            onUpdateDimImages = viewModel::updateDimImages,
-            onUpdateShowTapZoneOverlay = viewModel::updateShowTapZoneOverlay,
-            onUpdateCustomCode = viewModel::updateCustomCode,
-            onAddCustomFont = viewModel::addCustomFont,
-            onRemoveCustomFont = viewModel::removeCustomFont,
-            onDismiss = { isSettingsVisible = false }
-        )
+        is ReaderDialogState.TableOfContents -> {
+            TableOfContentsDialog(
+                chapters = tocChapters,
+                currentChapterId = currentChapter?.id,
+                onChapterSelected = { chapterId ->
+                    viewModel.jumpToChapter(chapterId)
+                    activeDialog = null
+                },
+                onDismiss = { activeDialog = null }
+            )
+        }
+        is ReaderDialogState.SettingsSheet -> {
+            ReaderSettingsBottomSheet(
+                settings = readerSettings,
+                customFonts = customFonts,
+                onUpdateTheme = viewModel::updateTheme,
+                onUpdateReadingMode = viewModel::updateReadingMode,
+                onUpdateFontFamily = viewModel::updateFontFamily,
+                onUpdateFontSize = viewModel::updateFontSize,
+                onUpdateLineHeight = viewModel::updateLineHeight,
+                onUpdatePadding = viewModel::updateHorizontalPadding,
+                onUpdateTextAlign = viewModel::updateTextAlign,
+                onUpdateVolumeKeyTurn = viewModel::updateVolumeKeyPageTurn,
+                onUpdateKeepScreenAwake = viewModel::updateKeepScreenAwake,
+                onUpdateDimImages = viewModel::updateDimImages,
+                onUpdateShowTapZoneOverlay = viewModel::updateShowTapZoneOverlay,
+                onUpdateCustomCode = viewModel::updateCustomCode,
+                onAddCustomFont = viewModel::addCustomFont,
+                onRemoveCustomFont = viewModel::removeCustomFont,
+                onDismiss = { activeDialog = null }
+            )
+        }
+        null -> Unit
     }
 }

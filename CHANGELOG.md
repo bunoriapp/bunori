@@ -12,10 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bunori now allows browsing novels alongside searching
 - New Source Search Screen
 - Categories for Library Screen
+- Similar Novel Detection while adding
 
 ### Major Fixes
 - Navigation bar stays the same height across both 3 button tap and gesture based devices
 - New Source Search Screen
+- Metadata updates are now considered high priority jobs and happen fasted
 
 ### Added
 - Search Screen for speceific extension now shows novels from that page to easily browser

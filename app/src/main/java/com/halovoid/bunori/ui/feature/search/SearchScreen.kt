@@ -17,6 +17,10 @@ import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.browse.BrowseViewModel
 import com.halovoid.bunori.ui.feature.search.components.*
 
+sealed interface SearchDialogState {
+    data object FailedSourcesSheet : SearchDialogState
+}
+
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
@@ -29,7 +33,7 @@ fun SearchScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var showFailedSourcesSheet by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<SearchDialogState?>(null) }
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedSource by remember(initialSource) { mutableStateOf(initialSource) }
@@ -112,7 +116,7 @@ fun SearchScreen(
             FailedSourcesBanner(
                 allFailedSources = allFailedSources,
                 isSearching = searchState is SearchState.Searching,
-                onResolveSheet = { showFailedSourcesSheet = true },
+                onResolveSheet = { activeDialog = SearchDialogState.FailedSourcesSheet },
                 onRetryFailed = viewModel::retryFailed,
                 onRetrySingleSource = viewModel::retrySource,
                 context = context
@@ -154,14 +158,17 @@ fun SearchScreen(
     }
 
     // 5. Failed Sources Sheet
-    if (showFailedSourcesSheet) {
-        FailedSourcesSheet(
-            allFailedSources = allFailedSources,
-            onRetrySingleSource = viewModel::retrySource,
-            onRetryAllFailed = viewModel::retryFailed,
-            onDismiss = { showFailedSourcesSheet = false },
-            context = context
-        )
+    when (activeDialog) {
+        is SearchDialogState.FailedSourcesSheet -> {
+            FailedSourcesSheet(
+                allFailedSources = allFailedSources,
+                onRetrySingleSource = viewModel::retrySource,
+                onRetryAllFailed = viewModel::retryFailed,
+                onDismiss = { activeDialog = null },
+                context = context
+            )
+        }
+        null -> Unit
     }
 }
 

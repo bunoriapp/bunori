@@ -17,6 +17,10 @@ import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.source.components.*
 import kotlinx.coroutines.flow.collectLatest
 
+sealed interface SourceDialogState {
+    data class ExtensionDetail(val item: ExtensionUiItem) : SourceDialogState
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SourceScreen(
@@ -31,7 +35,7 @@ fun SourceScreen(
     val catalogState by viewModel.catalogState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var selectedItemForDetails by remember { mutableStateOf<ExtensionUiItem?>(null) }
+    var activeDialog by remember { mutableStateOf<SourceDialogState?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.messageFlow.collectLatest { msg ->
@@ -39,20 +43,23 @@ fun SourceScreen(
         }
     }
 
-    if (selectedItemForDetails != null) {
-        val detailItem = selectedItemForDetails!!
-        ExtensionDetailDialog(
-            item = detailItem,
-            onDismiss = { selectedItemForDetails = null },
-            onUninstall = {
-                selectedItemForDetails = null
-                viewModel.uninstallExtension(detailItem.id)
-            },
-            onInstall = {
-                selectedItemForDetails = null
-                detailItem.repoEntry?.let { viewModel.installExtension(it) }
-            }
-        )
+    when (val dialog = activeDialog) {
+        is SourceDialogState.ExtensionDetail -> {
+            val detailItem = dialog.item
+            ExtensionDetailDialog(
+                item = detailItem,
+                onDismiss = { activeDialog = null },
+                onUninstall = {
+                    activeDialog = null
+                    viewModel.uninstallExtension(detailItem.id)
+                },
+                onInstall = {
+                    activeDialog = null
+                    detailItem.repoEntry?.let { viewModel.installExtension(it) }
+                }
+            )
+        }
+        null -> Unit
     }
 
     if (showHeader) {
@@ -134,7 +141,7 @@ fun SourceScreen(
                     viewModel = viewModel,
                     onNavigateToExtensionSettings = onNavigateToExtensionSettings,
                     onNavigateToExtensionInfo = onNavigateToExtensionInfo,
-                    onSelectItemForDetails = { selectedItemForDetails = it },
+                    onSelectItemForDetails = { activeDialog = SourceDialogState.ExtensionDetail(it) },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -150,7 +157,7 @@ fun SourceScreen(
                 viewModel = viewModel,
                 onNavigateToExtensionSettings = onNavigateToExtensionSettings,
                 onNavigateToExtensionInfo = onNavigateToExtensionInfo,
-                onSelectItemForDetails = { selectedItemForDetails = it },
+                onSelectItemForDetails = { activeDialog = SourceDialogState.ExtensionDetail(it) },
                 modifier = Modifier.fillMaxSize()
             )
             SnackbarHost(

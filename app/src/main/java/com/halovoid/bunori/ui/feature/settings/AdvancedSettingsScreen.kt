@@ -24,6 +24,11 @@ import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.DeleteSweep
 import kotlinx.coroutines.launch
 
+sealed interface AdvancedDialogState {
+    data object NovelPruneSheet : AdvancedDialogState
+    data object CacheClearSheet : AdvancedDialogState
+}
+
 @Composable
 fun AdvancedSettingsScreen(
     viewModel: SettingsViewModel,
@@ -35,8 +40,7 @@ fun AdvancedSettingsScreen(
     val novelPruneFreq by viewModel.novelPruneFrequency.collectAsStateWithLifecycle()
     val cacheClearFreq by viewModel.cacheClearFrequency.collectAsStateWithLifecycle()
 
-    var showNovelPruneSheet by remember { mutableStateOf(false) }
-    var showCacheClearSheet by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<AdvancedDialogState?>(null) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -143,7 +147,7 @@ fun AdvancedSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showNovelPruneSheet = true }
+                    .clickable { activeDialog = AdvancedDialogState.NovelPruneSheet }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -207,7 +211,7 @@ fun AdvancedSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showCacheClearSheet = true }
+                    .clickable { activeDialog = AdvancedDialogState.CacheClearSheet }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -303,20 +307,22 @@ fun AdvancedSettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        if (showNovelPruneSheet) {
-            NovelPruneFrequencyBottomSheet(
-                currentFrequency = novelPruneFreq,
-                onFrequencySelected = { viewModel.setNovelPruneFrequency(it) },
-                onDismiss = { showNovelPruneSheet = false }
-            )
-        }
-
-        if (showCacheClearSheet) {
-            CacheClearFrequencyBottomSheet(
-                currentFrequency = cacheClearFreq,
-                onFrequencySelected = { viewModel.setCacheClearFrequency(it) },
-                onDismiss = { showCacheClearSheet = false }
-            )
+        when (activeDialog) {
+            is AdvancedDialogState.NovelPruneSheet -> {
+                NovelPruneFrequencyBottomSheet(
+                    currentFrequency = novelPruneFreq,
+                    onFrequencySelected = { viewModel.setNovelPruneFrequency(it) },
+                    onDismiss = { activeDialog = null }
+                )
+            }
+            is AdvancedDialogState.CacheClearSheet -> {
+                CacheClearFrequencyBottomSheet(
+                    currentFrequency = cacheClearFreq,
+                    onFrequencySelected = { viewModel.setCacheClearFrequency(it) },
+                    onDismiss = { activeDialog = null }
+                )
+            }
+            null -> Unit
         }
     }
 }

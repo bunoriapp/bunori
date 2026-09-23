@@ -35,6 +35,13 @@ import com.halovoid.bunori.ui.feature.novel.components.artifact.ArtifactCard
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
+sealed interface JobDetailDialogState {
+    data class SecurityCheck(val batch: Batch) : JobDetailDialogState
+    data class CancelBatch(val batch: Batch) : JobDetailDialogState
+    data class CancelSelectedTasks(val batchId: String, val count: Int) : JobDetailDialogState
+    data object StatusFilterSheet : JobDetailDialogState
+}
+
 @Composable
 fun JobDetailScreen(
     batchId: String?,
@@ -64,10 +71,7 @@ fun JobDetailScreen(
         viewModel.clearSelection()
     }
 
-    var securityDialogBatch by remember { mutableStateOf<Batch?>(null) }
-    var showCancelDialog by remember { mutableStateOf(false) }
-    var showCancelSelectedTasksDialog by remember { mutableStateOf(false) }
-    var showStatusFilterSheet by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<JobDetailDialogState?>(null) }
 
     val selectedTasks = remember(tasks, selectedTaskIds) {
         tasks.filter { it.id in selectedTaskIds }
@@ -77,43 +81,6 @@ fun JobDetailScreen(
     val canReplay = selectedTasks.isNotEmpty() && selectedTasks.none { it.status == JobStatus.RUNNING }
     val distinctStatuses = remember(tasks) {
         tasks.map { it.status }.distinct()
-    }
-
-    if (securityDialogBatch != null) {
-        SecurityCheckDialog(
-            novelName = securityDialogBatch!!.name,
-            onConfirm = {
-                val req = securityDialogBatch!!
-                securityDialogBatch = null
-                viewModel.resolveWebView(req.id, req.novelUrl)
-            },
-            onDismiss = { securityDialogBatch = null }
-        )
-    }
-
-    if (showCancelDialog && record != null) {
-        ConfirmCancelDialog(
-            title = "Cancel Batch?",
-            message = "Are you sure you want to stop \"${record!!.name}\"? Any progress made will be preserved, but remaining tasks will stop.",
-            onConfirm = {
-                showCancelDialog = false
-                viewModel.cancelBatch(record!!.id)
-            },
-            onDismiss = { showCancelDialog = false }
-        )
-    }
-
-    if (showCancelSelectedTasksDialog && record != null) {
-        val count = selectedTaskIds.size
-        ConfirmCancelDialog(
-            title = if (count > 1) "Cancel $count Tasks?" else "Cancel Task?",
-            message = "Are you sure you want to cancel the selected ${if (count > 1) "$count tasks" else "task"}? Progress made will be preserved, but remaining items will stop.",
-            onConfirm = {
-                showCancelSelectedTasksDialog = false
-                viewModel.cancelSelectedTasks(record!!.id)
-            },
-            onDismiss = { showCancelSelectedTasksDialog = false }
-        )
     }
 
     val launchFileExport = rememberFileExportLauncher(mimeType = "*/*") { uri ->
@@ -155,15 +122,52 @@ fun JobDetailScreen(
     val isCancelling = record != null && cancellingBatchIds.contains(record!!.id)
     val isActionPending = record != null && activeActionIds.contains(record!!.id)
 
-    if (showStatusFilterSheet) {
-        StatusFilterBottomSheet(
-            distinctStatuses = distinctStatuses,
-            tasks = tasks,
-            onStatusSelected = { status ->
-                viewModel.selectTasksByStatus(status, tasks)
-            },
-            onDismiss = { showStatusFilterSheet = false }
-        )
+    when (val dialog = activeDialog) {
+        is JobDetailDialogState.SecurityCheck -> {
+            SecurityCheckDialog(
+                novelName = dialog.batch.name,
+                onConfirm = {
+                    val req = dialog.batch
+                    activeDialog = null
+                    viewModel.resolveWebView(req.id, req.novelUrl)
+                },
+                onDismiss = { activeDialog = null }
+            )
+        }
+        is JobDetailDialogState.CancelBatch -> {
+            ConfirmCancelDialog(
+                title = "Cancel Batch?",
+                message = "Are you sure you want to stop \"${dialog.batch.name}\"? Any progress made will be preserved, but remaining tasks will stop.",
+                onConfirm = {
+                    activeDialog = null
+                    viewModel.cancelBatch(dialog.batch.id)
+                },
+                onDismiss = { activeDialog = null }
+            )
+        }
+        is JobDetailDialogState.CancelSelectedTasks -> {
+            val count = dialog.count
+            ConfirmCancelDialog(
+                title = if (count > 1) "Cancel $count Tasks?" else "Cancel Task?",
+                message = "Are you sure you want to cancel the selected ${if (count > 1) "$count tasks" else "task"}? Progress made will be preserved, but remaining items will stop.",
+                onConfirm = {
+                    activeDialog = null
+                    viewModel.cancelSelectedTasks(dialog.batchId)
+                },
+                onDismiss = { activeDialog = null }
+            )
+        }
+        is JobDetailDialogState.StatusFilterSheet -> {
+            StatusFilterBottomSheet(
+                distinctStatuses = distinctStatuses,
+                tasks = tasks,
+                onStatusSelected = { status ->
+                    viewModel.selectTasksByStatus(status, tasks)
+                },
+                onDismiss = { activeDialog = null }
+            )
+        }
+        null -> Unit
     }
 
     Scaffold(
@@ -178,8 +182,12 @@ fun JobDetailScreen(
                 onPauseBatch = { viewModel.pauseBatch(it) },
                 onResumeBatch = { viewModel.resumeBatch(it) },
                 onReplayBatch = { viewModel.replayBatch(it) },
-                onRequestCancelBatch = { showCancelDialog = true },
-                onResolveSecurityCheck = { securityDialogBatch = it }
+                onRequestCancelBatch = {
+                    record?.let { activeDialog = JobDetailDialogState.CancelBatch(it) }
+                },
+                onResolveSecurityCheck = {
+                    activeDialog = JobDetailDialogState.SecurityCheck(it)
+                }
             )
         },
         bottomBar = {
@@ -201,7 +209,7 @@ fun JobDetailScreen(
                     ContextualAction(
                         title = "Filter",
                         icon = Icons.Default.FilterList,
-                        onClick = { showStatusFilterSheet = true }
+                        onClick = { activeDialog = JobDetailDialogState.StatusFilterSheet }
                     ),
                     ContextualAction(
                         title = "Replay",
@@ -214,7 +222,11 @@ fun JobDetailScreen(
                         icon = Icons.Default.Cancel,
                         isDestructive = true,
                         enabled = canCancel,
-                        onClick = { showCancelSelectedTasksDialog = true }
+                        onClick = {
+                            record?.let {
+                                activeDialog = JobDetailDialogState.CancelSelectedTasks(it.id, selectedTaskIds.size)
+                            }
+                        }
                     )
                 )
             )

@@ -32,6 +32,10 @@ import com.halovoid.bunori.ui.core.components.ScreenHeader
 import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.library.components.LibraryFilterBottomSheet
 
+sealed interface LibraryDialogState {
+    data object FilterSheet : LibraryDialogState
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -43,6 +47,7 @@ fun LibraryScreen(
     val showAllSavedNovels by viewModel.showAllSavedNovels.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     var selectedDomain by remember { mutableStateOf("Any") }
+    var activeDialog by remember { mutableStateOf<LibraryDialogState?>(null) }
     
     var isSearching by remember { mutableStateOf(false) }
 
@@ -114,28 +119,30 @@ fun LibraryScreen(
                         )
                     }
                     
-                    var showFilter by remember { mutableStateOf(false) }
-                    IconButton(onClick = { showFilter = true }) {
+                    IconButton(onClick = { activeDialog = LibraryDialogState.FilterSheet }) {
                         Icon(
                             imageVector = Icons.Default.FilterList,
                             contentDescription = "Filter",
                             tint = if (selectedDomain != "Any") BrandAccent else PrimaryText
                         )
                     }
-
-                    if (showFilter) {
-                        LibraryFilterBottomSheet(
-                            selected = selectedDomain,
-                            options = domains,
-                            onDismiss = { showFilter = false },
-                            onSelected = { selected ->
-                                selectedDomain = selected
-                                showFilter = false
-                            }
-                        )
-                    }
                 }
             )
+
+            when (activeDialog) {
+                is LibraryDialogState.FilterSheet -> {
+                    LibraryFilterBottomSheet(
+                        selected = selectedDomain,
+                        options = domains,
+                        onDismiss = { activeDialog = null },
+                        onSelected = { selected ->
+                            selectedDomain = selected
+                            activeDialog = null
+                        }
+                    )
+                }
+                null -> Unit
+            }
 
             if (showAllSavedNovels) {
                 Row(

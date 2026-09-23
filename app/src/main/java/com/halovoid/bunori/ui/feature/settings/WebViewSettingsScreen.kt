@@ -26,6 +26,12 @@ import com.halovoid.bunori.ui.core.components.ConfirmCancelDialog
 import com.halovoid.bunori.ui.core.theme.*
 import java.io.File
 
+sealed interface WebViewDialogState {
+    data object EditUserAgent : WebViewDialogState
+    data object ClearCookies : WebViewDialogState
+    data object ClearData : WebViewDialogState
+}
+
 @Composable
 fun WebViewSettingsScreen(
     viewModel: SettingsViewModel,
@@ -36,11 +42,8 @@ fun WebViewSettingsScreen(
     val customUa by viewModel.customUserAgent.collectAsStateWithLifecycle()
     val activeUa = customUa?.takeIf { it.isNotBlank() } ?: NetworkClient.DEFAULT_USER_AGENT
 
-    var showEditUaDialog by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<WebViewDialogState?>(null) }
     var editUaText by remember { mutableStateOf(activeUa) }
-
-    var showClearCookiesDialog by remember { mutableStateOf(false) }
-    var showClearDataDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -69,7 +72,7 @@ fun WebViewSettingsScreen(
                     .fillMaxWidth()
                     .clickable {
                         editUaText = activeUa
-                        showEditUaDialog = true
+                        activeDialog = WebViewDialogState.EditUserAgent
                     }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -116,7 +119,7 @@ fun WebViewSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showClearCookiesDialog = true }
+                    .clickable { activeDialog = WebViewDialogState.ClearCookies }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -139,7 +142,7 @@ fun WebViewSettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showClearDataDialog = true }
+                    .clickable { activeDialog = WebViewDialogState.ClearData }
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -195,106 +198,109 @@ fun WebViewSettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        if (showEditUaDialog) {
-            AlertDialog(
-                onDismissRequest = { showEditUaDialog = false },
-                title = { Text("Edit User Agent", color = PrimaryText) },
-                text = {
-                    Column {
-                        Text(
-                            text = "Changing the User Agent affects both WebView and background network requests.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SecondaryText
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = editUaText,
-                            onValueChange = { editUaText = it },
-                            minLines = 3,
-                            maxLines = 6,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = BrandAccent,
-                                focusedLabelColor = BrandAccent
+        when (activeDialog) {
+            is WebViewDialogState.EditUserAgent -> {
+                AlertDialog(
+                    onDismissRequest = { activeDialog = null },
+                    title = { Text("Edit User Agent", color = PrimaryText) },
+                    text = {
+                        Column {
+                            Text(
+                                text = "Changing the User Agent affects both WebView and background network requests.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SecondaryText
                             )
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(
-                            onClick = {
-                                editUaText = NetworkClient.DEFAULT_USER_AGENT
-                            },
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text("Reset to Default (Firefox Desktop)", color = BrandAccent)
-                        }
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            val trimmed = editUaText.trim()
-                            if (trimmed == NetworkClient.DEFAULT_USER_AGENT || trimmed.isEmpty()) {
-                                viewModel.setCustomUserAgent(null)
-                            } else {
-                                viewModel.setCustomUserAgent(trimmed)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = editUaText,
+                                onValueChange = { editUaText = it },
+                                minLines = 3,
+                                maxLines = 6,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = BrandAccent,
+                                    focusedLabelColor = BrandAccent
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextButton(
+                                onClick = {
+                                    editUaText = NetworkClient.DEFAULT_USER_AGENT
+                                },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text("Reset to Default (Firefox Desktop)", color = BrandAccent)
                             }
-                            showEditUaDialog = false
-                            Toast.makeText(context, "User Agent updated", Toast.LENGTH_SHORT).show()
                         }
-                    ) {
-                        Text("Save")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showEditUaDialog = false }) {
-                        Text("Cancel", color = SecondaryText)
-                    }
-                },
-                containerColor = DarkSurface
-            )
-        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                val trimmed = editUaText.trim()
+                                if (trimmed == NetworkClient.DEFAULT_USER_AGENT || trimmed.isEmpty()) {
+                                    viewModel.setCustomUserAgent(null)
+                                } else {
+                                    viewModel.setCustomUserAgent(trimmed)
+                                }
+                                activeDialog = null
+                                Toast.makeText(context, "User Agent updated", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Text("Save")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { activeDialog = null }) {
+                            Text("Cancel", color = SecondaryText)
+                        }
+                    },
+                    containerColor = DarkSurface
+                )
+            }
 
-        if (showClearCookiesDialog) {
-            ConfirmCancelDialog(
-                title = "Clear Cookies?",
-                message = "This will remove all stored website session cookies and Cloudflare clearance tokens. You may need to verify security again.",
-                onConfirm = {
-                    CookieManager.getInstance().removeAllCookies {
-                        CookieManager.getInstance().flush()
-                    }
-                    showClearCookiesDialog = false
-                    Toast.makeText(context, "All cookies cleared", Toast.LENGTH_SHORT).show()
-                },
-                onDismiss = { showClearCookiesDialog = false }
-            )
-        }
+            is WebViewDialogState.ClearCookies -> {
+                ConfirmCancelDialog(
+                    title = "Clear Cookies?",
+                    message = "This will remove all stored website session cookies and Cloudflare clearance tokens. You may need to verify security again.",
+                    onConfirm = {
+                        CookieManager.getInstance().removeAllCookies {
+                            CookieManager.getInstance().flush()
+                        }
+                        activeDialog = null
+                        Toast.makeText(context, "All cookies cleared", Toast.LENGTH_SHORT).show()
+                    },
+                    onDismiss = { activeDialog = null }
+                )
+            }
 
-        if (showClearDataDialog) {
-            ConfirmCancelDialog(
-                title = "Clear WebView Data?",
-                message = "This will delete all cached web pages, HTML5 localStorage, and Chromium engine data. It will not delete your downloaded novels.",
-                onConfirm = {
-                    try {
-                        WebView(context).apply {
-                            clearCache(true)
-                            clearFormData()
-                            clearHistory()
-                            clearSslPreferences()
-                            destroy()
+            is WebViewDialogState.ClearData -> {
+                ConfirmCancelDialog(
+                    title = "Clear WebView Data?",
+                    message = "This will delete all cached web pages, HTML5 localStorage, and Chromium engine data. It will not delete your downloaded novels.",
+                    onConfirm = {
+                        try {
+                            WebView(context).apply {
+                                clearCache(true)
+                                clearFormData()
+                                clearHistory()
+                                clearSslPreferences()
+                                destroy()
+                            }
+                            WebStorage.getInstance().deleteAllData()
+                            val webviewDir = File(context.applicationInfo.dataDir, "app_webview")
+                            if (webviewDir.exists()) {
+                                webviewDir.deleteRecursively()
+                            }
+                            activeDialog = null
+                            Toast.makeText(context, "WebView data deleted", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Failed to clear WebView data: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
-                        WebStorage.getInstance().deleteAllData()
-                        val webviewDir = File(context.applicationInfo.dataDir, "app_webview")
-                        if (webviewDir.exists()) {
-                            webviewDir.deleteRecursively()
-                        }
-                        showClearDataDialog = false
-                        Toast.makeText(context, "WebView data deleted", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Failed to clear WebView data: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                onDismiss = { showClearDataDialog = false }
-            )
+                    },
+                    onDismiss = { activeDialog = null }
+                )
+            }
+            null -> Unit
         }
     }
 }

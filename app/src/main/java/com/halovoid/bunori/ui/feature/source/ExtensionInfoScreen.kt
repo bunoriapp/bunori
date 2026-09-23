@@ -71,6 +71,10 @@ import com.halovoid.bunori.ui.feature.source.components.ConfigDivider
 import com.halovoid.bunori.ui.feature.source.components.ConfigItemRow
 import java.net.URI
 
+sealed interface ExtensionInfoDialogState {
+    data object UninstallConfirm : ExtensionInfoDialogState
+}
+
 @SuppressLint("DefaultLocale")
 @Composable
 fun ExtensionInfoScreen(
@@ -83,7 +87,7 @@ fun ExtensionInfoScreen(
     val extensionItems by viewModel.extensionItems.collectAsStateWithLifecycle()
     val inProgressIds by viewModel.inProgressIds.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var showUninstallConfirmation by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<ExtensionInfoDialogState?>(null) }
 
     LaunchedEffect(viewModel) {
         viewModel.messageFlow.collect { msg ->
@@ -179,7 +183,7 @@ fun ExtensionInfoScreen(
                         }
 
                         IconButton(
-                            onClick = { showUninstallConfirmation = true },
+                            onClick = { activeDialog = ExtensionInfoDialogState.UninstallConfirm },
                             enabled = !isActionInProgress
                         ) {
                             Icon(
@@ -537,41 +541,44 @@ fun ExtensionInfoScreen(
     }
 
     // Uninstall Confirmation Dialog
-    if (showUninstallConfirmation) {
-        AppDialog(
-            onDismissRequest = { showUninstallConfirmation = false },
-            title = {
-                Text(
-                    text = "Uninstall ${item?.name ?: "Extension"}?",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = PrimaryText
-                )
-            },
-            text = {
-                Text(
-                    text = "This will remove the extension package and delete all local crawler data associated with it.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = SecondaryText
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showUninstallConfirmation = false
-                        viewModel.uninstallExtension(extensionId)
-                        onBack()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                ) {
-                    Text("Uninstall", color = Color.White, fontWeight = FontWeight.Bold)
+    when (activeDialog) {
+        is ExtensionInfoDialogState.UninstallConfirm -> {
+            AppDialog(
+                onDismissRequest = { activeDialog = null },
+                title = {
+                    Text(
+                        text = "Uninstall ${item?.name ?: "Extension"}?",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryText
+                    )
+                },
+                text = {
+                    Text(
+                        text = "This will remove the extension package and delete all local crawler data associated with it.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SecondaryText
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            activeDialog = null
+                            viewModel.uninstallExtension(extensionId)
+                            onBack()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                    ) {
+                        Text("Uninstall", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { activeDialog = null }) {
+                        Text("Cancel", color = PrimaryText)
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showUninstallConfirmation = false }) {
-                    Text("Cancel", color = PrimaryText)
-                }
-            }
-        )
+            )
+        }
+        null -> Unit
     }
 }

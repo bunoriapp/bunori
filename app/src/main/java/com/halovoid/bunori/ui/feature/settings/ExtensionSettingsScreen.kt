@@ -24,6 +24,10 @@ import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.theme.*
 import kotlinx.coroutines.launch
 
+sealed interface ExtensionSettingsDialogState {
+    data object RepoUrl : ExtensionSettingsDialogState
+}
+
 @Composable
 fun ExtensionSettingsScreen(
     viewModel: SettingsViewModel,
@@ -33,7 +37,7 @@ fun ExtensionSettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    var showRepoDialog by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<ExtensionSettingsDialogState?>(null) }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -47,15 +51,18 @@ fun ExtensionSettingsScreen(
         }
     }
 
-    if (showRepoDialog) {
-        RepoUrlDialog(
-            initialUrl = extensionRepoUrl,
-            onDismiss = { showRepoDialog = false },
-            onSave = { newUrl ->
-                viewModel.setExtensionRepoUrl(newUrl)
-                showRepoDialog = false
-            }
-        )
+    when (activeDialog) {
+        is ExtensionSettingsDialogState.RepoUrl -> {
+            RepoUrlDialog(
+                initialUrl = extensionRepoUrl,
+                onDismiss = { activeDialog = null },
+                onSave = { newUrl ->
+                    viewModel.setExtensionRepoUrl(newUrl)
+                    activeDialog = null
+                }
+            )
+        }
+        null -> Unit
     }
 
     Scaffold(
@@ -82,7 +89,7 @@ fun ExtensionSettingsScreen(
                 title = "Repository URL",
                 subtitle = if (extensionRepoUrl.isBlank()) "None (Repository disabled)" else extensionRepoUrl,
 //                icon = Icons.Outlined.Link,
-                onClick = { showRepoDialog = true }
+                onClick = { activeDialog = ExtensionSettingsDialogState.RepoUrl }
             )
 
             Spacer(modifier = Modifier.height(16.dp))

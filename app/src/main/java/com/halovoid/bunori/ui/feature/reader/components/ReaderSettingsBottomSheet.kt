@@ -102,6 +102,11 @@ fun ReaderSettingsBottomSheet(
     }
 }
 
+sealed interface ReaderSettingsDialogState {
+    data object CustomCode : ReaderSettingsDialogState
+    data object FontSelection : ReaderSettingsDialogState
+}
+
 @Composable
 fun ReaderSettingsContent(
     settings: ReaderSettings,
@@ -123,8 +128,7 @@ fun ReaderSettingsContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var showCustomCodeDialog by remember { mutableStateOf(false) }
-    var showFontDialog by remember { mutableStateOf(false) }
+    var activeDialog by remember { mutableStateOf<ReaderSettingsDialogState?>(null) }
 
     val fontPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -221,7 +225,7 @@ fun ReaderSettingsContent(
             // 3. Font Family (Clean card that opens font selection modal)
             SectionHeader(title = "Font Family")
             Surface(
-                onClick = { showFontDialog = true },
+                onClick = { activeDialog = ReaderSettingsDialogState.FontSelection },
                 shape = RoundedCornerShape(12.dp),
                 color = DarkSurfaceVariant.copy(alpha = 0.4f),
                 border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.6f)),
@@ -352,7 +356,7 @@ fun ReaderSettingsContent(
 
             // 9. Custom CSS & Scripts
             OutlinedButton(
-                onClick = { showCustomCodeDialog = true },
+                onClick = { activeDialog = ReaderSettingsDialogState.CustomCode },
                 modifier = Modifier.fillMaxWidth(),
                 border = BorderStroke(1.dp, BorderColor)
             ) {
@@ -369,42 +373,44 @@ fun ReaderSettingsContent(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        if (showCustomCodeDialog) {
-        CustomCodeDialog(
-            initialCss = settings.customCss,
-            initialJs = settings.customJs,
-            onSave = { css, js ->
-                onUpdateCustomCode(css, js)
-                showCustomCodeDialog = false
-            },
-            onDismiss = { showCustomCodeDialog = false }
-        )
-    }
-
-    if (showFontDialog) {
-        FontSelectionDialog(
-            currentFont = settings.fontFamily,
-            customFonts = customFonts,
-            onSelectFont = { selectedFont ->
-                onUpdateFontFamily(selectedFont)
-                showFontDialog = false
-            },
-            onImportFont = {
-                fontPickerLauncher.launch(
-                    arrayOf(
-                        "font/ttf",
-                        "font/otf",
-                        "application/x-font-ttf",
-                        "application/x-font-otf",
-                        "application/octet-stream",
-                        "*/*"
-                    )
+        when (activeDialog) {
+            is ReaderSettingsDialogState.CustomCode -> {
+                CustomCodeDialog(
+                    initialCss = settings.customCss,
+                    initialJs = settings.customJs,
+                    onSave = { css, js ->
+                        onUpdateCustomCode(css, js)
+                        activeDialog = null
+                    },
+                    onDismiss = { activeDialog = null }
                 )
-            },
-            onRemoveCustomFont = onRemoveCustomFont,
-            onDismiss = { showFontDialog = false }
-        )
-    }
+            }
+            is ReaderSettingsDialogState.FontSelection -> {
+                FontSelectionDialog(
+                    currentFont = settings.fontFamily,
+                    customFonts = customFonts,
+                    onSelectFont = { selectedFont ->
+                        onUpdateFontFamily(selectedFont)
+                        activeDialog = null
+                    },
+                    onImportFont = {
+                        fontPickerLauncher.launch(
+                            arrayOf(
+                                "font/ttf",
+                                "font/otf",
+                                "application/x-font-ttf",
+                                "application/x-font-otf",
+                                "application/octet-stream",
+                                "*/*"
+                            )
+                        )
+                    },
+                    onRemoveCustomFont = onRemoveCustomFont,
+                    onDismiss = { activeDialog = null }
+                )
+            }
+            null -> Unit
+        }
 }
 
 @Composable

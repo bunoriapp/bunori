@@ -32,11 +32,7 @@ fun GeneralPreferencesScreen(
     val maxJobs by viewModel.maxConcurrentJobs.collectAsStateWithLifecycle()
     val ignoreImg by viewModel.ignoreImages.collectAsStateWithLifecycle()
     val friendlyPath by viewModel.friendlyPath.collectAsStateWithLifecycle("")
-    val cacheClearFreq by viewModel.cacheClearFrequency.collectAsStateWithLifecycle()
     val showAllSavedNovels by viewModel.showAllSavedNovels.collectAsStateWithLifecycle()
-    
-    var showResetDialog by remember { mutableStateOf(false) }
-    var showCacheClearSheet by remember { mutableStateOf(false) }
 
     val launchFolderPicker = rememberFolderPickerLauncher { uri ->
         viewModel.setExportFolder(uri)
