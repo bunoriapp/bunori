@@ -421,16 +421,6 @@ class NovelViewModel(
         }
     }
 
-    fun selectAllSources(sources: List<String>) {
-        val updated = sources.toSet()
-        _selectedSources.value = updated
-        _novelUrl.value?.let { url ->
-            viewModelScope.launch(Dispatchers.IO) {
-                preferenceRepository.saveSourcesForNovel(url, updated)
-            }
-        }
-    }
-
     fun markSelectedChaptersRead(isRead: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
             val ids = _selectedChapterIds.value.toList()

@@ -39,7 +39,7 @@ class JobFactory {
             url = novel.url,
             novelUrl = novel.url,
             type = JobType.NOVEL_METADATA,
-            priority = 0,
+            priority = 10,
             metadata = metadata,
             status = JobStatus.PENDING
         )
