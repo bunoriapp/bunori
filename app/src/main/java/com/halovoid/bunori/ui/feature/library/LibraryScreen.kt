@@ -169,7 +169,8 @@ fun LibraryScreen(
                         NovelCard(
                             novel = novel,
                             isCompactMode = true,
-                            onClick = { onNovelClick(novel.crawlerName, novel.url) }
+                            onClick = { onNovelClick(novel.crawlerName, novel.url) },
+                            showBookmark = false
                         )
                     }
                 }
@@ -184,7 +185,8 @@ fun LibraryScreen(
                     items(filteredNovels, key = { it.url }) { novel ->
                         NovelCard(
                             novel = novel,
-                            onClick = { onNovelClick(novel.crawlerName, novel.url) }
+                            onClick = { onNovelClick(novel.crawlerName, novel.url) },
+                            showBookmark = false
                         )
                     }
                 }

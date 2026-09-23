@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -31,7 +30,8 @@ fun NovelCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isCompactMode: Boolean = false,
-    isInLibrary: Boolean? = null
+    isInLibrary: Boolean? = null,
+    showBookmark: Boolean = true
 ) {
     val inLibrary = isInLibrary ?: novel.inLibrary
     val unreadCount = remember(novel.chapters) {
@@ -46,6 +46,7 @@ fun NovelCard(
         unreadCount = unreadCount,
         isInLibrary = inLibrary,
         isCompactMode = isCompactMode,
+        showBookmark = showBookmark,
         onClick = onClick,
         modifier = modifier
     )
@@ -57,7 +58,8 @@ fun NovelCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isCompactMode: Boolean = false,
-    isInLibrary: Boolean = false
+    isInLibrary: Boolean = false,
+    showBookmark: Boolean = true
 ) {
     NovelCard(
         title = item.title,
@@ -68,6 +70,7 @@ fun NovelCard(
         unreadCount = 0,
         isInLibrary = isInLibrary,
         isCompactMode = isCompactMode,
+        showBookmark = showBookmark,
         onClick = onClick,
         modifier = modifier
     )
@@ -84,17 +87,17 @@ fun NovelCard(
     subtitle: String? = null,
     unreadCount: Int = 0,
     isInLibrary: Boolean = false,
-    isCompactMode: Boolean = false
+    isCompactMode: Boolean = false,
+    showBookmark: Boolean = true
 ) {
     if (isCompactMode) {
         CompactNovelCardLayout(
             title = title,
             coverUrl = coverUrl,
             coverHttpsUrl = coverHttpsUrl,
-            crawlerName = crawlerName,
-            subtitle = subtitle,
             unreadCount = unreadCount,
             isInLibrary = isInLibrary,
+            showBookmark = showBookmark,
             onClick = onClick,
             modifier = modifier
         )
@@ -106,6 +109,7 @@ fun NovelCard(
             subtitle = subtitle,
             unreadCount = unreadCount,
             isInLibrary = isInLibrary,
+            showBookmark = showBookmark,
             onClick = onClick,
             modifier = modifier
         )
@@ -120,6 +124,7 @@ private fun ExpandedNovelCardLayout(
     subtitle: String?,
     unreadCount: Int,
     isInLibrary: Boolean,
+    showBookmark: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -161,7 +166,7 @@ private fun ExpandedNovelCardLayout(
                 }
             }
 
-            if (isInLibrary) {
+            if (showBookmark && isInLibrary) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -229,128 +234,67 @@ private fun CompactNovelCardLayout(
     title: String,
     coverUrl: String?,
     coverHttpsUrl: String?,
-    crawlerName: String?,
-    subtitle: String?,
     unreadCount: Int,
     isInLibrary: Boolean,
+    showBookmark: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .clickable { onClick() },
-        color = DarkSurface
+            .clickable { onClick() }
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        NovelCoverImage(
+            coverUrl = coverUrl,
+            coverHttpsUrl = coverHttpsUrl,
+            title = title,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(width = 52.dp, height = 72.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(DarkSurfaceVariant)
+                .size(width = 34.dp, height = 46.dp)
+                .clip(RoundedCornerShape(4.dp)),
+            shape = RoundedCornerShape(4.dp),
+            showTitleInFallback = false
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = PrimaryText,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+
+        if (unreadCount > 0) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = BrandAccent.copy(alpha = 0.15f)
             ) {
-                NovelCoverImage(
-                    coverUrl = coverUrl,
-                    coverHttpsUrl = coverHttpsUrl,
-                    title = title,
-                    modifier = Modifier.fillMaxSize(),
-                    shape = RoundedCornerShape(6.dp),
-                    showTitleInFallback = false
-                )
-
-                if (unreadCount > 0) {
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(4.dp),
-                        shape = RoundedCornerShape(4.dp),
-                        color = Color.Black.copy(alpha = 0.75f)
-                    ) {
-                        Text(
-                            text = "$unreadCount",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-
-                if (isInLibrary) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(4.dp),
-                        contentAlignment = Alignment.TopEnd
-                    ) {
-                        Surface(
-                            color = BrandAccent,
-                            shape = CircleShape,
-                            modifier = Modifier.size(16.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.CollectionsBookmark,
-                                contentDescription = "In Library",
-                                tint = Color.White,
-                                modifier = Modifier.padding(2.5.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = PrimaryText,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    text = "$unreadCount",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = BrandAccent,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (!crawlerName.isNullOrBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = BrandAccent.copy(alpha = 0.15f)
-                        ) {
-                            Text(
-                                text = crawlerName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = BrandAccent,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 10.sp,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    if (!subtitle.isNullOrBlank()) {
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SecondaryText,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
             }
+        }
 
+        if (showBookmark && isInLibrary) {
+            Spacer(modifier = Modifier.width(8.dp))
             Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = SecondaryText.copy(alpha = 0.3f),
-                modifier = Modifier.size(20.dp)
+                imageVector = Icons.Default.CollectionsBookmark,
+                contentDescription = "In Library",
+                tint = BrandAccent,
+                modifier = Modifier.size(18.dp)
             )
         }
     }

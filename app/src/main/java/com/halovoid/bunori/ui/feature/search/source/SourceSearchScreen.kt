@@ -199,6 +199,8 @@ fun SourceSearchScreen(
                                 Text(
                                     text = if (state.selectedListingId == SourceSearchViewModel.SEARCH_LISTING_ID) {
                                         "No results found for \"$searchQuery\""
+                                    } else if (state.listings.isEmpty()) {
+                                        "Search in $sourceName to explore novels"
                                     } else {
                                         "No novels found in this category"
                                     },

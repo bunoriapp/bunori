@@ -123,7 +123,14 @@ class SourceSearchViewModel(
                 }
 
                 if (availableListings.isEmpty()) {
-                    availableListings = listOf(ListingDto(id = "popular", name = "Popular"))
+                    _uiState.value = SourceExploreState.Content(
+                        listings = emptyList(),
+                        selectedListingId = "",
+                        novels = emptyList(),
+                        isLoadingContent = false,
+                        hasMore = false
+                    )
+                    return@launch
                 }
 
                 val activeId = forcedListingId ?: availableListings.first().id
@@ -260,9 +267,6 @@ class SourceSearchViewModel(
                 if (availableListings.isEmpty()) {
                     availableListings = withContext(Dispatchers.IO) {
                         cr.getListings()
-                    }
-                    if (availableListings.isEmpty()) {
-                        availableListings = listOf(ListingDto(id = "popular", name = "Popular"))
                     }
                 }
 
