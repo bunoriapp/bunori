@@ -1,10 +1,8 @@
 package com.halovoid.bunori.ui.feature.search.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -17,8 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,6 +25,7 @@ import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.ui.core.components.SourceIcon
 import com.halovoid.bunori.ui.core.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchTopBar(
     searchQuery: String,
@@ -41,7 +39,6 @@ fun SearchTopBar(
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
-    var isSearchFocused by remember { mutableStateOf(false) }
     var showSourceDropdown by remember { mutableStateOf(false) }
 
     val selectedCrawler = remember(selectedSource, installedCrawlers) {
@@ -61,89 +58,70 @@ fun SearchTopBar(
         }
     }
 
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(48.dp),
-        shape = RoundedCornerShape(14.dp),
-        color = DarkSurface,
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (isSearchFocused) BrandAccent.copy(alpha = 0.5f) else BorderColor.copy(alpha = 0.35f)
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.size(38.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = PrimaryText,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Box(
+    TopAppBar(
+        modifier = modifier,
+        title = {
+            TextField(
+                value = searchQuery,
+                onValueChange = onQueryChange,
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 4.dp),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                if (searchQuery.isEmpty()) {
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
+                placeholder = {
                     Text(
                         text = if (selectedSource != null) "Search in $selectedSource..." else "Search for novels...",
-                        color = SecondaryText.copy(alpha = 0.6f),
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontSize = 16.sp,
+                        color = SecondaryText.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                },
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = PrimaryText,
+                    fontSize = 16.sp
+                ),
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    errorIndicatorColor = Color.Transparent,
+                    focusedTextColor = PrimaryText,
+                    unfocusedTextColor = PrimaryText,
+                    cursorColor = BrandAccent
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = { onSearch() }
+                ),
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = onClearQuery) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = SecondaryText
+                            )
+                        }
+                    }
                 }
-                BasicTextField(
-                    value = searchQuery,
-                    onValueChange = onQueryChange,
-                    singleLine = true,
-                    textStyle = LocalTextStyle.current.copy(
-                        color = PrimaryText,
-                        fontSize = 14.sp
-                    ),
-                    cursorBrush = SolidColor(BrandAccent),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(
-                        onSearch = { onSearch() }
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .onFocusChanged { isSearchFocused = it.isFocused }
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = PrimaryText
                 )
             }
-
-            if (searchQuery.isNotEmpty()) {
-                IconButton(
-                    onClick = onClearQuery,
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Clear",
-                        tint = SecondaryText,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
+        },
+        actions = {
             Box {
-                IconButton(
-                    onClick = { showSourceDropdown = true },
-                    modifier = Modifier.size(38.dp)
-                ) {
+                IconButton(onClick = { showSourceDropdown = true }) {
                     if (selectedSource != null) {
                         SourceIcon(
                             model = selectedSourceIconModel,
@@ -155,8 +133,7 @@ fun SearchTopBar(
                         Icon(
                             imageVector = Icons.Default.TravelExplore,
                             contentDescription = "Select Source",
-                            tint = if (searchQuery.isNotBlank()) BrandAccent else SecondaryText,
-                            modifier = Modifier.size(20.dp)
+                            tint = if (searchQuery.isNotBlank()) BrandAccent else SecondaryText
                         )
                     }
                 }
@@ -237,6 +214,13 @@ fun SearchTopBar(
                     }
                 }
             }
-        }
-    }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = DarkBackground,
+            titleContentColor = PrimaryText,
+            navigationIconContentColor = PrimaryText,
+            actionIconContentColor = PrimaryText
+        )
+    )
 }
+

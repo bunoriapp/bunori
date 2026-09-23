@@ -56,6 +56,8 @@ import com.halovoid.bunori.ui.feature.reader.ReaderScreen
 import com.halovoid.bunori.ui.feature.reader.ReaderViewModel
 import com.halovoid.bunori.ui.feature.search.SearchScreen
 import com.halovoid.bunori.ui.feature.search.SearchViewModel
+import com.halovoid.bunori.ui.feature.search.source.SourceSearchScreen
+import com.halovoid.bunori.ui.feature.search.source.SourceSearchViewModel
 import com.halovoid.bunori.ui.feature.settings.AdvancedSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.BackupSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.GeneralPreferencesScreen
@@ -84,11 +86,29 @@ sealed class Screen(val route: String) {
     object FolderSelection: Screen("folder_selection")
     object Browse : Screen("browse")
 
-    object Search : Screen("search?source={source}") {
-        fun createRoute(source: String? = null) = if (source != null) {
-            "search?source=${URLEncoder.encode(source, "UTF-8")}"
+    object GlobalSearch : Screen("search/global?query={query}") {
+        fun createRoute(query: String? = null) = if (!query.isNullOrBlank()) {
+            "search/global?query=${URLEncoder.encode(query, "UTF-8")}"
         } else {
-            "search"
+            "search/global"
+        }
+    }
+
+    object SourceSearch : Screen("search/source?source={source}&query={query}") {
+        fun createRoute(source: String, query: String? = null) = if (!query.isNullOrBlank()) {
+            "search/source?source=${URLEncoder.encode(source, "UTF-8")}&query=${URLEncoder.encode(query, "UTF-8")}"
+        } else {
+            "search/source?source=${URLEncoder.encode(source, "UTF-8")}"
+        }
+    }
+
+    object Search : Screen("search?source={source}&query={query}") {
+        fun createRoute(source: String? = null, query: String? = null): String {
+            return if (source != null) {
+                SourceSearch.createRoute(source, query)
+            } else {
+                GlobalSearch.createRoute(query)
+            }
         }
     }
     object Library : Screen("library")
@@ -309,18 +329,15 @@ fun NavGraph(navController: NavHostController) {
             )
         }
         composable(
-            route = Screen.Search.route,
+            route = Screen.GlobalSearch.route,
             arguments = listOf(
-                navArgument("source") {
+                navArgument("query") {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
                 }
             )
         ) { backStackEntry ->
-            val sourceParam = backStackEntry.arguments?.getString("source")?.let {
-                try { URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
-            }
             val searchViewModel: SearchViewModel = viewModel(
                 factory = remember { ViewModelFactory(application) }
             )
@@ -331,12 +348,113 @@ fun NavGraph(navController: NavHostController) {
             SearchScreen(
                 viewModel = searchViewModel,
                 browseViewModel = browseViewModel,
-                initialSource = sourceParam,
+                initialSource = null,
+                onBack = { navController.popBackStack() },
+                onNavigateToSourceSearch = { sourceName, query ->
+                    navController.navigate(Screen.SourceSearch.createRoute(sourceName, query))
+                },
+                onNavigateToDetail = { crawlerName, novelUrl ->
+                    navController.navigate(Screen.Novel.createRoute(crawlerName, novelUrl))
+                }
+            )
+        }
+        composable(
+            route = Screen.SourceSearch.route,
+            arguments = listOf(
+                navArgument("source") {
+                    type = NavType.StringType
+                    nullable = false
+                },
+                navArgument("query") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val sourceParam = backStackEntry.arguments?.getString("source")?.let {
+                try { URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+            } ?: ""
+            val queryParam = backStackEntry.arguments?.getString("query")?.let {
+                try { URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+            }
+            val sourceSearchViewModel: SourceSearchViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+            val browseViewModel: BrowseViewModel = viewModel(
+                factory = remember { ViewModelFactory(application) }
+            )
+
+            SourceSearchScreen(
+                sourceName = sourceParam,
+                initialQuery = queryParam,
+                viewModel = sourceSearchViewModel,
+                browseViewModel = browseViewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToDetail = { crawlerName, novelUrl ->
                     navController.navigate(Screen.Novel.createRoute(crawlerName, novelUrl))
                 }
             )
+        }
+        composable(
+            route = Screen.Search.route,
+            arguments = listOf(
+                navArgument("source") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("query") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val sourceParam = backStackEntry.arguments?.getString("source")?.let {
+                try { URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+            }
+            val queryParam = backStackEntry.arguments?.getString("query")?.let {
+                try { URLDecoder.decode(it, "UTF-8") } catch (_: Exception) { it }
+            }
+
+            if (!sourceParam.isNullOrBlank()) {
+                val sourceSearchViewModel: SourceSearchViewModel = viewModel(
+                    factory = remember { ViewModelFactory(application) }
+                )
+                val browseViewModel: BrowseViewModel = viewModel(
+                    factory = remember { ViewModelFactory(application) }
+                )
+                SourceSearchScreen(
+                    sourceName = sourceParam,
+                    initialQuery = queryParam,
+                    viewModel = sourceSearchViewModel,
+                    browseViewModel = browseViewModel,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToDetail = { crawlerName, novelUrl ->
+                        navController.navigate(Screen.Novel.createRoute(crawlerName, novelUrl))
+                    }
+                )
+            } else {
+                val searchViewModel: SearchViewModel = viewModel(
+                    factory = remember { ViewModelFactory(application) }
+                )
+                val browseViewModel: BrowseViewModel = viewModel(
+                    factory = remember { ViewModelFactory(application) }
+                )
+                SearchScreen(
+                    viewModel = searchViewModel,
+                    browseViewModel = browseViewModel,
+                    initialSource = null,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToSourceSearch = { sourceName, query ->
+                        navController.navigate(Screen.SourceSearch.createRoute(sourceName, query))
+                    },
+                    onNavigateToDetail = { crawlerName, novelUrl ->
+                        navController.navigate(Screen.Novel.createRoute(crawlerName, novelUrl))
+                    }
+                )
+            }
         }
         composable(Screen.Library.route) {
             val factory = remember { ViewModelFactory(application) }

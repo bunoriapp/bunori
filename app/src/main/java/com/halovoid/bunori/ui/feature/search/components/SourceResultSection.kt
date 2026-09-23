@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.domain.models.SearchItem
+import com.halovoid.bunori.ui.core.components.NovelCard
 import com.halovoid.bunori.ui.core.theme.BrandAccent
 import com.halovoid.bunori.ui.core.theme.PrimaryText
 import com.halovoid.bunori.ui.core.theme.SecondaryText
@@ -23,6 +24,7 @@ fun LazyListScope.sourceResultSection(
     status: SourceSearchStatus,
     isCompactMode: Boolean,
     libraryUrls: Set<String>,
+    onDrillDown: ((String) -> Unit)? = null,
     onItemClick: (SearchItem) -> Unit
 ) {
     val count = when (status) {
@@ -31,7 +33,11 @@ fun LazyListScope.sourceResultSection(
     }
 
     item(key = "header_$source") {
-        SourceHeader(source = source, count = count)
+        SourceHeader(
+            source = source,
+            count = count,
+            onDrillDown = if (onDrillDown != null) { { onDrillDown(source) } } else null
+        )
     }
 
     when (status) {
@@ -83,8 +89,9 @@ fun LazyListScope.sourceResultSection(
                 if (isCompactMode) {
                     itemsIndexed(status.items, key = { index, item -> "${source}_${item.url}_$index" }) { _, item ->
                         val isInLibrary = libraryUrls.contains(item.url)
-                        CompactSearchResultCard(
+                        NovelCard(
                             item = item,
+                            isCompactMode = true,
                             isInLibrary = isInLibrary,
                             onClick = { onItemClick(item) }
                         )
@@ -92,16 +99,19 @@ fun LazyListScope.sourceResultSection(
                 } else {
                     item(key = "row_$source") {
                         LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             contentPadding = PaddingValues(bottom = 8.dp)
                         ) {
                             itemsIndexed(status.items, key = { index, item -> "${source}_${item.url}_$index" }) { _, item ->
                                 val isInLibrary = libraryUrls.contains(item.url)
-                                SearchResultCard(
-                                    item = item,
-                                    isInLibrary = isInLibrary,
-                                    onClick = { onItemClick(item) }
-                                )
+                                Box(modifier = Modifier.width(125.dp)) {
+                                    NovelCard(
+                                        item = item,
+                                        isCompactMode = false,
+                                        isInLibrary = isInLibrary,
+                                        onClick = { onItemClick(item) }
+                                    )
+                                }
                             }
                         }
                     }

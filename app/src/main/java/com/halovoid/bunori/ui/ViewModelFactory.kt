@@ -18,6 +18,7 @@ import com.halovoid.bunori.ui.feature.novel.NovelViewModel
 import com.halovoid.bunori.ui.feature.onboarding.FolderViewModel
 import com.halovoid.bunori.ui.feature.reader.ReaderViewModel
 import com.halovoid.bunori.ui.feature.search.SearchViewModel
+import com.halovoid.bunori.ui.feature.search.source.SourceSearchViewModel
 import com.halovoid.bunori.ui.feature.settings.SettingsViewModel
 
 class ViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
@@ -29,6 +30,9 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             }
             modelClass.isAssignableFrom(SearchViewModel::class.java) -> {
                 SearchViewModel(application) as T
+            }
+            modelClass.isAssignableFrom(SourceSearchViewModel::class.java) -> {
+                SourceSearchViewModel(application) as T
             }
             modelClass.isAssignableFrom(NovelViewModel::class.java) -> {
                 NovelViewModel(

@@ -10,13 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Highlights
 - Bunori now allows browsing novels alongside searching
+- New Source Search Screen
+- Categories for Library Screen
 
 ### Major Fixes
-- Navigation bar stays the same heigh across both 3 button tap and gesture based devices
+- Navigation bar stays the same height across both 3 button tap and gesture based devices
+- New Source Search Screen
 
 ### Added
 - Search Screen for speceific extension now shows novels from that page to easily browser
 - New light mode themes for reader
+- similar novel detection and indication before adding to library
+
+### Improvements
+- novel cards are now treated as global cards that should be used simlarly across all screen
+- new compact mode for novel cards
+- fixed the label under Heart in Novel Screen
 
 ## [2.0.1] - 2026-09-22
 

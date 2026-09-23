@@ -27,11 +27,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.ui.core.components.MutedEmptyState
+import com.halovoid.bunori.ui.core.components.NovelCard
 import com.halovoid.bunori.ui.core.components.ScreenHeader
 import com.halovoid.bunori.ui.core.theme.*
-import com.halovoid.bunori.ui.feature.library.components.CompactNovelCard
 import com.halovoid.bunori.ui.feature.library.components.LibraryFilterBottomSheet
-import com.halovoid.bunori.ui.feature.library.components.NovelCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -167,8 +166,9 @@ fun LibraryScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(filteredNovels, key = { it.url }) { novel ->
-                        CompactNovelCard(
+                        NovelCard(
                             novel = novel,
+                            isCompactMode = true,
                             onClick = { onNovelClick(novel.crawlerName, novel.url) }
                         )
                     }

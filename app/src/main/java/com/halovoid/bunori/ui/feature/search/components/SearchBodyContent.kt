@@ -18,6 +18,7 @@ fun SearchBodyContent(
     isCompactMode: Boolean,
     libraryUrls: Set<String>,
     onNavigateToRequest: () -> Unit,
+    onDrillDown: ((String) -> Unit)? = null,
     onItemClick: (SearchItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -28,7 +29,7 @@ fun SearchBodyContent(
             }
             is SearchState.Error -> {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -44,6 +45,7 @@ fun SearchBodyContent(
                     isCompactMode = isCompactMode,
                     libraryUrls = libraryUrls,
                     onNavigateToRequest = onNavigateToRequest,
+                    onDrillDown = onDrillDown,
                     onItemClick = onItemClick
                 )
             }
@@ -57,6 +59,7 @@ private fun SearchResultsList(
     isCompactMode: Boolean,
     libraryUrls: Set<String>,
     onNavigateToRequest: () -> Unit,
+    onDrillDown: ((String) -> Unit)? = null,
     onItemClick: (SearchItem) -> Unit
 ) {
     val allDone = state.sourceStates.all { it.value !is SourceSearchStatus.Loading }
@@ -84,6 +87,7 @@ private fun SearchResultsList(
                 status = status,
                 isCompactMode = isCompactMode,
                 libraryUrls = libraryUrls,
+                onDrillDown = onDrillDown,
                 onItemClick = onItemClick
             )
         }

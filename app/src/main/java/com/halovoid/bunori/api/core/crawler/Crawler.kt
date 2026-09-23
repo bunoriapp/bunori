@@ -5,6 +5,7 @@ import com.halovoid.bunori.api.core.config.CrawlerConfig
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
+import com.halovoid.bunori.extension.api.models.ListingDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -67,6 +68,12 @@ abstract class Crawler {
     abstract suspend fun getChapterContent(chapterUrl: String): String?
 
     abstract suspend fun getSearchResults(query: String): List<Novel>
+
+    open fun getListings(): List<ListingDto> = emptyList()
+
+    open suspend fun getListingNovels(listingId: String, page: Int = 1): List<Novel> = emptyList()
+
+    open suspend fun searchNovels(query: String, page: Int = 1): List<Novel> = getSearchResults(query)
 
 
     open suspend fun downloadCover(url: String) : ByteArray? {

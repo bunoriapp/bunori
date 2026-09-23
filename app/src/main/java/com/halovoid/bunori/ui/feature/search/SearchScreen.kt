@@ -23,6 +23,7 @@ fun SearchScreen(
     browseViewModel: BrowseViewModel,
     onBack: () -> Unit,
     onNavigateToRequest: () -> Unit = {},
+    onNavigateToSourceSearch: (String, String?) -> Unit = { _, _ -> },
     onNavigateToDetail: (String, String) -> Unit,
     initialSource: String? = null,
     modifier: Modifier = Modifier
@@ -67,18 +68,8 @@ fun SearchScreen(
     }
 
     Scaffold(
-        containerColor = DarkBackground
-    ) { innerPadding ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .statusBarsPadding()
-                .padding(horizontal = 14.dp)
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 1. Search Bar Header
+        containerColor = DarkBackground,
+        topBar = {
             SearchTopBar(
                 searchQuery = searchQuery,
                 onQueryChange = { searchQuery = it },
@@ -108,6 +99,14 @@ fun SearchScreen(
                 },
                 focusRequester = focusRequester
             )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 14.dp)
+        ) {
 
             // 2. Failed Sources Banner Notice
             FailedSourcesBanner(
@@ -138,6 +137,9 @@ fun SearchScreen(
                 isCompactMode = isCompactMode,
                 libraryUrls = libraryUrls,
                 onNavigateToRequest = onNavigateToRequest,
+                onDrillDown = { source ->
+                    onNavigateToSourceSearch(source, searchQuery.takeIf { it.isNotBlank() })
+                },
                 onItemClick = { item ->
                     handleSearchResultClick(
                         item = item,

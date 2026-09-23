@@ -5,6 +5,7 @@ import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.extension.api.IExtension
+import com.halovoid.bunori.extension.api.models.ListingDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -62,6 +63,46 @@ class ExtensionCrawlerAdapter(
             )
         }
         android.util.Log.i("ExtensionCrawlerAdapter", "[${extension.metadata.id}] [TIMING getSearchResults] ${System.currentTimeMillis() - start}ms (${mapped.size} novels)")
+        mapped
+    }
+
+    override fun getListings(): List<ListingDto> = extension.getListings()
+
+    override suspend fun getListingNovels(listingId: String, page: Int): List<Novel> = withContext(Dispatchers.IO) {
+        val start = System.currentTimeMillis()
+        val results = extension.getListingNovels(listingId, page)
+        val mapped = results.map { dto ->
+            Novel(
+                url = dto.url,
+                title = dto.title,
+                author = dto.author,
+                coverUrl = dto.coverUrl,
+                description = null,
+                chapters = emptyList(),
+                crawlerName = extension.metadata.name,
+                coverHttpsUrl = dto.coverUrl
+            )
+        }
+        android.util.Log.i("ExtensionCrawlerAdapter", "[${extension.metadata.id}] [TIMING getListingNovels '$listingId' p$page] ${System.currentTimeMillis() - start}ms (${mapped.size} novels)")
+        mapped
+    }
+
+    override suspend fun searchNovels(query: String, page: Int): List<Novel> = withContext(Dispatchers.IO) {
+        val start = System.currentTimeMillis()
+        val results = extension.search(query, page)
+        val mapped = results.map { dto ->
+            Novel(
+                url = dto.url,
+                title = dto.title,
+                author = dto.author,
+                coverUrl = dto.coverUrl,
+                description = null,
+                chapters = emptyList(),
+                crawlerName = extension.metadata.name,
+                coverHttpsUrl = dto.coverUrl
+            )
+        }
+        android.util.Log.i("ExtensionCrawlerAdapter", "[${extension.metadata.id}] [TIMING searchNovels '$query' p$page] ${System.currentTimeMillis() - start}ms (${mapped.size} novels)")
         mapped
     }
 
