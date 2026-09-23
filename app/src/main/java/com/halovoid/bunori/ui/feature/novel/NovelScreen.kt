@@ -63,6 +63,7 @@ import com.halovoid.bunori.ui.core.theme.PrimaryAccent
 import com.halovoid.bunori.ui.core.theme.PrimaryText
 import com.halovoid.bunori.ui.feature.source.webview.WebViewActivity
 import com.halovoid.bunori.ui.feature.activity.components.DownloadRangeDialog
+import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.feature.novel.components.ChapterFilterSortSheet
 import com.halovoid.bunori.ui.feature.novel.components.JumpToChapterBottomSheet
 import com.halovoid.bunori.ui.feature.novel.components.NovelActionRow
@@ -70,6 +71,7 @@ import com.halovoid.bunori.ui.feature.novel.components.NovelHeroSection
 import com.halovoid.bunori.ui.feature.novel.components.NovelMetadataTable
 import com.halovoid.bunori.ui.feature.novel.components.NovelSynopsisSection
 import com.halovoid.bunori.ui.feature.novel.components.NovelTopBar
+import com.halovoid.bunori.ui.feature.novel.components.SimilarNovelsBottomSheet
 import com.halovoid.bunori.ui.feature.novel.components.SourceFilterBottomSheet
 import com.halovoid.bunori.ui.feature.novel.components.novelTableOfContents
 import kotlinx.coroutines.launch
@@ -81,6 +83,7 @@ sealed interface NovelDialogState {
     data object FilterSheet : NovelDialogState
     data object SourceFilterSheet : NovelDialogState
     data object JumpToChapter : NovelDialogState
+    data class SimilarNovelsWarning(val similarNovels: List<Novel>) : NovelDialogState
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -267,7 +270,11 @@ fun NovelScreen(
                                 isActivityRunning = activeBatch != null,
                                 artifactsExist = chapters.isNotEmpty(),
                                 downloadEnabled = chapters.isNotEmpty(),
-                                onFavoriteClick = { viewModel.toggleLibrary(currentNovel) },
+                                onFavoriteClick = {
+                                    viewModel.toggleLibrary(currentNovel) { similarList ->
+                                        activeDialog = NovelDialogState.SimilarNovelsWarning(similarList)
+                                    }
+                                },
                                 onDownloadClick = { activeDialog = NovelDialogState.DownloadRange },
                                 onArtifactsClick = onArtifactsClick,
                                 onWebViewClick = {
@@ -338,7 +345,7 @@ fun NovelScreen(
                 )
             }
 
-            when (activeDialog) {
+            when (val dialog = activeDialog) {
                 is NovelDialogState.ConfirmDelete -> {
                     ConfirmDeleteDialog(
                         title = "Delete novel?",
@@ -418,6 +425,20 @@ fun NovelScreen(
                                     listState.animateScrollToItem(headerItemCount + chapterIndexInList)
                                 }
                             }
+                        },
+                        onDismiss = { activeDialog = null }
+                    )
+                }
+                is NovelDialogState.SimilarNovelsWarning -> {
+                    SimilarNovelsBottomSheet(
+                        similarNovels = dialog.similarNovels,
+                        onAddAnyway = {
+                            viewModel.forceAddToLibrary(currentNovel)
+                            activeDialog = null
+                        },
+                        onNovelClick = { similarNovel ->
+                            activeDialog = null
+                            viewModel.loadNovel(similarNovel.url)
                         },
                         onDismiss = { activeDialog = null }
                     )

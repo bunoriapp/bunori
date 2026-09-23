@@ -26,6 +26,7 @@ import com.halovoid.bunori.domain.usecase.DeleteChapterUseCase
 import com.halovoid.bunori.domain.usecase.ReplayChapterUseCase
 import com.halovoid.bunori.ui.core.platform.openFile
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ExportFormat
+import com.halovoid.bunori.utils.SimhashUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -349,9 +350,31 @@ class NovelViewModel(
         _novelUrl.value = novelUrl
     }
 
-    fun toggleLibrary(novel: Novel) {
+    fun toggleLibrary(novel: Novel, onSimilarFound: ((List<Novel>) -> Unit)? = null) {
+        if (novel.inLibrary) {
+            viewModelScope.launch(Dispatchers.IO) {
+                novelRepository.toggleLibrary(novel.url, false)
+            }
+        } else {
+            viewModelScope.launch(Dispatchers.IO) {
+                val hash = novel.titleHash ?: SimhashUtils.generateSimhash(novel.title)
+                val similar = novelRepository.getSimilarNovels(hash, threshold = 6)
+                    .filter { it.url != novel.url }
+
+                if (similar.isNotEmpty() && onSimilarFound != null) {
+                    withContext(Dispatchers.Main) {
+                        onSimilarFound(similar)
+                    }
+                } else {
+                    novelRepository.toggleLibrary(novel.url, true)
+                }
+            }
+        }
+    }
+
+    fun forceAddToLibrary(novel: Novel) {
         viewModelScope.launch(Dispatchers.IO) {
-            novelRepository.toggleLibrary(novel.url, !novel.inLibrary)
+            novelRepository.toggleLibrary(novel.url, true)
         }
     }
 

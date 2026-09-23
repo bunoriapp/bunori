@@ -110,9 +110,8 @@ class NovelRepositoryImpl private constructor(context: Context) : NovelRepositor
 
     override suspend fun getSimilarNovels(hash: Long, threshold: Int): List<Novel> = withContext(Dispatchers.IO) {
         novelDao.getAllNovelsOnce().map { it.toDomain() }.filter { existingNovel ->
-            existingNovel.titleHash?.let { existingHash ->
-                SimhashUtils.hammingDistance(hash, existingHash) <= threshold
-            } ?: false
+            val existingHash = existingNovel.titleHash ?: SimhashUtils.generateSimhash(existingNovel.title)
+            SimhashUtils.hammingDistance(hash, existingHash) <= threshold
         }
     }
 
