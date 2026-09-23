@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.0.2] - 2026-09-23
+
+### Highlights
+- Bunori now allows browsing novels alongside searching
+
+### Major Fixes
+- Navigation bar stays the same heigh across both 3 button tap and gesture based devices
+
+### Added
+- Search Screen for speceific extension now shows novels from that page to easily browser
+- New light mode themes for reader
+
 ## [2.0.1] - 2026-09-22
 
 ### Highlights

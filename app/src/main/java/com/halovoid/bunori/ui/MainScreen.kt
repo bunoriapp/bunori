@@ -122,58 +122,69 @@ private fun BunoriNavigationBar(
     isCrawlerUpdateAvailable: Boolean,
     onNavigate: (String) -> Unit
 ) {
-    NavigationBar(
-        containerColor = DarkBackground,
-        tonalElevation = 8.dp
+    Surface(
+        color = DarkBackground,
+        tonalElevation = 8.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        mainTabs.forEach { tab ->
-            val isSelected = currentDestination?.hierarchy?.any { it.route == tab.screen.route } == true
-            NavigationBarItem(
-                icon = { 
-                    BadgedBox(
-                        badge = {
-                            if (tab.label == "More" && isAppUpdateAvailable) {
-                                Badge(
-                                    containerColor = BrandAccent,
-                                    contentColor = Color.White
-                                ) {
-                                    Text("1")
-                                }
-                            } else if (tab.label == "Browse" && isCrawlerUpdateAvailable) {
-                                Badge(
-                                    containerColor = BrandAccent,
-                                    contentColor = Color.White
-                                ) {
-                                    Text("1")
+        NavigationBar(
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp,
+            windowInsets = WindowInsets(0, 0, 0, 0),
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+                .height(64.dp)
+        ) {
+            mainTabs.forEach { tab ->
+                val isSelected = currentDestination?.hierarchy?.any { it.route == tab.screen.route } == true
+                NavigationBarItem(
+                    icon = { 
+                        BadgedBox(
+                            badge = {
+                                if (tab.label == "More" && isAppUpdateAvailable) {
+                                    Badge(
+                                        containerColor = BrandAccent,
+                                        contentColor = Color.White
+                                    ) {
+                                        Text("1")
+                                    }
+                                } else if (tab.label == "Browse" && isCrawlerUpdateAvailable) {
+                                    Badge(
+                                        containerColor = BrandAccent,
+                                        contentColor = Color.White
+                                    ) {
+                                        Text("1")
+                                    }
                                 }
                             }
+                        ) {
+                            AnimatedTabIcon(
+                                isSelected = isSelected,
+                                animResId = tab.animResId,
+                                contentDescription = tab.label
+                            )
                         }
-                    ) {
-                        AnimatedTabIcon(
-                            isSelected = isSelected,
-                            animResId = tab.animResId,
-                            contentDescription = tab.label
-                        )
-                    }
-                },
-                label = { 
-                    Text(
-                        text = tab.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) BrandAccent else SecondaryText
-                    ) 
-                },
-                selected = isSelected,
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = BrandAccent,
-                    unselectedIconColor = SecondaryText,
-                    selectedTextColor = BrandAccent,
-                    unselectedTextColor = SecondaryText,
-                    indicatorColor = BrandAccent.copy(alpha = 0.2f)
-                ),
-                onClick = { onNavigate(tab.screen.route) }
-            )
+                    },
+                    label = { 
+                        Text(
+                            text = tab.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) BrandAccent else SecondaryText
+                        ) 
+                    },
+                    selected = isSelected,
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = BrandAccent,
+                        unselectedIconColor = SecondaryText,
+                        selectedTextColor = BrandAccent,
+                        unselectedTextColor = SecondaryText,
+                        indicatorColor = BrandAccent.copy(alpha = 0.2f)
+                    ),
+                    onClick = { onNavigate(tab.screen.route) }
+                )
+            }
         }
     }
 }
