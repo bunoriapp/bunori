@@ -26,7 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Improvements
 - novel cards are now treated as global cards that should be used similarly across all screen
 - new compact mode for novel cards
-- fixed the label under Heart in Novel Screen
 
 ## [2.0.1] - 2026-09-22
 
