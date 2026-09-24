@@ -23,6 +23,7 @@ kotlin-json = "1.9.0"
 kotlinx-coroutines = "1.10.1"
 foundationLayout = "1.11.4"
 webkit = "1.12.1"
+quickjs = "1.0.7"
 
 [libraries]
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
@@ -58,6 +59,7 @@ material = { group = "com.google.android.material", name = "material", version.r
 androidx-compose-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+quickjs-android = { group = "io.github.dokar3", name = "quickjs-kt-android", version.ref = "quickjs" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

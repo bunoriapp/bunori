@@ -11,6 +11,7 @@ import com.halovoid.bunori.extension.api.models.ExtensionMetadata
 import com.halovoid.bunori.extension.api.models.ExtensionRepoEntry
 import com.halovoid.bunori.extension.api.pkg.BextUtils
 import com.halovoid.bunori.extension.loader.BextLoader
+import com.halovoid.bunori.extension.loader.LnReaderLoader
 import com.halovoid.bunori.extension.loader.LoadedExtension
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeUnit
 class ExtensionManager private constructor(private val context: Context) {
 
     private val bextLoader = BextLoader(context)
+    private val lnReaderLoader = LnReaderLoader(context)
     private val _installedExtensions = MutableStateFlow<Map<String, LoadedExtension>>(emptyMap())
     val installedExtensions: StateFlow<Map<String, LoadedExtension>> = _installedExtensions.asStateFlow()
 
@@ -73,15 +75,24 @@ class ExtensionManager private constructor(private val context: Context) {
 
         for (dir in dirs) {
             val bextFile = File(dir, "package.bext")
-            if (bextFile.exists() && bextFile.length() > 0) {
-                try {
-                    val loadedExt = bextLoader.loadFromBextFile(bextFile)
-                    loaded[loadedExt.manifest.id] = loadedExt
-                    Log.i(TAG, "Loaded extension on startup: ${loadedExt.manifest.name}")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to load extension from ${bextFile.absolutePath}", e)
-                    failed.add(dir.name)
+            val jsFile = File(dir, "plugin.js")
+
+            try {
+                when {
+                    bextFile.exists() && bextFile.length() > 0 -> {
+                        val loadedExt = bextLoader.loadFromBextFile(bextFile)
+                        loaded[loadedExt.manifest.id] = loadedExt
+                        Log.i(TAG, "Loaded BEXT extension on startup: ${loadedExt.manifest.name}")
+                    }
+                    jsFile.exists() && jsFile.length() > 0 -> {
+                        val loadedExt = lnReaderLoader.loadFromDirectory(dir)
+                        loaded[loadedExt.manifest.id] = loadedExt
+                        Log.i(TAG, "Loaded LNReader extension on startup: ${loadedExt.manifest.name}")
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load extension from ${dir.absolutePath}", e)
+                failed.add(dir.name)
             }
         }
 

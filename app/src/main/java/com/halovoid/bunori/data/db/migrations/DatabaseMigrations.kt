@@ -2,15 +2,24 @@ package com.halovoid.bunori.data.db.migrations
 
 import android.net.Uri
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 object DatabaseMigrations {
 
+    val Migration_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                    UPDATE novels SET crawlerName = 'bext.' || crawlerName WHERE crawlerName NOT LIKE 'bext.%'
+                """.trimIndent())
+        }
+    }
     val SANITIZE_CALLBACK = object : RoomDatabase.Callback() {
         override fun onOpen(db: SupportSQLiteDatabase) {
             super.onOpen(db)
             sanitizeLegacyPaths(db)
         }
+
 
         private fun sanitizeLegacyPaths(db: SupportSQLiteDatabase) {
             try {

@@ -10,6 +10,10 @@ import java.io.File
 data class LoadedExtension(
     val manifest: ExtensionManifest,
     val extension: IExtension,
-    val bextFile: File,
+    val bextFile: File? = null,
+    val jsFile: File? = null,
     val iconFile: File? = null
-)
+) {
+    val packageFile: File?
+        get() = bextFile ?: jsFile
+}

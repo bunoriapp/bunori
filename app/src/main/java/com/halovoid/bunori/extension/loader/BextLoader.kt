@@ -24,13 +24,6 @@ class BextLoader(private val context: Context) {
         private const val TAG = "BextLoader"
     }
 
-    /**
-     * Unpacks a .bext archive file, saves assets to isolated storage,
-     * and instantiates the [WamrExtension].
-     *
-     * @param bextFile The .bext archive file.
-     * @return [LoadedExtension] with initialized instance and metadata.
-     */
     fun loadFromBextFile(bextFile: File): LoadedExtension {
         if (!bextFile.exists() || bextFile.length() == 0L) {
             throw IllegalArgumentException("File does not exist or is empty: ${bextFile.absolutePath}")
@@ -44,10 +37,6 @@ class BextLoader(private val context: Context) {
         return loadPackage(pkg, bextFile)
     }
 
-    /**
-     * Installs in-memory [BextPackage] into isolated storage and loads it into [WamrExtension].
-     * Prioritizes native AOT machine code matching device ABI, with fallback to source.wasm.
-     */
     fun loadPackage(pkg: BextPackage, sourceBextFile: File): LoadedExtension {
         val extensionId = pkg.manifest.id
         val targetDir = File(File(context.filesDir, "installed_extensions"), extensionId)

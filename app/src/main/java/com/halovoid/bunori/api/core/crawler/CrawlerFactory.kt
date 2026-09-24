@@ -20,15 +20,15 @@ object CrawlerFactory {
 
     fun getCrawlers(): List<Crawler> = staticCrawlers + dynamicCrawlers
 
-    fun getCrawler(name: String): Crawler? = getCrawlers().find { it.name == name }
+    fun getCrawler(name: String): Crawler? = getCrawlers().find { it.id.equals(name, ignoreCase =true) }
 
+    // fallback mechanism if metadata for the crawler name does not appear
     fun getCrawlerByUrl(url: String): Crawler? = getCrawlers().find { it.canHandle(url) }
 
     fun registerCrawlers(newCrawlers: List<Crawler>) {
-        // Filter out crawlers that have the same name as a built-in static crawler
         val filteredCrawlers = newCrawlers.filter { dynamic ->
-            staticCrawlers.none { static -> static.name == dynamic.name }
-        }
+            staticCrawlers.none { static -> static.id == dynamic.id }
+        }.distinctBy {it.id}
         
         dynamicCrawlers.clear()
         dynamicCrawlers.addAll(filteredCrawlers)
