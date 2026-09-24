@@ -12,6 +12,7 @@ import com.halovoid.bunori.R
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.scheduler.notification.NotificationChannels
 import com.halovoid.bunori.extension.manager.ExtensionManager
+import com.halovoid.bunori.lnreader.LnReaderRuntime
 import com.halovoid.bunori.utils.Logger
 import kotlinx.coroutines.flow.first
 
@@ -34,10 +35,10 @@ class ExtensionUpdateWorker(
                 return Result.success()
             }
 
-            // Ensure installed extensions are loaded into memory
             extensionManager.loadInstalledExtensions()
 
-            // Fetch and check for updates against remote index.min.json
+            LnReaderRuntime.updateIfAvailable(applicationContext)
+
             val updates = extensionManager.checkForUpdates(repoUrl)
 
             if (updates.isNotEmpty()) {

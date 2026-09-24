@@ -13,6 +13,7 @@ import com.halovoid.bunori.extension.api.pkg.BextUtils
 import com.halovoid.bunori.extension.loader.BextLoader
 import com.halovoid.bunori.extension.loader.LnReaderLoader
 import com.halovoid.bunori.extension.loader.LoadedExtension
+import com.halovoid.bunori.lnreader.LnReaderRuntime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -216,6 +217,8 @@ class ExtensionManager private constructor(private val context: Context) {
      * Checks if any installed extensions have updates across the provided [repoUrls].
      */
     suspend fun checkForUpdates(repoUrls: List<String>): List<ExtensionRepoEntry> = withContext(Dispatchers.IO) {
+        LnReaderRuntime.updateIfAvailable(context)
+
         val result = fetchAllRepoCatalogs(repoUrls, forceNetwork = true)
         val catalog = result.getOrNull() ?: return@withContext emptyList()
         val installed = _installedExtensions.value
