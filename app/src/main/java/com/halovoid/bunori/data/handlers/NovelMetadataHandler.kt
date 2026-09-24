@@ -36,8 +36,10 @@ class NovelMetadataHandler(
             ?: return JobResult.Failure(Exception("No Crawler Found for name: $crawlerName"))
 
         return try {
+            android.util.Log.i("NovelMetadataHandler", "Fetching details for ${task.novelUrl} using crawler $crawlerName")
             // Fetch latest details from the source
             val novel = crawler.getNovelDetails(task.novelUrl)
+            android.util.Log.i("NovelMetadataHandler", "Fetched details for ${task.novelUrl}: title='${novel.title}', chapters=${novel.chapters.size}")
 
             // Refresh cover image if available and not ignored
             val shouldIgnoreImages = preferenceRepository.ignoreImages.first()
@@ -106,8 +108,10 @@ class NovelMetadataHandler(
             // Currently user would need to manually do a full novel fetch
             JobResult.Success
         } catch (e: Exception) {
+            android.util.Log.e("NovelMetadataHandler", "Failed to handle novel metadata for ${task.novelUrl}: ${e.message}", e)
             val isCloudflare = crawler.webviewNeeded == true || 
                 WamrHttpBridge.consumeCloudflareBlocked() ||
+                com.halovoid.bunori.lnreader.LnReaderHttpBridge.consumeCloudflareBlocked() ||
                 e is CloudflareBypassException ||
                 e.cause is CloudflareBypassException ||
                 e.message?.contains("Cloudflare", ignoreCase = true) == true

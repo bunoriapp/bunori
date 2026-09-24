@@ -58,7 +58,12 @@ class LnReaderExtension(
             bridge.evaluate(script)
         } ?: throw IllegalStateException("Empty response from getNovelDetails for $novelUrl")
 
-        val details = ExtensionJson.json.decodeFromString<NovelDto>(json)
+        val details = try {
+            ExtensionJson.json.decodeFromString<NovelDto>(json)
+        } catch (e: Exception) {
+            Log.e(TAG, "[${metadata.id}] Failed to deserialize NovelDto: ${e.message}. JSON: ${json.take(500)}", e)
+            throw e
+        }
         Log.i(TAG, "[${metadata.id}] [JS getNovelDetails] total=${System.currentTimeMillis() - start}ms (chapters=${details.chapters.size})")
         details
     }

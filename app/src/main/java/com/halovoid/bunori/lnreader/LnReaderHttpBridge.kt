@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.GzipSource
+import okio.buffer
 
 @Serializable
 data class LnReaderHttpRequest(
@@ -29,7 +31,13 @@ object LnReaderHttpBridge {
     private val TAG = "LnReaderHttpBridge"
 
     @Volatile
-    var lastCloudflareBlockedUrl: String? = null;
+    var lastCloudflareBlockedUrl: String? = null
+
+    fun consumeCloudflareBlocked(): Boolean {
+        val blocked = lastCloudflareBlockedUrl != null
+        lastCloudflareBlockedUrl = null
+        return blocked
+    }
 
     fun execute(url: String, initJson: String): String {
         return try {
@@ -44,13 +52,37 @@ object LnReaderHttpBridge {
             }
 
             val reqBuilder = Request.Builder().url(req.url.ifBlank { url })
-            req.headers.forEach { (k, v) -> reqBuilder.header(k, v) }
+            // Strip manual Accept-Encoding so OkHttp can transparently handle gzip and decompression
+            req.headers.forEach { (k, v) ->
+                if (!k.equals("Accept-Encoding", ignoreCase = true)) {
+                    reqBuilder.header(k, v)
+                }
+            }
 
-            if (req.method.equals("POST", ignoreCase = true)) {
-                val contentType = req.headers["Content-Type"] ?: req.headers["content-type"] ?: "application/x-www-form-urlencoded"
-                reqBuilder.post((req.body ?: "").toRequestBody(contentType.toMediaTypeOrNull()))
-            } else {
-                reqBuilder.get()
+            val method = req.method.uppercase()
+            when (method) {
+                "POST" -> {
+                    val contentType = req.headers["Content-Type"] ?: req.headers["content-type"] ?: "application/x-www-form-urlencoded"
+                    reqBuilder.post((req.body ?: "").toRequestBody(contentType.toMediaTypeOrNull()))
+                }
+                "PUT" -> {
+                    val contentType = req.headers["Content-Type"] ?: req.headers["content-type"] ?: "application/json"
+                    reqBuilder.put((req.body ?: "").toRequestBody(contentType.toMediaTypeOrNull()))
+                }
+                "PATCH" -> {
+                    val contentType = req.headers["Content-Type"] ?: req.headers["content-type"] ?: "application/json"
+                    reqBuilder.patch((req.body ?: "").toRequestBody(contentType.toMediaTypeOrNull()))
+                }
+                "DELETE" -> {
+                    if (req.body != null) {
+                        val contentType = req.headers["Content-Type"] ?: req.headers["content-type"] ?: "application/json"
+                        reqBuilder.delete(req.body.toRequestBody(contentType.toMediaTypeOrNull()))
+                    } else {
+                        reqBuilder.delete()
+                    }
+                }
+                "HEAD" -> reqBuilder.head()
+                else -> reqBuilder.get()
             }
 
             NetworkClient.okHttpClient.newCall(reqBuilder.build()).execute().use { resp ->
@@ -59,7 +91,24 @@ object LnReaderHttpBridge {
                     respHeaders[resp.headers.name(i)] = resp.headers.value(i)
                 }
 
-                val bodyStr = resp.body?.string().orEmpty();
+                val rawBytes = resp.body?.bytes() ?: ByteArray(0)
+                val isGzip = resp.header("Content-Encoding")?.equals("gzip", ignoreCase = true) == true
+                val bodyStr = if (isGzip) {
+                    try {
+                        GzipSource(okio.Buffer().write(rawBytes)).buffer().use { it.readUtf8() }
+                    } catch (_: Exception) {
+                        String(rawBytes, Charsets.UTF_8)
+                    }
+                } else {
+                    String(rawBytes, Charsets.UTF_8)
+                }
+
+                if (isGzip) {
+                    respHeaders.remove("content-encoding")
+                    respHeaders.remove("Content-Encoding")
+                    respHeaders.remove("content-length")
+                    respHeaders.remove("Content-Length")
+                }
 
                 if (resp.code in listOf(403, 429) && (resp.header("cf-mitigated") == "challenge") || bodyStr.contains("<title>Just a moment...</title>")) {
                     lastCloudflareBlockedUrl = url;
@@ -75,8 +124,8 @@ object LnReaderHttpBridge {
                 ExtensionJson.json.encodeToString(LnReaderHttpResponse.serializer(), resObj)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "HTTP req failed for $url")
-            val err = LnReaderHttpResponse(status = 500, statusText =e.message ?: "Network Error")
+            Log.e(TAG, "HTTP req failed for $url: ${e.message}", e)
+            val err = LnReaderHttpResponse(status = 500, statusText = e.message ?: "Network Error")
             ExtensionJson.json.encodeToString(LnReaderHttpResponse.serializer(), err)
         }
     }

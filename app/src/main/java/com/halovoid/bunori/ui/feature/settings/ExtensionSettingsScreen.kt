@@ -3,29 +3,34 @@ package com.halovoid.bunori.ui.feature.settings
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.Alignment
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
-import androidx.compose.foundation.shape.RoundedCornerShape
+import com.halovoid.bunori.data.repository.DEFAULT_LNREADER_REPO_URL
 import com.halovoid.bunori.ui.core.components.AppDialog
 import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.theme.*
 import kotlinx.coroutines.launch
 
 sealed interface ExtensionSettingsDialogState {
-    data object RepoUrl : ExtensionSettingsDialogState
+    data object AddRepo : ExtensionSettingsDialogState
 }
 
 @Composable
@@ -33,7 +38,7 @@ fun ExtensionSettingsScreen(
     viewModel: SettingsViewModel,
     onBack: () -> Unit
 ) {
-    val extensionRepoUrl by viewModel.extensionRepoUrl.collectAsStateWithLifecycle()
+    val extensionRepoUrls by viewModel.extensionRepoUrls.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -52,13 +57,15 @@ fun ExtensionSettingsScreen(
     }
 
     when (activeDialog) {
-        is ExtensionSettingsDialogState.RepoUrl -> {
-            RepoUrlDialog(
-                initialUrl = extensionRepoUrl,
+        is ExtensionSettingsDialogState.AddRepo -> {
+            AddRepoDialog(
                 onDismiss = { activeDialog = null },
-                onSave = { newUrl ->
-                    viewModel.setExtensionRepoUrl(newUrl)
+                onAdd = { newUrl ->
+                    viewModel.addExtensionRepoUrl(newUrl)
                     activeDialog = null
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Repository added")
+                    }
                 }
             )
         }
@@ -83,13 +90,33 @@ fun ExtensionSettingsScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            SectionHeader(text = "Repositories")
+            SectionHeader(text = "Extension Repositories")
+
+            extensionRepoUrls.forEach { url ->
+                val repoTitle = when (url) {
+                    DEFAULT_EXTENSION_REPO_URL -> "Bunori Official (.bext)"
+                    DEFAULT_LNREADER_REPO_URL -> "LNReader Plugins (.js)"
+                    else -> "Custom Repository"
+                }
+
+                RepoItemRow(
+                    title = repoTitle,
+                    url = url,
+                    canDelete = extensionRepoUrls.size > 1,
+                    onDelete = {
+                        viewModel.removeExtensionRepoUrl(url)
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Repository removed")
+                        }
+                    }
+                )
+            }
 
             SettingsRow(
-                title = "Repository URL",
-                subtitle = if (extensionRepoUrl.isBlank()) "None (Repository disabled)" else extensionRepoUrl,
-//                icon = Icons.Outlined.Link,
-                onClick = { activeDialog = ExtensionSettingsDialogState.RepoUrl }
+                title = "Add Repository",
+                subtitle = "Add a Bunori (.json) or LNReader (plugins.min.json) repository",
+                icon = Icons.Outlined.Add,
+                onClick = { activeDialog = ExtensionSettingsDialogState.AddRepo }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -98,7 +125,7 @@ fun ExtensionSettingsScreen(
 
             SettingsRow(
                 title = "Install from File",
-                subtitle = "Load a local .bext extension package",
+                subtitle = "Load a local .bext or .js extension package",
                 icon = Icons.Outlined.FolderOpen,
                 onClick = { filePickerLauncher.launch("*/*") }
             )
@@ -109,18 +136,76 @@ fun ExtensionSettingsScreen(
 }
 
 @Composable
-fun RepoUrlDialog(
-    initialUrl: String,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit
+fun RepoItemRow(
+    title: String,
+    url: String,
+    canDelete: Boolean,
+    onDelete: () -> Unit
 ) {
-    var urlText by remember { mutableStateOf(initialUrl) }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = DarkSurfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Public,
+                contentDescription = null,
+                tint = BrandAccent,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = PrimaryText
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = url,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SecondaryText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (canDelete) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = "Delete repository",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AddRepoDialog(
+    onDismiss: () -> Unit,
+    onAdd: (String) -> Unit
+) {
+    var urlText by remember { mutableStateOf("") }
 
     AppDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Extension Repository",
+                text = "Add Repository",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = PrimaryText
@@ -129,7 +214,7 @@ fun RepoUrlDialog(
         text = {
             Column {
                 Text(
-                    text = "Enter custom index.min.json repository URL for extensions.",
+                    text = "Enter a Bunori index.min.json or LNReader plugins.min.json URL.",
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryText
                 )
@@ -157,26 +242,37 @@ fun RepoUrlDialog(
                         unfocusedTextColor = PrimaryText
                     )
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(
-                    onClick = { urlText = DEFAULT_EXTENSION_REPO_URL },
-                    modifier = Modifier.align(Alignment.End)
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Quick Presets:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SecondaryText
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "Reset to Default",
-                        fontSize = 12.sp,
-                        color = BrandAccent,
-                        fontWeight = FontWeight.Medium
+                    SuggestionChip(
+                        onClick = { urlText = DEFAULT_EXTENSION_REPO_URL },
+                        label = { Text("Bunori (.bext)", fontSize = 11.sp) }
+                    )
+                    SuggestionChip(
+                        onClick = { urlText = DEFAULT_LNREADER_REPO_URL },
+                        label = { Text("LNReader (.js)", fontSize = 11.sp) }
                     )
                 }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(urlText.trim()) }
+                onClick = { if (urlText.isNotBlank()) onAdd(urlText.trim()) }
             ) {
                 Text(
-                    text = "Save",
+                    text = "Add",
                     color = BrandAccent,
                     fontWeight = FontWeight.SemiBold
                 )

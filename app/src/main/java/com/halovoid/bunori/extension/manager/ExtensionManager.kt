@@ -14,6 +14,9 @@ import com.halovoid.bunori.extension.loader.BextLoader
 import com.halovoid.bunori.extension.loader.LnReaderLoader
 import com.halovoid.bunori.extension.loader.LoadedExtension
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -172,10 +175,10 @@ class ExtensionManager private constructor(private val context: Context) {
 
             val entries = ExtensionRepoEntry.parseIndex(jsonString)
 
-            // Resolve relative bextUrl against repoUrl
+            // Resolve relative package URLs against repoUrl
             val resolvedEntries = entries.map { entry ->
-                val resolvedUrl = resolveUrl(repoUrl, entry.bextUrl)
-                entry.copy(bextUrl = resolvedUrl)
+                val resolvedUrl = resolveUrl(repoUrl, entry.downloadUrl)
+                entry.copy(url = resolvedUrl, bextUrl = resolvedUrl)
             }
 
             Result.success(resolvedEntries)
@@ -193,10 +196,27 @@ class ExtensionManager private constructor(private val context: Context) {
     }
 
     /**
-     * Checks if any installed extensions have updates in [repoUrl].
+     * Fetches and aggregates catalogs from multiple repository URLs concurrently.
      */
-    suspend fun checkForUpdates(repoUrl: String): List<ExtensionRepoEntry> = withContext(Dispatchers.IO) {
-        val result = fetchRepoCatalog(repoUrl, forceNetwork = true)
+    suspend fun fetchAllRepoCatalogs(
+        repoUrls: List<String>,
+        forceNetwork: Boolean = false
+    ): Result<List<ExtensionRepoEntry>> = withContext(Dispatchers.IO) {
+        if (repoUrls.isEmpty()) return@withContext Result.success(emptyList())
+        val combined = coroutineScope {
+            repoUrls.map { url ->
+                async { fetchRepoCatalog(url, forceNetwork).getOrDefault(emptyList()) }
+            }.awaitAll()
+        }.flatten().distinctBy { it.id }
+
+        Result.success(combined)
+    }
+
+    /**
+     * Checks if any installed extensions have updates across the provided [repoUrls].
+     */
+    suspend fun checkForUpdates(repoUrls: List<String>): List<ExtensionRepoEntry> = withContext(Dispatchers.IO) {
+        val result = fetchAllRepoCatalogs(repoUrls, forceNetwork = true)
         val catalog = result.getOrNull() ?: return@withContext emptyList()
         val installed = _installedExtensions.value
 
@@ -205,6 +225,8 @@ class ExtensionManager private constructor(private val context: Context) {
             installedExt != null && isNewerVersion(entry.version, installedExt.manifest.version)
         }
     }
+
+    suspend fun checkForUpdates(repoUrl: String): List<ExtensionRepoEntry> = checkForUpdates(listOf(repoUrl))
 
     private fun isNewerVersion(remote: String, installed: String): Boolean {
         if (remote == installed) return false
@@ -221,17 +243,19 @@ class ExtensionManager private constructor(private val context: Context) {
     }
 
     /**
-     * Downloads and installs an extension from a repository entry.
+     * Downloads and installs an extension from a repository entry (either .bext or .js).
      */
     suspend fun downloadAndInstall(entry: ExtensionRepoEntry): Result<LoadedExtension> = withContext(Dispatchers.IO) {
-        val tempFile = File(context.cacheDir, "download_${entry.id}_${System.currentTimeMillis()}.bext")
+        val isLnReader = entry.id.startsWith("lnreader.") || entry.downloadUrl.endsWith(".js")
+        val downloadUrl = entry.downloadUrl
+
         try {
-            if (entry.bextUrl.startsWith("file://")) {
-                val localPath = entry.bextUrl.removePrefix("file://")
-                File(localPath).copyTo(tempFile, overwrite = true)
+            val fileBytes = if (downloadUrl.startsWith("file://")) {
+                val localPath = downloadUrl.removePrefix("file://")
+                File(localPath).readBytes()
             } else {
                 val request = Request.Builder()
-                    .url(entry.bextUrl)
+                    .url(downloadUrl)
                     .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                     .build()
 
@@ -241,20 +265,39 @@ class ExtensionManager private constructor(private val context: Context) {
                         IOException("Failed to download extension: HTTP ${response.code}")
                     )
                 }
-                val body = response.body ?: return@withContext Result.failure(
+                response.body?.bytes() ?: return@withContext Result.failure(
                     IOException("Empty body downloading extension")
                 )
-
-                FileOutputStream(tempFile).use { fos ->
-                    body.byteStream().copyTo(fos)
-                }
             }
 
-            val result = installFromFile(tempFile)
-            tempFile.delete()
-            result
+            if (isLnReader) {
+                // Download icon if present
+                var iconBytes: ByteArray? = null
+                val iconUrl = entry.iconUrl
+                if (!iconUrl.isNullOrBlank() && (iconUrl.startsWith("http://") || iconUrl.startsWith("https://"))) {
+                    try {
+                        val iconReq = Request.Builder().url(iconUrl).build()
+                        val iconRes = httpClient.newCall(iconReq).execute()
+                        if (iconRes.isSuccessful) {
+                            iconBytes = iconRes.body?.bytes()
+                        }
+                    } catch (_: Exception) {}
+                }
+
+                val loaded = lnReaderLoader.install(entry.toManifest(), fileBytes, iconBytes)
+                val updated = _installedExtensions.value.toMutableMap()
+                updated[loaded.manifest.id] = loaded
+                _installedExtensions.value = updated
+                syncWithCrawlerFactory(updated)
+                Result.success(loaded)
+            } else {
+                val tempFile = File(context.cacheDir, "download_${entry.id}_${System.currentTimeMillis()}.bext")
+                FileOutputStream(tempFile).use { fos -> fos.write(fileBytes) }
+                val result = installFromFile(tempFile)
+                tempFile.delete()
+                result
+            }
         } catch (e: Exception) {
-            tempFile.delete()
             Log.e(TAG, "Failed to download and install extension: ${entry.id}", e)
             Result.failure(e)
         }

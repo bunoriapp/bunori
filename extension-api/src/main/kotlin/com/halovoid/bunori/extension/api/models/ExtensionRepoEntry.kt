@@ -25,7 +25,7 @@ data class ExtensionRepoEntry(
     val version: String = "1.0.0",
     val apiVersion: Int = 1,
     val lang: String = "en",
-    val baseUrl: String,
+    val baseUrl: String = "",
     val authors: List<String> = emptyList(),
     val isDeprecated: Boolean = false,
     val deprecationReason: String? = null,
@@ -34,7 +34,8 @@ data class ExtensionRepoEntry(
     val entryClass: String? = null,
     val iconPath: String? = null,
     val iconUrl: String? = null,
-    val bextUrl: String,
+    val url: String = "",
+    val bextUrl: String = "",
     val size: Long = 0L,
     val sha256: String? = null,
     val codeHash: String? = null,
@@ -44,6 +45,9 @@ data class ExtensionRepoEntry(
     val runnerCooldown: Long = 1000L,
     val maxAttempts: Int = 3
 ) {
+    val downloadUrl: String
+        get() = url.ifBlank { bextUrl }
+
     fun toManifest(): ExtensionManifest = ExtensionManifest(
         id = id,
         name = name,
@@ -66,14 +70,40 @@ data class ExtensionRepoEntry(
 
     companion object {
         /**
-         * Parses repository index JSON from either a raw array `[...]` or an object `{"extensions": [...]}`.
+         * Parses repository index JSON from standard Bunori `index.json`, array `[...]`,
+         * or LNReader `plugins.min.json`.
          */
         fun parseIndex(jsonString: String): List<ExtensionRepoEntry> {
             val trimmed = jsonString.trim()
             return if (trimmed.startsWith("[")) {
-                ExtensionJson.json.decodeFromString<List<ExtensionRepoEntry>>(trimmed)
+                try {
+                    ExtensionJson.json.decodeFromString<List<ExtensionRepoEntry>>(trimmed)
+                } catch (_: Exception) {
+                    try {
+                        val lnItems = ExtensionJson.json.decodeFromString<List<LnReaderPluginRepoItem>>(trimmed)
+                        lnItems.map { item ->
+                            val rawId = item.id.removePrefix("lnreader.")
+                            ExtensionRepoEntry(
+                                id = "lnreader.$rawId",
+                                name = item.name,
+                                version = item.version,
+                                lang = item.lang,
+                                baseUrl = item.site.orEmpty(),
+                                url = item.url,
+                                bextUrl = item.url,
+                                iconUrl = item.iconUrl
+                            )
+                        }
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                }
             } else {
-                ExtensionJson.json.decodeFromString<ExtensionRepoIndex>(trimmed).extensions
+                try {
+                    ExtensionJson.json.decodeFromString<ExtensionRepoIndex>(trimmed).extensions
+                } catch (_: Exception) {
+                    emptyList()
+                }
             }
         }
 
@@ -96,6 +126,20 @@ data class ExtensionRepoEntry(
         }
     }
 }
+
+/**
+ * Metadata format representing an entry in LNReader `plugins.min.json`.
+ */
+@Serializable
+data class LnReaderPluginRepoItem(
+    val id: String,
+    val name: String,
+    val site: String? = null,
+    val lang: String = "en",
+    val version: String = "1.0.0",
+    val url: String,
+    val iconUrl: String? = null
+)
 
 /**
  * Top-level metadata wrapper for an extension repository index.

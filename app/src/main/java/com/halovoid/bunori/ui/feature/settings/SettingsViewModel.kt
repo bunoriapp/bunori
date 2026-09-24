@@ -89,6 +89,30 @@ class SettingsViewModel(
         initialValue = com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
     )
 
+    val extensionRepoUrls: StateFlow<List<String>> = preferenceRepository.extensionRepoUrls.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = listOf(com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL)
+    )
+
+    fun addExtensionRepoUrl(url: String) {
+        viewModelScope.launch {
+            preferenceRepository.addExtensionRepoUrl(url)
+        }
+    }
+
+    fun removeExtensionRepoUrl(url: String) {
+        viewModelScope.launch {
+            preferenceRepository.removeExtensionRepoUrl(url)
+        }
+    }
+
+    fun setExtensionRepoUrls(urls: List<String>) {
+        viewModelScope.launch {
+            preferenceRepository.setExtensionRepoUrls(urls)
+        }
+    }
+
     val ignoreImages: StateFlow<Boolean> = preferenceRepository.ignoreImages.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

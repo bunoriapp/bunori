@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
+import com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.UpdateRepository
 import com.halovoid.bunori.extension.api.models.ExtensionRepoEntry
@@ -121,7 +122,10 @@ class SourceViewModel(
     val messageFlow: SharedFlow<String> = _messageFlow.asSharedFlow()
 
     val repoUrl: StateFlow<String> = preferenceRepository.extensionRepoUrl
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DEFAULT_EXTENSION_REPO_URL)
+
+    val repoUrls: StateFlow<List<String>> = preferenceRepository.extensionRepoUrls
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf(DEFAULT_EXTENSION_REPO_URL))
 
     val isUpdateAvailable: StateFlow<Boolean> = UpdateRepository.getInstance(application)
         .isCrawlerUpdateAvailable
@@ -207,13 +211,13 @@ class SourceViewModel(
         viewModelScope.launch {
             _catalogState.value = CatalogState.Loading
             try {
-                val url = preferenceRepository.extensionRepoUrl.first()
-                if (url.isBlank()) {
+                val urls = preferenceRepository.extensionRepoUrls.first()
+                if (urls.isEmpty()) {
                     _catalogEntries.value = emptyList()
                     _catalogState.value = CatalogState.Idle
                     return@launch
                 }
-                val result = extensionManager.fetchRepoCatalog(url, forceNetwork = forceNetwork)
+                val result = extensionManager.fetchAllRepoCatalogs(urls, forceNetwork = forceNetwork)
                 result.onSuccess { entries ->
                     _catalogEntries.value = entries
                     _catalogState.value = CatalogState.Success(entries.size)
@@ -230,9 +234,9 @@ class SourceViewModel(
 
     fun installExtension(entry: ExtensionRepoEntry) {
         viewModelScope.launch {
-            _inProgressIds.value = _inProgressIds.value + entry.id
+            _inProgressIds.value += entry.id
             val result = extensionManager.downloadAndInstall(entry)
-            _inProgressIds.value = _inProgressIds.value - entry.id
+            _inProgressIds.value -= entry.id
             result.onSuccess { loaded ->
                 _messageFlow.emit("Installed ${loaded.manifest.name}")
             }.onFailure { err ->
@@ -243,10 +247,10 @@ class SourceViewModel(
 
     fun uninstallExtension(extensionId: String) {
         viewModelScope.launch {
-            _inProgressIds.value = _inProgressIds.value + extensionId
+            _inProgressIds.value += extensionId
             val name = extensionManager.getExtension(extensionId)?.metadata?.name ?: extensionId
             val success = extensionManager.uninstall(extensionId)
-            _inProgressIds.value = _inProgressIds.value - extensionId
+            _inProgressIds.value -= extensionId
             if (success) {
                 _messageFlow.emit("Uninstalled $name")
             }
