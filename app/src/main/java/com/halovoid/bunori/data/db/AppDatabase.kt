@@ -24,7 +24,7 @@ import com.halovoid.bunori.data.db.migrations.DatabaseMigrations
  */
 @Database(
     entities = [NovelEntity::class, ChapterEntity::class, BatchEntity::class, TaskEntity::class, ArtifactEntity::class, DownloadEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -48,7 +48,8 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addCallback(DatabaseMigrations.SANITIZE_CALLBACK)
                     .addMigrations(
-                        DatabaseMigrations.Migration_1_2
+                        DatabaseMigrations.Migration_1_2,
+                        DatabaseMigrations.Migration_2_3
                     )
                     .fallbackToDestructiveMigration(true)
                     .build()

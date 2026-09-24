@@ -6,6 +6,7 @@ data class Novel(
     val author: String? = null,
     val coverUrl: String? = null,
     val description: String? = null,
+    val status: String? = null,
     val chapters: List<Chapter> = emptyList(),
     val crawlerName: String,
     val alternativeNames: String? = null,

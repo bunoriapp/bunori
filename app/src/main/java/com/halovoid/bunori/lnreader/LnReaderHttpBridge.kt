@@ -20,6 +20,7 @@ data class LnReaderHttpRequest(
 
 @Serializable
 data class LnReaderHttpResponse(
+    val url: String = "",
     val status: Int,
     val statusText: String,
     val headers: Map<String, String> = emptyMap(),
@@ -115,6 +116,7 @@ object LnReaderHttpBridge {
                 }
 
                 val resObj = LnReaderHttpResponse(
+                    url = resp.request.url.toString(),
                     status = resp.code,
                     statusText = resp.message,
                     headers = respHeaders,
@@ -125,7 +127,7 @@ object LnReaderHttpBridge {
             }
         } catch (e: Exception) {
             Log.e(TAG, "HTTP req failed for $url: ${e.message}", e)
-            val err = LnReaderHttpResponse(status = 500, statusText = e.message ?: "Network Error")
+            val err = LnReaderHttpResponse(url = url, status = 500, statusText = e.message ?: "Network Error")
             ExtensionJson.json.encodeToString(LnReaderHttpResponse.serializer(), err)
         }
     }

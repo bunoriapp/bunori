@@ -47,6 +47,7 @@ interface NovelDao {
             'Saved' AS author,
             NULL AS coverUrl,
             NULL AS description,
+            NULL AS status,
             scanlationSource AS crawlerName,
             NULL AS alternativeNames,
             NULL AS titleHash,

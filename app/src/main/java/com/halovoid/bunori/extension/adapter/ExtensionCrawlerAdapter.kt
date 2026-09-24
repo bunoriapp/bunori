@@ -124,6 +124,7 @@ class ExtensionCrawlerAdapter(
             author = novelDto.author,
             coverUrl = novelDto.coverUrl,
             description = novelDto.description,
+            status = novelDto.status,
             chapters = novelDto.chapters.mapIndexed { idx, chDto ->
                 Chapter(
                     id = 0,

@@ -34,7 +34,7 @@ fun NovelMetadataTable(novel: Novel) {
     ) {
         MetadataSection(
             data = mapOf(
-                "Author" to (novel.author ?: "Unknown"),
+                "Status" to (novel.status ?: "Unknown"),
                 "Chapters" to novel.chapters.size.toString(),
                 "Sources" to sourceDisplay
             ),

@@ -14,6 +14,12 @@ object DatabaseMigrations {
                 """.trimIndent())
         }
     }
+
+    val Migration_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE novels ADD COLUMN status TEXT DEFAULT NULL")
+        }
+    }
     val SANITIZE_CALLBACK = object : RoomDatabase.Callback() {
         override fun onOpen(db: SupportSQLiteDatabase) {
             super.onOpen(db)
