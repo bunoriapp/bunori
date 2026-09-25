@@ -58,7 +58,7 @@ class ExtensionCrawlerAdapter(
                 coverUrl = dto.coverUrl,
                 description = null,
                 chapters = emptyList(),
-                crawlerName = extension.metadata.name,
+                crawlerName = extension.metadata.id,
                 coverHttpsUrl = dto.coverUrl
             )
         }
@@ -79,7 +79,7 @@ class ExtensionCrawlerAdapter(
                 coverUrl = dto.coverUrl,
                 description = null,
                 chapters = emptyList(),
-                crawlerName = extension.metadata.name,
+                crawlerName = extension.metadata.id,
                 coverHttpsUrl = dto.coverUrl
             )
         }
@@ -98,7 +98,7 @@ class ExtensionCrawlerAdapter(
                 coverUrl = dto.coverUrl,
                 description = null,
                 chapters = emptyList(),
-                crawlerName = extension.metadata.name,
+                crawlerName = extension.metadata.id,
                 coverHttpsUrl = dto.coverUrl
             )
         }
@@ -136,7 +136,7 @@ class ExtensionCrawlerAdapter(
                     scanlationSource = chDto.scanlation?.takeIf { it.isNotBlank() } ?: extension.metadata.name
                 }
             },
-            crawlerName = extension.metadata.name,
+            crawlerName = extension.metadata.id,
             coverHttpsUrl = novelDto.coverUrl
         )
         val mapDuration = System.currentTimeMillis() - mapStart

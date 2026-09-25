@@ -2,6 +2,10 @@ package com.halovoid.bunori.extension.api.models
 
 import com.halovoid.bunori.extension.api.ExtensionJson
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Metadata entry representing an extension available in an online or local repository index.
@@ -75,34 +79,37 @@ data class ExtensionRepoEntry(
          */
         fun parseIndex(jsonString: String): List<ExtensionRepoEntry> {
             val trimmed = jsonString.trim()
-            return if (trimmed.startsWith("[")) {
-                try {
-                    ExtensionJson.json.decodeFromString<List<ExtensionRepoEntry>>(trimmed)
-                } catch (_: Exception) {
-                    try {
-                        val lnItems = ExtensionJson.json.decodeFromString<List<LnReaderPluginRepoItem>>(trimmed)
-                        lnItems.map { item ->
-                            val rawId = item.id.removePrefix("lnreader.")
-                            ExtensionRepoEntry(
-                                id = "lnreader.$rawId",
-                                name = item.name,
-                                version = item.version,
-                                lang = item.lang,
-                                baseUrl = item.site.orEmpty(),
-                                url = item.url,
-                                bextUrl = item.url,
-                                iconUrl = item.iconUrl
-                            )
-                        }
-                    } catch (_: Exception) {
-                        emptyList()
-                    }
-                }
-            } else {
-                try {
+            if (trimmed.isEmpty()) return emptyList()
+
+            // 1. Standard repository index object { "extensions": [...] }
+            if (trimmed.startsWith("{")) {
+                return try {
                     ExtensionJson.json.decodeFromString<ExtensionRepoIndex>(trimmed).extensions
                 } catch (_: Exception) {
                     emptyList()
+                }
+            }
+
+            // 2. Repository index array [...]
+            return try {
+                val root = ExtensionJson.json.parseToJsonElement(trimmed)
+                val isLnReader = (root as? JsonArray)?.any { elem ->
+                    val obj = elem as? JsonObject ?: return@any false
+                    obj.containsKey("site") || obj["url"]?.jsonPrimitive?.contentOrNull?.endsWith(".js") == true
+                } == true
+
+                if (isLnReader) {
+                    ExtensionJson.json.decodeFromString<List<LnReaderPluginRepoItem>>(trimmed).map { it.toRepoEntry() }
+                } else {
+                    ExtensionJson.json.decodeFromString<List<ExtensionRepoEntry>>(trimmed)
+                }
+            } catch (_: Exception) {
+                runCatching {
+                    ExtensionJson.json.decodeFromString<List<LnReaderPluginRepoItem>>(trimmed).map { it.toRepoEntry() }
+                }.getOrElse {
+                    runCatching {
+                        ExtensionJson.json.decodeFromString<List<ExtensionRepoEntry>>(trimmed)
+                    }.getOrDefault(emptyList())
                 }
             }
         }
@@ -139,7 +146,21 @@ data class LnReaderPluginRepoItem(
     val version: String = "1.0.0",
     val url: String,
     val iconUrl: String? = null
-)
+) {
+    fun toRepoEntry(): ExtensionRepoEntry {
+        val rawId = id.removePrefix("lnreader.")
+        return ExtensionRepoEntry(
+            id = "lnreader.$rawId",
+            name = name,
+            version = version,
+            lang = lang,
+            baseUrl = site.orEmpty(),
+            url = url,
+            bextUrl = url,
+            iconUrl = iconUrl
+        )
+    }
+}
 
 /**
  * Top-level metadata wrapper for an extension repository index.

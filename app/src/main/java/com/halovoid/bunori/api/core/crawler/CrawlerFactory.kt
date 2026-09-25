@@ -23,21 +23,8 @@ object CrawlerFactory {
     fun getCrawler(identifier: String): Crawler? {
         if (identifier.isBlank()) return null
         val crawlers = getCrawlers()
-
-        // 1. Match on full id (e.g. "lnreader.agit.xyz", "bext.novelfull")
-        crawlers.find { it.id.equals(identifier, ignoreCase = true) }?.let { return it }
-
-        // 2. Match on display name (e.g. "Agitoon", "NovelFull")
-        crawlers.find { it.name.equals(identifier, ignoreCase = true) }?.let { return it }
-
-        // 3. Match without prefix (e.g. "agit.xyz", "novelfull")
-        val clean = identifier.substringAfter(".")
-        crawlers.find { 
-            it.id.substringAfter(".").equals(clean, ignoreCase = true) ||
-            it.name.equals(clean, ignoreCase = true)
-        }?.let { return it }
-
-        return null
+        return crawlers.find { it.id.equals(identifier, ignoreCase = true) }
+            ?: crawlers.find { it.name.equals(identifier, ignoreCase = true) }
     }
 
     fun getCrawlerByUrl(url: String): Crawler? = getCrawlers().find { it.canHandle(url) }

@@ -51,18 +51,14 @@ class LnReaderLoader(private val context: Context) {
             iconFile = iconFile
         )
     }
-
     fun install(manifest: ExtensionManifest, jsBytes: ByteArray, iconBytes: ByteArray? = null): LoadedExtension {
-        val namespacedId = if (manifest.id.startsWith("lnreader.")) manifest.id else "lnreader.${manifest.id}"
-        val targetManifest = manifest.copy(id = namespacedId)
-
-        val targetDir = File(File(context.filesDir, "installed_extensions"), targetManifest.id).apply { mkdirs() }
+        val targetDir = File(File(context.filesDir, "installed_extensions"), manifest.id).apply { mkdirs() }
 
         val jsFile = File(targetDir, JS_FILE_NAME)
         FileOutputStream(jsFile).use { it.write(jsBytes) }
 
         val manifestFile = File(targetDir, MANIFEST_FILE_NAME)
-        val manifestJson = ExtensionJson.json.encodeToString(ExtensionManifest.serializer(), targetManifest)
+        val manifestJson = ExtensionJson.json.encodeToString(ExtensionManifest.serializer(), manifest)
         manifestFile.writeText(manifestJson, Charsets.UTF_8)
 
         if (iconBytes != null && iconBytes.isNotEmpty()) {
