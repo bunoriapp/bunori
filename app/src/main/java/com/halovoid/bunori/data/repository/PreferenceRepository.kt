@@ -46,6 +46,7 @@ private val SHOW_ALL_SAVED_NOVELS = booleanPreferencesKey("show_all_saved_novels
 private val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
 private val EXTENSION_REPO_URLS = stringSetPreferencesKey("extension_repo_urls")
 private val DISABLED_EXTENSION_REPO_URLS = stringSetPreferencesKey("disabled_extension_repo_urls")
+private val ENABLED_EXTENSION_LANGUAGES = stringSetPreferencesKey("enabled_extension_languages")
 private val CUSTOM_USER_AGENT = stringPreferencesKey("custom_user_agent")
 private val SHOW_WASM_SLOW_MODE_TOAST = booleanPreferencesKey("show_wasm_slow_mode_toast")
 const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/extensions/index.min.json"
@@ -102,10 +103,13 @@ interface PreferenceRepository {
     val extensionRepoUrl: Flow<String>
     val extensionRepoUrls: Flow<List<String>>
     val disabledExtensionRepoUrls: Flow<Set<String>>
+    val enabledExtensionLanguages: Flow<Set<String>>
     suspend fun addExtensionRepoUrl(url: String)
     suspend fun removeExtensionRepoUrl(url: String)
     suspend fun setExtensionRepoUrls(urls: List<String>)
     suspend fun setExtensionRepoEnabled(url: String, enabled: Boolean)
+    suspend fun setEnabledExtensionLanguages(languages: Set<String>)
+    suspend fun setExtensionLanguageEnabled(language: String, enabled: Boolean)
     val customUserAgent: Flow<String?>
     val readerSettings: Flow<ReaderSettings>
     val customFonts: Flow<List<CustomFont>>
@@ -576,6 +580,30 @@ class PreferenceRepositoryImpl private constructor(
             } else {
                 preferences[CUSTOM_USER_AGENT] = userAgent.trim()
             }
+        }
+    }
+
+    override val enabledExtensionLanguages: Flow<Set<String>> =
+        context.appDataStore.data.map { preferences ->
+            preferences[ENABLED_EXTENSION_LANGUAGES] ?: setOf("en")
+        }
+
+    override suspend fun setEnabledExtensionLanguages(languages: Set<String>) {
+        context.appDataStore.edit { preferences ->
+            preferences[ENABLED_EXTENSION_LANGUAGES] = languages.map { it.lowercase() }.toSet()
+        }
+    }
+
+    override suspend fun setExtensionLanguageEnabled(language: String, enabled: Boolean) {
+        context.appDataStore.edit { preferences ->
+            val current = (preferences[ENABLED_EXTENSION_LANGUAGES] ?: setOf("en")).toMutableSet()
+            val langLower = language.lowercase()
+            if (enabled) {
+                current.add(langLower)
+            } else {
+                current.remove(langLower)
+            }
+            preferences[ENABLED_EXTENSION_LANGUAGES] = current
         }
     }
 

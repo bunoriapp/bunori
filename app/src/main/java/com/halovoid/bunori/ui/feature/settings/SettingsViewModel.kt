@@ -101,6 +101,34 @@ class SettingsViewModel(
         initialValue = emptySet()
     )
 
+    val enabledExtensionLanguages: StateFlow<Set<String>> = preferenceRepository.enabledExtensionLanguages.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = setOf("en")
+    )
+
+    val availableExtensionLanguages: StateFlow<List<String>> = flow {
+        val app = getApplication<Application>()
+        val installed = ExtensionManager.getInstance(app).installedExtensions.value.values.map { it.manifest.lang }
+        val catalog = ExtensionManager.getInstance(app).getCachedRepoCatalog()?.map { it.lang } ?: emptyList()
+        val allLangs = (installed + catalog)
+            .map { it.lowercase().trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+        emit(allLangs.ifEmpty { listOf("all", "en") })
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = listOf("all", "en")
+    )
+
+    fun setExtensionLanguageEnabled(language: String, enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setExtensionLanguageEnabled(language, enabled)
+        }
+    }
+
     fun addExtensionRepoUrl(url: String) {
         viewModelScope.launch {
             preferenceRepository.addExtensionRepoUrl(url)

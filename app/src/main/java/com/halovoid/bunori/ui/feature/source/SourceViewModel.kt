@@ -137,31 +137,43 @@ class SourceViewModel(
     val extensionItems: StateFlow<List<ExtensionUiItem>> = combine(
         extensionManager.installedExtensions,
         _catalogEntries,
-        _inProgressIds
-    ) { installed, catalog, inProgress ->
+        _inProgressIds,
+        preferenceRepository.enabledExtensionLanguages
+    ) { installed, catalog, inProgress, enabledLangs ->
         val items = mutableListOf<ExtensionUiItem>()
         val catalogMap = catalog.associateBy { it.id }
+
+        val activeLangs = enabledLangs.map { it.lowercase().trim() }.toSet()
+
+        fun isLangEnabled(lang: String): Boolean {
+            if (activeLangs.isEmpty()) return true
+            val lower = lang.lowercase().trim()
+            return lower in activeLangs || "all" in activeLangs
+        }
 
         // 1. Add entries from catalog
         for (entry in catalog) {
             val inst = installed[entry.id]
             val installedVer = inst?.manifest?.version
             val hasUpdate = inst != null && ExtensionRepoEntry.isVersionNewer(entry.version, installedVer)
-            items.add(
-                ExtensionUiItem(
-                    id = entry.id,
-                    name = entry.name,
-                    lang = entry.lang,
-                    baseUrl = entry.baseUrl,
-                    installedVersion = installedVer,
-                    repoVersion = entry.version,
-                    isInstalled = inst != null,
-                    hasUpdate = hasUpdate,
-                    isActionInProgress = inProgress.contains(entry.id),
-                    repoEntry = entry,
-                    loadedExtension = inst
+
+            if (inst != null || isLangEnabled(entry.lang)) {
+                items.add(
+                    ExtensionUiItem(
+                        id = entry.id,
+                        name = entry.name,
+                        lang = entry.lang,
+                        baseUrl = entry.baseUrl,
+                        installedVersion = installedVer,
+                        repoVersion = entry.version,
+                        isInstalled = inst != null,
+                        hasUpdate = hasUpdate,
+                        isActionInProgress = inProgress.contains(entry.id),
+                        repoEntry = entry,
+                        loadedExtension = inst
+                    )
                 )
-            )
+            }
         }
 
         // 2. Add sideloaded/locally installed entries not in current catalog
