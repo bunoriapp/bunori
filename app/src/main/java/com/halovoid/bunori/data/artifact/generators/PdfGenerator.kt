@@ -400,6 +400,7 @@ class PdfGenerator(
         // --- Build every chapter's content blocks once (downloads + text measurement) --------
         val imageCache = mutableMapOf<String, Bitmap?>()
         val chapterBlocks = mutableMapOf<Any, List<ContentBlock>>()
+        val downloadsByUrl = downloadRepository?.getDownloadsForNovel(novel.url)?.associateBy { it.chapterUrl } ?: emptyMap()
         val blockBuildStartTime = System.currentTimeMillis()
         for ((index, chapter) in sortedChapters.withIndex()) {
             ensureActive()
@@ -409,7 +410,7 @@ class PdfGenerator(
             }
             onProgress?.invoke(index + 1, totalChapters, displayTitle)
 
-            val download = downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
+            val download = downloadsByUrl[chapter.url] ?: downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
             val rawContent = download?.fileLocation?.let { loc -> storageRepository.readText(loc) }
                 ?: "<p><em>Content not available</em></p>"
             chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache, ignoreImages)

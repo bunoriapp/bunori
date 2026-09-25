@@ -386,6 +386,7 @@ class EpubGenerator(
         // 2. Build Chapters
         val failedImageCache = mutableSetOf<String>()
         val totalChapters = chapters.size
+        val downloadsByUrl = downloadRepository?.getDownloadsForNovel(novel.url)?.associateBy { it.chapterUrl } ?: emptyMap()
         val chapterBuildStartTime = System.currentTimeMillis()
         chapters.sortedBy { it.index }.forEachIndexed { index, chapter ->
             ensureActive()
@@ -395,7 +396,7 @@ class EpubGenerator(
             }
             onProgress?.invoke(index + 1, totalChapters, displayTitle)
 
-            val download = downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
+            val download = downloadsByUrl[chapter.url] ?: downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
             val rawContent = download?.fileLocation?.let { loc ->
                 storageRepository.readText(loc)
             } ?: "<p><em>Content not available</em></p>"

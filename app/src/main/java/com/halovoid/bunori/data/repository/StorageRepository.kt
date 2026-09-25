@@ -16,6 +16,7 @@ import java.io.FilterInputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
@@ -139,6 +140,10 @@ class StorageRepositoryImpl private constructor(
 ) : StorageRepository {
 
     private val httpClient = NetworkClient.okHttpClient
+
+    private var cachedRootUri: Uri? = null
+    private val dirUriCache = ConcurrentHashMap<String, Uri>()
+    private val dirChildrenCache = ConcurrentHashMap<String, ConcurrentHashMap<String, String>>()
 
     companion object {
         @Volatile
@@ -434,6 +439,12 @@ class StorageRepositoryImpl private constructor(
         val uri = preferenceRepository.exportFolderUri.firstOrNull()
             ?: throw StorageException("Root storage folder not selected")
 
+        if (cachedRootUri != uri) {
+            cachedRootUri = uri
+            dirChildrenCache.clear()
+            dirUriCache.clear()
+        }
+
         val persistedPermissions = context.contentResolver.persistedUriPermissions
         val hasPermission = persistedPermissions.any { it.uri == uri && it.isWritePermission }
         if (!hasPermission) {
@@ -444,15 +455,25 @@ class StorageRepositoryImpl private constructor(
     }
 
     private fun getDirectory(rootUri: Uri, relativePath: String, createIfMissing: Boolean): Uri? {
+        val normalized = relativePath.trim().trim('/')
+        if (normalized.isEmpty()) return rootUri
+
+        if (!createIfMissing) {
+            dirUriCache[normalized]?.let { return it }
+        }
+
         val treeId = DocumentsContract.getTreeDocumentId(rootUri)
         var currentParentId = treeId
+        var currentParentUri = rootUri
 
-        val segments = relativePath.split("/").filter { it.isNotEmpty() }
+        val segments = normalized.split("/").filter { it.isNotEmpty() }
+        var currentPath = ""
         for (segment in segments) {
+            currentPath = if (currentPath.isEmpty()) segment else "$currentPath/$segment"
             val childId = findChildId(rootUri, currentParentId, segment)
             if (childId == null) {
                 if (createIfMissing) {
-                    val parentUri = DocumentsContract.buildDocumentUriUsingTree(rootUri, currentParentId)
+                    val parentUri = currentParentUri
                     val newUri = DocumentsContract.createDocument(
                         context.contentResolver,
                         parentUri,
@@ -460,31 +481,58 @@ class StorageRepositoryImpl private constructor(
                         segment
                     ) ?: throw StorageException("Failed to create directory: $segment")
                     currentParentId = DocumentsContract.getDocumentId(newUri)
+                    currentParentUri = newUri
+                    dirChildrenCache[DocumentsContract.getDocumentId(parentUri)]?.put(segment, currentParentId)
+                    dirUriCache[currentPath] = newUri
                 } else {
                     return null
                 }
             } else {
                 currentParentId = childId
+                val dirUri = DocumentsContract.buildDocumentUriUsingTree(rootUri, currentParentId)
+                currentParentUri = dirUri
+                dirUriCache[currentPath] = dirUri
             }
         }
-        return DocumentsContract.buildDocumentUriUsingTree(rootUri, currentParentId)
+        val resultUri = DocumentsContract.buildDocumentUriUsingTree(rootUri, currentParentId)
+        dirUriCache[normalized] = resultUri
+        return resultUri
     }
 
-    private fun findChildId(treeUri: Uri, parentDocumentId: String, displayName: String): String? {
+    private fun refreshChildrenMap(treeUri: Uri, parentDocumentId: String): ConcurrentHashMap<String, String> {
+        val map = dirChildrenCache.getOrPut(parentDocumentId) { ConcurrentHashMap() }
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocumentId)
         val projection = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
             DocumentsContract.Document.COLUMN_DISPLAY_NAME
         )
 
-        context.contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
-            while (cursor.moveToNext()) {
-                if (cursor.getString(1) == displayName) {
-                    return cursor.getString(0)
+        try {
+            context.contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
+                val idIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                val nameIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                while (cursor.moveToNext()) {
+                    val id = if (idIdx != -1) cursor.getString(idIdx) else null
+                    val name = if (nameIdx != -1) cursor.getString(nameIdx) else null
+                    if (id != null && name != null) {
+                        map[name] = id
+                    }
                 }
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        return null
+        return map
+    }
+
+    private fun findChildId(treeUri: Uri, parentDocumentId: String, displayName: String): String? {
+        val cached = dirChildrenCache[parentDocumentId]
+        if (cached != null) {
+            val docId = cached[displayName]
+            if (docId != null) return docId
+        }
+        val map = refreshChildrenMap(treeUri, parentDocumentId)
+        return map[displayName]
     }
 
     private fun findChildUri(treeUri: Uri, parentUri: Uri, displayName: String): Uri? {
@@ -549,11 +597,17 @@ class StorageRepositoryImpl private constructor(
     }
 
     fun createDocument(parentUri: Uri, mimeType: String, displayName: String): Uri {
-        return DocumentsContract.createDocument(
+        val newUri = DocumentsContract.createDocument(
             context.contentResolver,
             parentUri,
             mimeType,
             displayName
         ) ?: throw StorageException("Failed to create document: $displayName")
+        try {
+            val parentId = DocumentsContract.getDocumentId(parentUri)
+            val docId = DocumentsContract.getDocumentId(newUri)
+            dirChildrenCache[parentId]?.put(displayName, docId)
+        } catch (_: Exception) {}
+        return newUri
     }
 }
