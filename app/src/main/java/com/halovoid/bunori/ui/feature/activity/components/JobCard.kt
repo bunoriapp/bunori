@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.ConfirmCancelDialog
 import com.halovoid.bunori.ui.core.theme.*
@@ -107,7 +108,26 @@ fun CompactJobItem(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        if (batch.progressTotal > 0) {
+                        if (batch.type == JobType.ARTIFACT) {
+                            Text(
+                                text = when (batch.status) {
+                                    JobStatus.RUNNING -> "Exporting..."
+                                    JobStatus.SUCCESS -> "Export complete"
+                                    JobStatus.FAILED -> "Export failed"
+                                    else -> "Artifact"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (batch.status == JobStatus.RUNNING) BrandAccent else SecondaryText,
+                                fontSize = 11.sp,
+                                fontWeight = if (batch.status == JobStatus.RUNNING) FontWeight.Medium else FontWeight.Normal
+                            )
+
+                            Text(
+                                text = "·",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SecondaryText.copy(alpha = 0.4f)
+                            )
+                        } else if (batch.progressTotal > 0) {
                             Text(
                                 text = if (batch.progressSuccess > 0) {
                                     "${batch.progressSuccess}/${batch.progressTotal} tasks"
@@ -409,37 +429,52 @@ fun JobCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (batch.progressTotal > 0) {
-                        "${batch.progressSuccess}/${batch.progressTotal} tasks"
-                    } else {
-                        "0 tasks"
+                    text = when {
+                        batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING -> "Exporting book..."
+                        batch.type == JobType.ARTIFACT && batch.status == JobStatus.SUCCESS -> "Export complete"
+                        batch.progressTotal > 0 -> "${batch.progressSuccess}/${batch.progressTotal} tasks"
+                        else -> "0 tasks"
                     },
                     style = MaterialTheme.typography.labelSmall,
-                    color = SecondaryText,
-                    fontSize = 11.sp
+                    color = if (batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING) BrandAccent else SecondaryText,
+                    fontSize = 11.sp,
+                    fontWeight = if (batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING) FontWeight.Medium else FontWeight.Normal
                 )
 
-                Text(
-                    text = "${(progress * 100).toInt()}%",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = SecondaryText,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                if (batch.type != JobType.ARTIFACT || batch.status != JobStatus.RUNNING) {
+                    Text(
+                        text = "${(progress * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(6.dp))
 
             // Row 4: Progress Bar
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = BrandAccent,
-                trackColor = DarkSurfaceVariant
-            )
+            if (batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = BrandAccent,
+                    trackColor = DarkSurfaceVariant
+                )
+            } else {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = BrandAccent,
+                    trackColor = DarkSurfaceVariant
+                )
+            }
 
             val isCompleted = batch.status == JobStatus.SUCCESS ||
                     (batch.progressTotal > 0 && batch.progressSuccess >= batch.progressTotal)

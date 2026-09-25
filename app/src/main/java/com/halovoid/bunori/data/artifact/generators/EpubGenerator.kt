@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import com.halovoid.bunori.ui.core.logging.AppLog
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.CRC32
@@ -58,6 +59,7 @@ class EpubGenerator(
 
     // Constants and CSS for EPUB
     private companion object {
+        const val TAG = "EpubGenerator"
         const val styleFileName = "style.css"
         const val projectUrl = "https://github.com/bunoriapp/bunori"
 
@@ -140,9 +142,11 @@ class EpubGenerator(
             if (imageCache.containsKey(src) || failedImageCache.contains(src)) continue
             val bytes = downloadImageBytes(src)
             if (bytes == null) {
+                AppLog.w(TAG, "Failed to download image for chapter $chapterId: $src (skipped)")
                 failedImageCache.add(src)
                 continue
             }
+            AppLog.d(TAG, "Downloaded image for chapter $chapterId: $src (${bytes.size / 1024} KB)")
             val ext = extensionForUrl(src)
             val fileName = "img_${chapterId}_${imageCache.size}.$ext"
             imageCache[src] = fileName
@@ -309,8 +313,10 @@ class EpubGenerator(
     override suspend fun generate(
         novel: Novel,
         chapters: List<Chapter>,
-        metadata: JobMetadata
+        metadata: JobMetadata,
+        onProgress: (suspend (current: Int, total: Int, stage: String) -> Unit)?
     ): File = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
         val items = mutableListOf<EpubItem>()
         val addedFileNames = mutableSetOf<String>()
         // Maps a chapter image's original src -> the local filename it was packaged as,
@@ -324,6 +330,7 @@ class EpubGenerator(
         }
 
         val ignoreImages = preferenceRepository?.ignoreImages?.first() ?: false
+        AppLog.i(TAG, "Starting EPUB generation for '${novel.title}' (${chapters.size} chapters, ignoreImages=$ignoreImages)")
 
 // 0. Add Cover Image and Page
         if (!ignoreImages) {
@@ -340,7 +347,7 @@ class EpubGenerator(
                         resolvedUrl = coverUrl
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    AppLog.w(TAG, "Failed reading local cover from $coverUrl: ${e.message}")
                 }
             }
 
@@ -355,7 +362,7 @@ class EpubGenerator(
                         }
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    AppLog.w(TAG, "Failed downloading cover from $coverHttpsUrl: ${e.message}")
                 }
             }
 
@@ -364,8 +371,11 @@ class EpubGenerator(
                 val imageFileName = "cover.$extension"
                 val mediaType = if (extension == "png") "image/png" else "image/jpeg"
 
+                AppLog.d(TAG, "Added cover image ($resolvedUrl, ${bytes.size / 1024} KB)")
                 addItem(EpubItem(imageFileName, bytes, mediaType, "cover-image"))
                 addItem(EpubItem("cover.xhtml", buildCoverPage(imageFileName).toByteArray(), "application/xhtml+xml", "cover"))
+            } ?: run {
+                AppLog.d(TAG, "No cover image available for '${novel.title}'")
             }
         }
 
@@ -375,15 +385,22 @@ class EpubGenerator(
 
         // 2. Build Chapters
         val failedImageCache = mutableSetOf<String>()
-        chapters.sortedBy { it.index }.forEach { chapter ->
+        val totalChapters = chapters.size
+        val chapterBuildStartTime = System.currentTimeMillis()
+        chapters.sortedBy { it.index }.forEachIndexed { index, chapter ->
             ensureActive()
+            val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
+            if (index == 0 || (index + 1) % 50 == 0 || index == totalChapters - 1) {
+                AppLog.d(TAG, "Processing chapter ${index + 1}/$totalChapters: $displayTitle")
+            }
+            onProgress?.invoke(index + 1, totalChapters, displayTitle)
+
             val download = downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
             val rawContent = download?.fileLocation?.let { loc ->
                 storageRepository.readText(loc)
             } ?: "<p><em>Content not available</em></p>"
             val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, failedImageCache, ::addItem, ignoreImages)
 
-            val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
             addItem(EpubItem(
                 "chapter_${chapter.id}_${chapter.index.toString().padStart(5, '0')}.xhtml",
                 buildChapterPage(chapter, content).toByteArray(),
@@ -392,6 +409,7 @@ class EpubGenerator(
                 displayTitle
             ))
         }
+        AppLog.i(TAG, "Processed all $totalChapters chapters in ${System.currentTimeMillis() - chapterBuildStartTime}ms")
 
         // 3. Generate nav item
         val navItem = EpubItem(
@@ -416,6 +434,10 @@ class EpubGenerator(
         // Final items for OPF and NCX should be the ordered ones
         val opf = generateOpf(novel, orderedItems)
         val ncx = generateNcx(novel, orderedItems)
+
+        val zipStartTime = System.currentTimeMillis()
+        AppLog.i(TAG, "Packaging ${orderedItems.size} items into EPUB archive...")
+        onProgress?.invoke(totalChapters, totalChapters, "Packaging EPUB archive...")
 
         // Package into ZIP File
         val tempFile = File(storageRepository.getCacheDir(), "${novel.title.replace(" ", "_")}.epub")
@@ -450,6 +472,14 @@ class EpubGenerator(
                 zip.closeEntry()
             }
         }
+
+        val totalDuration = System.currentTimeMillis() - startTime
+        AppLog.i(
+            TAG,
+            "EPUB generation finished successfully in ${totalDuration}ms. " +
+            "Temp file: ${tempFile.absolutePath} (${tempFile.length() / 1024} KB), " +
+            "Zip packaging took ${System.currentTimeMillis() - zipStartTime}ms"
+        )
 
         tempFile
     }

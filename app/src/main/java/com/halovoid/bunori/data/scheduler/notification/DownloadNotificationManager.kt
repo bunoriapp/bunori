@@ -64,8 +64,28 @@ class DownloadNotificationManager(private val context: Context) {
         val batch = primaryBatch.batch
         val total = primaryBatch.totalTasks
         val completed = primaryBatch.completedTasks
-        val isIndeterminate = total <= 0
-        val percent = if (total > 0) (completed * 100) / total else 0
+        val activeTaskName = runningTasks.firstOrNull { it.batchId == batch.id }?.name
+
+        var progressMax = total
+        var progressCurrent = completed
+        var isIndeterminate = total <= 0
+        var percent = if (total > 0) (completed * 100) / total else 0
+
+        if (batch.type == JobType.ARTIFACT) {
+            val ratioMatch = activeTaskName?.let { Regex("""\((\d+)/(\d+)\)""").find(it) }
+            if (ratioMatch != null) {
+                val cur = ratioMatch.groupValues[1].toIntOrNull() ?: 0
+                val tot = ratioMatch.groupValues[2].toIntOrNull() ?: 1
+                if (tot > 0) {
+                    progressMax = tot
+                    progressCurrent = cur
+                    isIndeterminate = false
+                    percent = (cur * 100) / tot
+                }
+            } else {
+                isIndeterminate = true
+            }
+        }
 
         val typeTitle = when (batch.type) {
             JobType.RANGE_DOWNLOAD -> "Downloading"
@@ -77,7 +97,6 @@ class DownloadNotificationManager(private val context: Context) {
 
         val title = "$typeTitle: ${batch.name}"
 
-        val activeTaskName = runningTasks.firstOrNull { it.batchId == batch.id }?.name
         val contentText = when {
             activeTaskName != null -> activeTaskName
             total > 0 -> "$completed of $total items finished ($percent%)"
@@ -103,7 +122,7 @@ class DownloadNotificationManager(private val context: Context) {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
             .setContentIntent(openDetailPendingIntent)
-            .setProgress(total, completed, isIndeterminate)
+            .setProgress(progressMax, progressCurrent, isIndeterminate)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)

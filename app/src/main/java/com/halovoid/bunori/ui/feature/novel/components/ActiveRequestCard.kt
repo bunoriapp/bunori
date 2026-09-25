@@ -10,6 +10,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.ui.core.components.ProgressIndicator
 import com.halovoid.bunori.ui.core.theme.*
@@ -38,8 +40,19 @@ fun ActiveRequestCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val headerText = when {
+                    batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING ->
+                        "${batch.name} · Exporting..."
+                    batch.type == JobType.ARTIFACT && batch.status == JobStatus.SUCCESS ->
+                        "${batch.name} · Completed"
+                    batch.type == JobType.ARTIFACT ->
+                        batch.name
+                    else ->
+                        "${batch.name} · ${batch.progressSuccess} / ${batch.progressTotal}"
+                }
+
                 Text(
-                    text = "${batch.name} · ${batch.progressSuccess} / ${batch.progressTotal}",
+                    text = headerText,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = PrimaryText,
@@ -53,12 +66,23 @@ fun ActiveRequestCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            ProgressIndicator(
-                success = batch.progressSuccess,
-                failed = batch.progressFailed,
-                cancelled = batch.progressCancelled,
-                total = batch.progressTotal,
-            )
+            if (batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = BrandAccent,
+                    trackColor = DarkSurfaceVariant
+                )
+            } else {
+                ProgressIndicator(
+                    success = batch.progressSuccess,
+                    failed = batch.progressFailed,
+                    cancelled = batch.progressCancelled,
+                    total = batch.progressTotal,
+                )
+            }
         }
     }
 }

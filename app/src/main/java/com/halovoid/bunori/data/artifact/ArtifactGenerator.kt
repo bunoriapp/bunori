@@ -11,6 +11,7 @@ interface ArtifactGenerator {
     suspend fun generate(
         novel: Novel,
         chapters: List<Chapter>,
-        metadata: JobMetadata
+        metadata: JobMetadata,
+        onProgress: (suspend (current: Int, total: Int, stage: String) -> Unit)? = null
     ): File // Returns the temporary file in cache
 }

@@ -45,6 +45,9 @@ interface TaskDao {
     @Query("UPDATE tasks SET status = :status, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateStatus(id: String, status: JobStatus, updatedAt: Long = System.currentTimeMillis())
 
+    @Query("UPDATE tasks SET name = :name, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateTaskName(id: String, name: String, updatedAt: Long = System.currentTimeMillis())
+
     @Query("UPDATE tasks SET status = 'SUCCESS', error = NULL, completedAt = :now, updatedAt = :now WHERE id = :id")
     suspend fun markSuccess(id: String, now: Long = System.currentTimeMillis())
 

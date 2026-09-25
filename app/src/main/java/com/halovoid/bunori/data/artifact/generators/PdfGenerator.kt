@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import com.halovoid.bunori.ui.core.logging.AppLog
 import java.io.File
 import java.io.FileOutputStream
 
@@ -226,6 +227,7 @@ class PdfGenerator(
     override val format: String = "PDF"
 
     private companion object {
+        const val TAG = "PdfGenerator"
         const val PAGE_WIDTH = 595   // A4 width in points
         const val PAGE_HEIGHT = 842  // A4 height in points
         const val MARGIN_X = 46f
@@ -282,8 +284,16 @@ class PdfGenerator(
     }
 
     private suspend fun downloadBitmap(src: String, reqWidthPx: Int): Bitmap? {
-        val bytes = downloadBytes(src) ?: return null
-        return decodeSampledBitmap(bytes, reqWidthPx)
+        val bytes = downloadBytes(src)
+        if (bytes == null) {
+            AppLog.w(TAG, "Failed downloading image bitmap from $src (skipped)")
+            return null
+        }
+        val bitmap = decodeSampledBitmap(bytes, reqWidthPx)
+        if (bitmap != null) {
+            AppLog.d(TAG, "Loaded bitmap: $src (${bytes.size / 1024} KB, ${bitmap.width}x${bitmap.height})")
+        }
+        return bitmap
     }
 
     private suspend fun loadCoverBitmap(novel: Novel, reqWidthPx: Int): Bitmap? {
@@ -358,10 +368,12 @@ class PdfGenerator(
     override suspend fun generate(
         novel: Novel,
         chapters: List<Chapter>,
-        metadata: JobMetadata
+        metadata: JobMetadata,
+        onProgress: (suspend (current: Int, total: Int, stage: String) -> Unit)?
     ): File = withContext(Dispatchers.IO) {
-
+        val startTime = System.currentTimeMillis()
         val ignoreImages = preferenceRepository?.ignoreImages?.first() ?: false
+        AppLog.i(TAG, "Starting PDF generation for '${novel.title}' (${chapters.size} chapters, ignoreImages=$ignoreImages)")
 
         // --- Paints --------------------------------------------------------------------------
         val coverTitlePaint = TextPaint().apply { isAntiAlias = true; textSize = 26f; color = Color.BLACK; isFakeBoldText = true }
@@ -383,19 +395,33 @@ class PdfGenerator(
 
         // --- Reading order: chapters sorted by index -----------------------------------------
         val sortedChapters = chapters.sortedBy { it.index }
+        val totalChapters = sortedChapters.size
 
         // --- Build every chapter's content blocks once (downloads + text measurement) --------
         val imageCache = mutableMapOf<String, Bitmap?>()
         val chapterBlocks = mutableMapOf<Any, List<ContentBlock>>()
-        for (chapter in sortedChapters) {
+        val blockBuildStartTime = System.currentTimeMillis()
+        for ((index, chapter) in sortedChapters.withIndex()) {
             ensureActive()
+            val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
+            if (index == 0 || (index + 1) % 50 == 0 || index == totalChapters - 1) {
+                AppLog.d(TAG, "Building blocks for chapter ${index + 1}/$totalChapters: $displayTitle")
+            }
+            onProgress?.invoke(index + 1, totalChapters, displayTitle)
+
             val download = downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
             val rawContent = download?.fileLocation?.let { loc -> storageRepository.readText(loc) }
                 ?: "<p><em>Content not available</em></p>"
             chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache, ignoreImages)
         }
+        AppLog.i(TAG, "Built content blocks for $totalChapters chapters in ${System.currentTimeMillis() - blockBuildStartTime}ms (cached images: ${imageCache.size})")
 
         val coverBitmap = if (!ignoreImages) loadCoverBitmap(novel, printableWidthPx * 2) else null
+        if (coverBitmap != null) {
+            AppLog.d(TAG, "Cover bitmap loaded (${coverBitmap.width}x${coverBitmap.height})")
+        } else {
+            AppLog.d(TAG, "No cover bitmap loaded for '${novel.title}'")
+        }
 
         val tocEntries = sortedChapters.map { chapter ->
             TocEntry(chapter.title.ifBlank { "Chapter ${chapter.index}" })
@@ -455,6 +481,9 @@ class PdfGenerator(
         }
 
         // --- Pass 1: dry run to learn each section's real page number and the doc's length ---
+        val pass1StartTime = System.currentTimeMillis()
+        AppLog.i(TAG, "Starting Pass 1 (layout measurement) for $totalChapters chapters...")
+        onProgress?.invoke(totalChapters, totalChapters, "Calculating page layout...")
         val dryWriter = PagedPdfWriter(null, PAGE_WIDTH, PAGE_HEIGHT, MARGIN_X, MARGIN_TOP, MARGIN_BOTTOM, dryRun = true)
         renderCoverPage(dryWriter)
         renderInfoPage(dryWriter)
@@ -466,8 +495,12 @@ class PdfGenerator(
         }
         val totalPages = dryWriter.pageNumber
         dryWriter.finishCurrentPage()
+        AppLog.i(TAG, "Pass 1 layout calculation completed in ${System.currentTimeMillis() - pass1StartTime}ms. Document will have $totalPages pages.")
 
         // --- Pass 2: real render, now that every TOC entry has the correct page number -------
+        val pass2StartTime = System.currentTimeMillis()
+        AppLog.i(TAG, "Starting Pass 2 (rendering $totalPages pages to PdfDocument)...")
+        onProgress?.invoke(totalChapters, totalChapters, "Rendering $totalPages PDF pages...")
         val document = PdfDocument()
         val onPageStarted: (Canvas, Int) -> Unit = { canvas, pageNum ->
             if (pageNum > 1) {
@@ -487,10 +520,19 @@ class PdfGenerator(
             renderChapter(writer, chapter)
         }
         writer.finishCurrentPage()
+        AppLog.i(TAG, "Pass 2 rendering completed in ${System.currentTimeMillis() - pass2StartTime}ms. Writing PDF to disk...")
 
+        val fileWriteStartTime = System.currentTimeMillis()
         val tempFile = File(storageRepository.getCacheDir(), "${novel.title.replace(" ", "_")}.pdf")
         FileOutputStream(tempFile).use { out -> document.writeTo(out) }
         document.close()
+
+        val totalDuration = System.currentTimeMillis() - startTime
+        AppLog.i(
+            TAG,
+            "PDF generation finished successfully in ${totalDuration}ms. " +
+            "Temp file: ${tempFile.absolutePath} (${tempFile.length() / 1024} KB, $totalPages pages), disk write took ${System.currentTimeMillis() - fileWriteStartTime}ms"
+        )
 
         tempFile
     }

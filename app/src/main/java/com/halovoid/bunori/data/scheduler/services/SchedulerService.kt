@@ -230,7 +230,7 @@ class SchedulerService : Service() {
             crawlerFactory, novelRepository, chapterRepository, storageRepository, preferenceRepository
         ))
         registry.register(JobType.ARTIFACT, ArtifactHandler(
-            novelRepository, chapterRepository, crawlerFactory, storageRepository, generatorFactory, artifactRepository, downloadRepository
+            novelRepository, chapterRepository, crawlerFactory, storageRepository, generatorFactory, artifactRepository, downloadRepository, taskDao
         ))
         registry.register(JobType.BACKUP, BackupService(applicationContext))
 
