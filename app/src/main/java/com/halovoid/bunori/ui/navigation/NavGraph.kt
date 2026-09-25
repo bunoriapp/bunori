@@ -62,6 +62,7 @@ import com.halovoid.bunori.ui.feature.settings.AdvancedSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.BackupSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.GeneralPreferencesScreen
 import com.halovoid.bunori.ui.feature.settings.ExtensionSettingsScreen
+import com.halovoid.bunori.ui.feature.settings.RepoSettingScreen
 import com.halovoid.bunori.ui.feature.settings.LayoutSettingsScreen
 import com.halovoid.bunori.ui.feature.settings.ManualCookieScreen
 import com.halovoid.bunori.ui.feature.settings.MoreScreen
@@ -121,6 +122,7 @@ sealed class Screen(val route: String) {
     object LayoutSettings : Screen("layout_settings")
     object ThemeSettings : Screen("theme_settings")
     object ExtensionSettings : Screen("extension_settings")
+    object RepoSettings : Screen("repo_settings")
     object ExtensionInfo : Screen("extension_info/{extensionId}") {
         fun createRoute(extensionId: String) = "extension_info/${URLEncoder.encode(extensionId, "UTF-8")}"
     }
@@ -579,6 +581,16 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.ExtensionSettings.route) { backStackEntry ->
             val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
             ExtensionSettingsScreen(
+                viewModel = settingsViewModel,
+                onBack = { navController.popBackStack() },
+                onNavigateToRepoSettings = {
+                    navController.navigate(Screen.RepoSettings.route)
+                }
+            )
+        }
+        composable(Screen.RepoSettings.route) { backStackEntry ->
+            val settingsViewModel = rememberSettingsViewModel(navController, backStackEntry, application)
+            RepoSettingScreen(
                 viewModel = settingsViewModel,
                 onBack = { navController.popBackStack() }
             )

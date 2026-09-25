@@ -95,6 +95,12 @@ class SettingsViewModel(
         initialValue = listOf(com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL)
     )
 
+    val disabledExtensionRepoUrls: StateFlow<Set<String>> = preferenceRepository.disabledExtensionRepoUrls.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptySet()
+    )
+
     fun addExtensionRepoUrl(url: String) {
         viewModelScope.launch {
             preferenceRepository.addExtensionRepoUrl(url)
@@ -110,6 +116,12 @@ class SettingsViewModel(
     fun setExtensionRepoUrls(urls: List<String>) {
         viewModelScope.launch {
             preferenceRepository.setExtensionRepoUrls(urls)
+        }
+    }
+
+    fun setExtensionRepoEnabled(url: String, enabled: Boolean) {
+        viewModelScope.launch {
+            preferenceRepository.setExtensionRepoEnabled(url, enabled)
         }
     }
 
