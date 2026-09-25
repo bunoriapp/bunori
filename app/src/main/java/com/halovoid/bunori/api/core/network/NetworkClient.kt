@@ -3,6 +3,7 @@ package com.halovoid.bunori.api.core.network
 import android.content.Context
 import android.util.Log
 import android.webkit.CookieManager
+import com.halovoid.bunori.data.repository.PreferenceRepository
 import okhttp3.Cache
 import okhttp3.Dns
 import okhttp3.OkHttpClient
@@ -14,6 +15,7 @@ import java.util.concurrent.TimeUnit
 
 object NetworkClient {
     private const val TAG = "NetworkClient"
+
     private var cache: Cache? = null
 
     val fastDns: Dns = object : Dns {

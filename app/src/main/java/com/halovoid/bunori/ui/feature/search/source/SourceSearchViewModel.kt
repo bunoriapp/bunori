@@ -8,7 +8,7 @@ import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.domain.models.SearchItem
 import com.halovoid.bunori.extension.api.models.ListingDto
-import com.halovoid.bunori.ui.core.logging.AppLog
+import com.halovoid.bunori.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -155,7 +155,7 @@ class SourceSearchViewModel(
                     fetchListingPage(activeId, page = 1)
                 }
             } catch (e: Exception) {
-                AppLog.e("SourceSearchViewModel", "Failed to load listings for ${cr.name}: ${e.message}", e)
+                Logger.e("SourceSearchViewModel : Failed to load listings for ${cr.name}: ${e.message}", e)
                 _uiState.value = SourceExploreState.Error(e.message ?: "Failed to load listings")
             }
         }
@@ -237,7 +237,7 @@ class SourceSearchViewModel(
                     hasMore = hasMore
                 )
             } catch (e: Exception) {
-                AppLog.e("SourceSearchViewModel", "Error fetching listing '$listingId' p$page: ${e.message}", e)
+                Logger.e("SourceSearchViewModel : Error fetching listing '$listingId' p$page: ${e.message}", e)
                 _uiState.value = SourceExploreState.Content(
                     listings = getCombinedListings(),
                     selectedListingId = listingId,
@@ -303,7 +303,7 @@ class SourceSearchViewModel(
                     hasMore = searchHasMore
                 )
             } catch (e: Exception) {
-                AppLog.e("SourceSearchViewModel", "Error searching '$query': ${e.message}", e)
+                Logger.e("SourceSearchViewModel : Error searching '$query': ${e.message}", e)
                 _uiState.value = SourceExploreState.Content(
                     listings = getCombinedListings(),
                     selectedListingId = SEARCH_LISTING_ID,
@@ -363,7 +363,7 @@ class SourceSearchViewModel(
                     hasMore = hasMore
                 )
             } catch (e: Exception) {
-                AppLog.e("SourceSearchViewModel", "Failed to load next listing page: ${e.message}", e)
+                Logger.e("SourceSearchViewModel : Failed to load next listing page: ${e.message}", e)
                 _uiState.value = currentState.copy(isLoadingMore = false)
             }
         }
@@ -404,7 +404,7 @@ class SourceSearchViewModel(
                     hasMore = hasMore
                 )
             } catch (e: Exception) {
-                AppLog.e("SourceSearchViewModel", "Failed to load next search page: ${e.message}", e)
+                Logger.e("SourceSearchViewModel : Failed to load next search page: ${e.message}", e)
                 _uiState.value = currentState.copy(isLoadingMore = false)
             }
         }

@@ -17,14 +17,6 @@ private fun parseMetadataJson(rawJson: String?): JobMetadata {
         val startIndex = Regex("\"startIndex\"\\s*:\\s*(\\d+)").find(rawJson)?.groupValues?.get(1)?.toIntOrNull()
         val endIndex = Regex("\"endIndex\"\\s*:\\s*(\\d+)").find(rawJson)?.groupValues?.get(1)?.toIntOrNull()
 
-        // graceful transition in case a job was still running
-        var updatedCrawler = ""
-
-        if (crawler?.contains(".") == true) {
-            updatedCrawler = crawler
-        } else {
-            updatedCrawler = "bext.$crawler"
-        }
         JobMetadata(
             crawlerName = crawler,
             artifactFormat = format,

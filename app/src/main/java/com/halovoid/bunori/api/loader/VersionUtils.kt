@@ -1,10 +1,6 @@
 package com.halovoid.bunori.api.loader
 
 object VersionUtils {
-    /**
-     * Compares two version strings and returns true if [latest] is strictly newer than [current].
-     * Handles prefixes like 'v' and compares segment by segment (Major.Minor.Patch).
-     */
     fun isUpdateAvailable(current: String?, latest: String): Boolean {
         if (current == null) return true
         

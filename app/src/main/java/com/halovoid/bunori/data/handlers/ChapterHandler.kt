@@ -1,10 +1,8 @@
 package com.halovoid.bunori.data.handlers
 
-import android.net.Uri
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.network.interceptor.CloudflareBypassException
-import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.repository.ChapterRepository
@@ -15,13 +13,9 @@ import com.halovoid.bunori.data.scheduler.jobs.JobHandler
 import com.halovoid.bunori.data.scheduler.jobs.JobResult
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Download
-import java.io.File
-
-import com.halovoid.bunori.ui.core.logging.AppLog
 import com.halovoid.bunori.wasm.WamrHttpBridge
 
 class ChapterHandler(
-    private val scrapper: Scrapper,
     private val chapterRepository: ChapterRepository,
     private val storageRepository: StorageRepository,
     private val crawlerFactory: CrawlerFactory,
@@ -120,7 +114,6 @@ class ChapterHandler(
 
             JobResult.Success
         } catch (e: Exception) {
-            AppLog.e("ChapterHandler", "Failed to download chapter ${chapter.title} ($targetUrl)", e)
             val isCloudflare = crawler.webviewNeeded == true || 
                 WamrHttpBridge.consumeCloudflareBlocked() ||
                 e is CloudflareBypassException ||
@@ -128,7 +121,6 @@ class ChapterHandler(
                 e.message?.contains("Cloudflare", ignoreCase = true) == true
 
             if (isCloudflare) {
-                AppLog.w("ChapterHandler", "Detected Cloudflare block for chapter ${chapter.title} ($targetUrl). Setting JobResult.Blocked.")
                 JobResult.Blocked
             } else {
                 JobResult.Failure(e)

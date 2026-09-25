@@ -3,25 +3,13 @@ package com.halovoid.bunori.api.core.network
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
-import androidx.webkit.UserAgentMetadata
-import androidx.webkit.WebSettingsCompat
-import androidx.webkit.WebViewFeature
 
 object WebViewUtil {
     private const val TAG = "WebViewUtil"
     const val MINIMUM_WEBVIEW_VERSION = 118
-
-    /**
-     * Returns the default user agent already being used by the app.
-     */
-    fun getInferredUserAgent(context: Context): String {
-        return NetworkClient.currentUserAgent.ifBlank { NetworkClient.DEFAULT_USER_AGENT }
-    }
-
     fun supportsWebView(context: Context): Boolean {
         return try {
             CookieManager.getInstance()
@@ -55,9 +43,6 @@ fun WebView.setDefaultSettings() {
     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 }
 
-/**
- * Sets the user agent directly to the one provided by the app.
- */
 fun WebView.setUserAgent(userAgent: String) {
     settings.userAgentString = userAgent
 }

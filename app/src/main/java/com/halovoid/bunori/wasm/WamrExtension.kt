@@ -100,7 +100,7 @@ class WamrExtension(
             WamrBridge.nativeCallString(instPtr, "get_listing_novels", listingId, page)
         } ?: throw IOException("Failed to fetch listing novels in extension ${metadata.name}")
         val duration = System.currentTimeMillis() - start
-        val results = if (json.isNullOrBlank()) emptyList()
+        val results = if (json.isBlank()) emptyList()
         else ExtensionJson.json.decodeFromString<List<SearchResultDto>>(json)
         Log.i(TAG, "[${metadata.id}] [WAMR getListingNovels] total=${duration}ms (results=${results.size})")
         results

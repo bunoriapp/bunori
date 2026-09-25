@@ -12,7 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import com.halovoid.bunori.ui.core.logging.AppLog
+import com.halovoid.bunori.utils.Logger
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.CRC32
@@ -142,11 +142,9 @@ class EpubGenerator(
             if (imageCache.containsKey(src) || failedImageCache.contains(src)) continue
             val bytes = downloadImageBytes(src)
             if (bytes == null) {
-                AppLog.w(TAG, "Failed to download image for chapter $chapterId: $src (skipped)")
                 failedImageCache.add(src)
                 continue
             }
-            AppLog.d(TAG, "Downloaded image for chapter $chapterId: $src (${bytes.size / 1024} KB)")
             val ext = extensionForUrl(src)
             val fileName = "img_${chapterId}_${imageCache.size}.$ext"
             imageCache[src] = fileName
@@ -161,7 +159,6 @@ class EpubGenerator(
         return result
     }
 
-    // XHTML Wrapper
     private fun wrapXHTML(title: String, body: String): String {
         return """
             |<?xml version="1.0" encoding="utf-8"?>
@@ -188,7 +185,6 @@ class EpubGenerator(
         return wrapXHTML("Cover", content)
     }
 
-    // Page Templates
     private fun buildIntroPage(novel: Novel): String {
         val content = """
             |<div id="intro">
@@ -293,7 +289,7 @@ class EpubGenerator(
         """.trimMargin()
     }
 
-    private fun generateNav(novel: Novel, items: List<EpubItem>): String {
+    private fun generateNav(items: List<EpubItem>): String {
         val listItems = items.filter { it.mediaType == "application/xhtml+xml" }
             .joinToString("\n") {
                 """<li><a href="${it.fileName}">${it.title}</a></li>"""
@@ -316,11 +312,8 @@ class EpubGenerator(
         metadata: JobMetadata,
         onProgress: (suspend (current: Int, total: Int, stage: String) -> Unit)?
     ): File = withContext(Dispatchers.IO) {
-        val startTime = System.currentTimeMillis()
         val items = mutableListOf<EpubItem>()
         val addedFileNames = mutableSetOf<String>()
-        // Maps a chapter image's original src -> the local filename it was packaged as,
-        // so the same remote image referenced twice isn't downloaded/embedded twice.
         val chapterImageCache = mutableMapOf<String, String>()
 
         fun addItem(item: EpubItem) {
@@ -330,28 +323,24 @@ class EpubGenerator(
         }
 
         val ignoreImages = preferenceRepository?.ignoreImages?.first() ?: false
-        AppLog.i(TAG, "Starting EPUB generation for '${novel.title}' (${chapters.size} chapters, ignoreImages=$ignoreImages)")
 
-// 0. Add Cover Image and Page
         if (!ignoreImages) {
             val coverUrl = novel.coverUrl
             val coverHttpsUrl = novel.coverHttpsUrl
             var coverBytes: ByteArray? = null
             var resolvedUrl: String? = null
 
-            // Try reading from local coverUrl first
             if (!coverUrl.isNullOrBlank()) {
                 try {
                     storageRepository.openInputStream(coverUrl)?.use { input ->
                         coverBytes = input.readBytes()
                         resolvedUrl = coverUrl
                     }
-                } catch (e: Exception) {
-                    AppLog.w(TAG, "Failed reading local cover from $coverUrl: ${e.message}")
+                } catch (_: Exception) {
+                    Logger.d("$TAG : Failed to read from cover url")
                 }
             }
 
-            // If local cover failed/missing, fall back to coverHttpsUrl
             if (coverBytes == null && !coverHttpsUrl.isNullOrBlank()) {
                 try {
                     val request = okhttp3.Request.Builder().url(coverHttpsUrl).build()
@@ -362,7 +351,7 @@ class EpubGenerator(
                         }
                     }
                 } catch (e: Exception) {
-                    AppLog.w(TAG, "Failed downloading cover from $coverHttpsUrl: ${e.message}")
+                    Logger.w("$TAG : Failed downloading cover from $coverHttpsUrl: ${e.message}")
                 }
             }
 
@@ -371,29 +360,22 @@ class EpubGenerator(
                 val imageFileName = "cover.$extension"
                 val mediaType = if (extension == "png") "image/png" else "image/jpeg"
 
-                AppLog.d(TAG, "Added cover image ($resolvedUrl, ${bytes.size / 1024} KB)")
                 addItem(EpubItem(imageFileName, bytes, mediaType, "cover-image"))
                 addItem(EpubItem("cover.xhtml", buildCoverPage(imageFileName).toByteArray(), "application/xhtml+xml", "cover"))
             } ?: run {
-                AppLog.d(TAG, "No cover image available for '${novel.title}'")
+                Logger.d("$TAG : No cover image available for '${novel.title}'")
             }
         }
 
-        // 1. Add static assets
         addItem(EpubItem(styleFileName, epubStyleCSS.toByteArray(), "text/css", "style"))
         addItem(EpubItem("intro.xhtml", buildIntroPage(novel).toByteArray(), "application/xhtml+xml", "intro"))
 
-        // 2. Build Chapters
         val failedImageCache = mutableSetOf<String>()
         val totalChapters = chapters.size
         val downloadsByUrl = downloadRepository?.getDownloadsForNovel(novel.url)?.associateBy { it.chapterUrl } ?: emptyMap()
-        val chapterBuildStartTime = System.currentTimeMillis()
         chapters.sortedBy { it.index }.forEachIndexed { index, chapter ->
             ensureActive()
             val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
-            if (index == 0 || (index + 1) % 50 == 0 || index == totalChapters - 1) {
-                AppLog.d(TAG, "Processing chapter ${index + 1}/$totalChapters: $displayTitle")
-            }
             onProgress?.invoke(index + 1, totalChapters, displayTitle)
 
             val download = downloadsByUrl[chapter.url] ?: downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
@@ -410,12 +392,10 @@ class EpubGenerator(
                 displayTitle
             ))
         }
-        AppLog.i(TAG, "Processed all $totalChapters chapters in ${System.currentTimeMillis() - chapterBuildStartTime}ms")
 
-        // 3. Generate nav item
         val navItem = EpubItem(
             fileName = "nav.xhtml",
-            content = generateNav(novel, items).toByteArray(),
+            content = generateNav(items).toByteArray(),
             mediaType = "application/xhtml+xml",
             id = "nav"
         )
@@ -432,15 +412,11 @@ class EpubGenerator(
         items.filter { it.id.startsWith("chapter_") || it.id.startsWith("image_") }
             .forEach { orderedItems.add(it) }
 
-        // Final items for OPF and NCX should be the ordered ones
         val opf = generateOpf(novel, orderedItems)
         val ncx = generateNcx(novel, orderedItems)
 
-        val zipStartTime = System.currentTimeMillis()
-        AppLog.i(TAG, "Packaging ${orderedItems.size} items into EPUB archive...")
         onProgress?.invoke(totalChapters, totalChapters, "Packaging EPUB archive...")
 
-        // Package into ZIP File
         val tempFile = File(storageRepository.getCacheDir(), "${novel.title.replace(" ", "_")}.epub")
         ZipOutputStream(FileOutputStream(tempFile)).use { zip ->
 
@@ -473,14 +449,6 @@ class EpubGenerator(
                 zip.closeEntry()
             }
         }
-
-        val totalDuration = System.currentTimeMillis() - startTime
-        AppLog.i(
-            TAG,
-            "EPUB generation finished successfully in ${totalDuration}ms. " +
-            "Temp file: ${tempFile.absolutePath} (${tempFile.length() / 1024} KB), " +
-            "Zip packaging took ${System.currentTimeMillis() - zipStartTime}ms"
-        )
 
         tempFile
     }

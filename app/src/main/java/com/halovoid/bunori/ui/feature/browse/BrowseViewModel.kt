@@ -2,7 +2,6 @@ package com.halovoid.bunori.ui.feature.browse
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.factory.JobFactory
@@ -12,7 +11,6 @@ import com.halovoid.bunori.data.repository.NovelRepository
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.domain.usecase.SaveNovelUseCase
 import com.halovoid.bunori.domain.usecase.StartNovelCrawlUseCase
-import com.halovoid.bunori.ui.core.logging.AppLog
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,11 +45,8 @@ class BrowseViewModel(
 
     fun resolveWebView(requestId: String, url: String) {
         viewModelScope.launch {
-            AppLog.i("BrowseViewModel", "Starting WebView resolution for $requestId at $url")
             val success = Scrapper.globalResolver?.resolve(url) ?: false
-            AppLog.i("BrowseViewModel", "Resolution result: $success")
             if (success) {
-                AppLog.i("BrowseViewModel", "Resuming request $requestId")
                 batchRepository.resumeBatch(requestId)
             }
         }

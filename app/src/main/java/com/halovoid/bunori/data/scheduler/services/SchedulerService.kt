@@ -38,7 +38,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
@@ -223,7 +222,7 @@ class SchedulerService : Service() {
         val scrapper = Scrapper(NetworkClient.okHttpClient)
 
         registry.register(JobType.CHAPTER, ChapterHandler(
-            scrapper, chapterRepository, storageRepository, crawlerFactory,
+            chapterRepository, storageRepository, crawlerFactory,
             downloadRepository, novelRepository
         ))
         registry.register(JobType.NOVEL_METADATA, NovelMetadataHandler(

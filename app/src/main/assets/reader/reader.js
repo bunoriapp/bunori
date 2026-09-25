@@ -2,7 +2,10 @@
  * Bunori Native Reader Engine
  * Modular, high-performance DOM reader supporting continuous bidirectional
  * infinite scrolling and multi-column paged e-reader mode.
- * Chapters flow continuously into the DOM without jarring reloads.
+ * Chapters flow continuously into the DOM without jarring reloads.\
+ *
+ * Most of this code for webview reader is taken from LLMs it works for now but will update it later
+ * on if the core functionality sticks with the users
  */
 (function () {
   'use strict';

@@ -10,14 +10,10 @@ import com.halovoid.bunori.extension.api.models.ListingDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * Adapter allowing dynamic [IExtension] implementations to function as legacy [Crawler]
- * instances across the Bunori application (Search, Novel Detail, Reader, Downloads, etc.).
- */
+
 class ExtensionCrawlerAdapter(
     val extension: IExtension,
     override val iconFile: java.io.File? = null,
-    private val context: Context? = null
 ) : Crawler() {
 
     override val id: String = extension.metadata.id

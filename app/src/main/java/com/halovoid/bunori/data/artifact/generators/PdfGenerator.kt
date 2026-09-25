@@ -24,20 +24,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import com.halovoid.bunori.ui.core.logging.AppLog
 import java.io.File
 import java.io.FileOutputStream
 
-/**
- * A single piece of chapter content, in reading order. Text between images becomes one
- * [Text] block (its own [StaticLayout]); each <img> becomes an atomic [Image] block.
- */
+
 private sealed class ContentBlock {
     data class Text(val layout: StaticLayout) : ContentBlock()
     data class Image(val bitmap: Bitmap) : ContentBlock()
 }
 
-/** A single Table-of-Contents row. `pageNumber` starts at 0 and is filled in after the dry run. */
 private data class TocEntry(val label: String, var pageNumber: Int = 0)
 
 /**
@@ -51,6 +46,9 @@ private data class TocEntry(val label: String, var pageNumber: Int = 0)
  *
  * Calling the same sequence of draw* calls with the same content in both modes is guaranteed
  * to produce the same pagination, since layout is purely a function of content + page geometry.
+ *
+ * Code for PDF generation was completely written by an LLM model I have not yet looked how it works,
+ * but it works so I guess won't touch it until something glitches out
  */
 private class PagedPdfWriter(
     private val document: PdfDocument?,
@@ -58,7 +56,7 @@ private class PagedPdfWriter(
     private val pageHeight: Int,
     private val marginX: Float,
     private val marginTop: Float,
-    private val marginBottom: Float,
+    marginBottom: Float,
     val dryRun: Boolean,
     private val onPageStarted: ((Canvas, Int) -> Unit)? = null
 ) {
@@ -116,7 +114,6 @@ private class PagedPdfWriter(
         cursorY += 1f + spacingAfter
     }
 
-    /** Draws (or measures) a block of text centered horizontally, wrapping if needed. */
     fun drawCenteredText(text: String, paint: TextPaint, topPadding: Float = 0f, bottomPadding: Float = 0f) {
         if (text.isBlank()) return
         ensurePage()
@@ -135,7 +132,6 @@ private class PagedPdfWriter(
         cursorY += height + bottomPadding
     }
 
-    /** Draws (or measures) an image, scaled to fit the page width and a max-height fraction. */
     fun drawImageBlock(bitmap: Bitmap, spacingAfter: Float, maxHeightFraction: Float = 0.9f) {
         ensurePage()
         val aspect = bitmap.height.toFloat() / bitmap.width.toFloat()
@@ -155,10 +151,6 @@ private class PagedPdfWriter(
         cursorY += drawHeight + spacingAfter
     }
 
-    /**
-     * Draws (or measures) a [StaticLayout] that may span multiple pages, breaking only at
-     * line boundaries so text never gets clipped mid-line.
-     */
     fun drawTextBlockPaginated(layout: StaticLayout, spacingAfter: Float = 0f) {
         ensurePage()
         val lineCount = layout.lineCount
@@ -178,8 +170,6 @@ private class PagedPdfWriter(
             }
             if (endLine < lineIdx) {
                 if (cursorY <= 0.01f) {
-                    // A single line is taller than a whole page (extremely unlikely) - draw it
-                    // anyway rather than looping forever.
                     endLine = lineIdx
                 } else {
                     startNewPage()
@@ -201,7 +191,6 @@ private class PagedPdfWriter(
         cursorY += spacingAfter
     }
 
-    /** One Table-of-Contents row: an ellipsized title on the left, a page number on the right. */
     fun drawTocEntry(title: String, pageLabel: String, titlePaint: TextPaint, numberPaint: TextPaint, rowHeight: Float) {
         ensurePage()
         if (availableHeight() < rowHeight) startNewPage()
@@ -228,8 +217,8 @@ class PdfGenerator(
 
     private companion object {
         const val TAG = "PdfGenerator"
-        const val PAGE_WIDTH = 595   // A4 width in points
-        const val PAGE_HEIGHT = 842  // A4 height in points
+        const val PAGE_WIDTH = 595
+        const val PAGE_HEIGHT = 842
         const val MARGIN_X = 46f
         const val MARGIN_TOP = 58f
         const val MARGIN_BOTTOM = 56f
@@ -237,10 +226,6 @@ class PdfGenerator(
     }
 
     private val imgTagRegex = Regex("""<img[^>]*\ssrc\s*=\s*["']([^"']+)["'][^>]*>""", RegexOption.IGNORE_CASE)
-
-    // ---------------------------------------------------------------------------------------
-    // Image loading
-    // ---------------------------------------------------------------------------------------
 
     private val imageHttpClient: okhttp3.OkHttpClient by lazy {
         NetworkClient.okHttpClient.newBuilder()
@@ -267,13 +252,12 @@ class PdfGenerator(
         }
     }
 
-    /** Decodes a bitmap downsampled to roughly [reqWidthPx] wide, to avoid huge memory use. */
     private fun decodeSampledBitmap(bytes: ByteArray, reqWidthPx: Int): Bitmap? {
         return try {
             val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOptions)
             var sampleSize = 1
-            var halfWidth = boundsOptions.outWidth / 2
+            val halfWidth = boundsOptions.outWidth / 2
             while (halfWidth / sampleSize >= reqWidthPx) sampleSize *= 2
             val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions)
@@ -284,15 +268,8 @@ class PdfGenerator(
     }
 
     private suspend fun downloadBitmap(src: String, reqWidthPx: Int): Bitmap? {
-        val bytes = downloadBytes(src)
-        if (bytes == null) {
-            AppLog.w(TAG, "Failed downloading image bitmap from $src (skipped)")
-            return null
-        }
+        val bytes = downloadBytes(src) ?: return null
         val bitmap = decodeSampledBitmap(bytes, reqWidthPx)
-        if (bitmap != null) {
-            AppLog.d(TAG, "Loaded bitmap: $src (${bytes.size / 1024} KB, ${bitmap.width}x${bitmap.height})")
-        }
         return bitmap
     }
 
@@ -313,11 +290,6 @@ class PdfGenerator(
         return null
     }
 
-    // ---------------------------------------------------------------------------------------
-    // HTML -> content blocks
-    // ---------------------------------------------------------------------------------------
-
-    /** Wraps a segment of text into a [StaticLayout], returning null if the text is empty/blank. */
     private fun buildTextBlockOrNull(text: String, paint: TextPaint, widthPx: Int): ContentBlock.Text? {
         val clean = text.replace(Regex("<[^>]*>"), "").trim()
         if (clean.isBlank()) return null
@@ -328,7 +300,6 @@ class PdfGenerator(
         return ContentBlock.Text(layout)
     }
 
-    /** Splits chapter HTML into ordered text/image blocks, downloading each distinct image once. */
     private suspend fun buildChapterBlocks(
         html: String,
         bodyPaint: TextPaint,
@@ -361,10 +332,6 @@ class PdfGenerator(
         return blocks
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Generation
-    // ---------------------------------------------------------------------------------------
-
     override suspend fun generate(
         novel: Novel,
         chapters: List<Chapter>,
@@ -373,9 +340,7 @@ class PdfGenerator(
     ): File = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         val ignoreImages = preferenceRepository?.ignoreImages?.first() ?: false
-        AppLog.i(TAG, "Starting PDF generation for '${novel.title}' (${chapters.size} chapters, ignoreImages=$ignoreImages)")
 
-        // --- Paints --------------------------------------------------------------------------
         val coverTitlePaint = TextPaint().apply { isAntiAlias = true; textSize = 26f; color = Color.BLACK; isFakeBoldText = true }
         val coverAuthorPaint = TextPaint().apply { isAntiAlias = true; textSize = 15f; color = Color.DKGRAY }
         val infoAuthorPaint = TextPaint().apply { isAntiAlias = true; textSize = 14f; color = Color.DKGRAY }
@@ -393,21 +358,15 @@ class PdfGenerator(
 
         val printableWidthPx = (PAGE_WIDTH - MARGIN_X * 2).toInt()
 
-        // --- Reading order: chapters sorted by index -----------------------------------------
         val sortedChapters = chapters.sortedBy { it.index }
         val totalChapters = sortedChapters.size
 
-        // --- Build every chapter's content blocks once (downloads + text measurement) --------
         val imageCache = mutableMapOf<String, Bitmap?>()
         val chapterBlocks = mutableMapOf<Any, List<ContentBlock>>()
         val downloadsByUrl = downloadRepository?.getDownloadsForNovel(novel.url)?.associateBy { it.chapterUrl } ?: emptyMap()
-        val blockBuildStartTime = System.currentTimeMillis()
         for ((index, chapter) in sortedChapters.withIndex()) {
             ensureActive()
             val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
-            if (index == 0 || (index + 1) % 50 == 0 || index == totalChapters - 1) {
-                AppLog.d(TAG, "Building blocks for chapter ${index + 1}/$totalChapters: $displayTitle")
-            }
             onProgress?.invoke(index + 1, totalChapters, displayTitle)
 
             val download = downloadsByUrl[chapter.url] ?: downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
@@ -415,14 +374,7 @@ class PdfGenerator(
                 ?: "<p><em>Content not available</em></p>"
             chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache, ignoreImages)
         }
-        AppLog.i(TAG, "Built content blocks for $totalChapters chapters in ${System.currentTimeMillis() - blockBuildStartTime}ms (cached images: ${imageCache.size})")
-
         val coverBitmap = if (!ignoreImages) loadCoverBitmap(novel, printableWidthPx * 2) else null
-        if (coverBitmap != null) {
-            AppLog.d(TAG, "Cover bitmap loaded (${coverBitmap.width}x${coverBitmap.height})")
-        } else {
-            AppLog.d(TAG, "No cover bitmap loaded for '${novel.title}'")
-        }
 
         val tocEntries = sortedChapters.map { chapter ->
             TocEntry(chapter.title.ifBlank { "Chapter ${chapter.index}" })
@@ -481,9 +433,6 @@ class PdfGenerator(
             }
         }
 
-        // --- Pass 1: dry run to learn each section's real page number and the doc's length ---
-        val pass1StartTime = System.currentTimeMillis()
-        AppLog.i(TAG, "Starting Pass 1 (layout measurement) for $totalChapters chapters...")
         onProgress?.invoke(totalChapters, totalChapters, "Calculating page layout...")
         val dryWriter = PagedPdfWriter(null, PAGE_WIDTH, PAGE_HEIGHT, MARGIN_X, MARGIN_TOP, MARGIN_BOTTOM, dryRun = true)
         renderCoverPage(dryWriter)
@@ -496,11 +445,7 @@ class PdfGenerator(
         }
         val totalPages = dryWriter.pageNumber
         dryWriter.finishCurrentPage()
-        AppLog.i(TAG, "Pass 1 layout calculation completed in ${System.currentTimeMillis() - pass1StartTime}ms. Document will have $totalPages pages.")
 
-        // --- Pass 2: real render, now that every TOC entry has the correct page number -------
-        val pass2StartTime = System.currentTimeMillis()
-        AppLog.i(TAG, "Starting Pass 2 (rendering $totalPages pages to PdfDocument)...")
         onProgress?.invoke(totalChapters, totalChapters, "Rendering $totalPages PDF pages...")
         val document = PdfDocument()
         val onPageStarted: (Canvas, Int) -> Unit = { canvas, pageNum ->
@@ -521,19 +466,10 @@ class PdfGenerator(
             renderChapter(writer, chapter)
         }
         writer.finishCurrentPage()
-        AppLog.i(TAG, "Pass 2 rendering completed in ${System.currentTimeMillis() - pass2StartTime}ms. Writing PDF to disk...")
 
-        val fileWriteStartTime = System.currentTimeMillis()
         val tempFile = File(storageRepository.getCacheDir(), "${novel.title.replace(" ", "_")}.pdf")
         FileOutputStream(tempFile).use { out -> document.writeTo(out) }
         document.close()
-
-        val totalDuration = System.currentTimeMillis() - startTime
-        AppLog.i(
-            TAG,
-            "PDF generation finished successfully in ${totalDuration}ms. " +
-            "Temp file: ${tempFile.absolutePath} (${tempFile.length() / 1024} KB, $totalPages pages), disk write took ${System.currentTimeMillis() - fileWriteStartTime}ms"
-        )
 
         tempFile
     }

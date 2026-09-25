@@ -5,9 +5,6 @@ import com.halovoid.bunori.data.factory.JobFactory
 import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
 
-/**
- * Single business action for queuing a novel metadata request.
- */
 class StartNovelCrawlUseCase(
     private val batchRepository: BatchRepository,
     private val jobFactory: JobFactory = JobFactory()

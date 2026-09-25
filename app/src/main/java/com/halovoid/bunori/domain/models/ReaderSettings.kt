@@ -58,9 +58,6 @@ data class ReaderSettings(
     val customJs: String = ""
 )
 
-/**
- * Encapsulates the chapter payload passed to the WebView runtime.
- */
 @Serializable
 data class ChapterPayload(
     val id: Int,

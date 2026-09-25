@@ -21,7 +21,6 @@ class RestoreService(private val context: Context) {
                 mkdirs()
             }
 
-            // Unzip archive
             ZipInputStream(inputStream).use { zis ->
                 var entry = zis.nextEntry
                 while (entry != null) {
@@ -39,38 +38,23 @@ class RestoreService(private val context: Context) {
                 }
             }
 
-            // Validate manifest
-            val manifestFile = File(tempDir, "manifest.json").takeIf { it.exists() }
-                ?: File(tempDir, "mainfest.json").takeIf { it.exists() }
-                ?: tempDir.walkTopDown().firstOrNull { it.name.equals("manifest.json", ignoreCase = true) || it.name.equals("mainfest.json", ignoreCase = true) }
-                ?: return false
-
-            val manifestText = manifestFile.readText()
-            val manifest = JSONObject(manifestText)
-            val contents = manifest.optJSONObject("contents")
-
-            // Preserve current device-specific preferences before replacing datastore
             val preferenceRepository = PreferenceRepository.getInstance(context)
             val currentExportFolderUri = preferenceRepository.exportFolderUri.firstOrNull()
             val currentOnboardingCompleted = preferenceRepository.isOnboardingCompleted.firstOrNull()
 
-            // Close DB connections and reset singleton before replacing
             AppDatabase.closeAndResetDatabase()
 
-            // Restore database.db
             val dbFile = File(tempDir, "database.db").takeIf { it.exists() }
                 ?: tempDir.walkTopDown().firstOrNull { it.name == "database.db" }
             if (dbFile != null && dbFile.exists()) {
                 val targetDbFile = context.getDatabasePath("bunori.db")
                 targetDbFile.parentFile?.mkdirs()
                 dbFile.copyTo(targetDbFile, overwrite = true)
-                // Delete journal/wal/shm files so the new db file is cleanly opened
                 File(targetDbFile.path + "-wal").delete()
                 File(targetDbFile.path + "-shm").delete()
                 File(targetDbFile.path + "-journal").delete()
             }
 
-            // Restore datastore/
             val datastoreDir = File(tempDir, "datastore").takeIf { it.exists() && it.isDirectory }
                 ?: tempDir.walkTopDown().firstOrNull { it.isDirectory && it.name == "datastore" }
             if (datastoreDir != null && datastoreDir.exists() && datastoreDir.isDirectory) {
@@ -78,7 +62,6 @@ class RestoreService(private val context: Context) {
                 targetDatastoreDir.mkdirs()
                 datastoreDir.copyRecursively(targetDatastoreDir, overwrite = true)
 
-                // Re-apply preserved storage folder location and onboarding status
                 if (currentExportFolderUri != null) {
                     preferenceRepository.setExportFolder(currentExportFolderUri)
                 }
@@ -87,7 +70,6 @@ class RestoreService(private val context: Context) {
                 }
             }
 
-            // Restore novels/ to active StorageRepository (SAF)
             val novelsDir = File(tempDir, "novels").takeIf { it.exists() && it.isDirectory }
                 ?: tempDir.walkTopDown().firstOrNull { it.isDirectory && it.name == "novels" }
             val restoredFilesMap = mutableMapOf<String, Uri>()
@@ -96,7 +78,6 @@ class RestoreService(private val context: Context) {
             if (novelsDir != null && novelsDir.exists() && novelsDir.isDirectory) {
                 val storageRepository = StorageRepositoryImpl.getInstance(context)
                 novelsDir.walkTopDown().filter { it.isFile }.forEach { file ->
-                    val relativePathToFile = file.relativeTo(novelsDir).path
                     val parentRelDir = "novels/" + (file.parentFile?.relativeTo(novelsDir)?.path ?: "")
                     val fileName = file.name
                     val mimeType = when {
@@ -127,7 +108,6 @@ class RestoreService(private val context: Context) {
                 }
             }
 
-            // Reconcile database URIs with the newly restored files in SAF storage
             reconcileDatabaseUris(restoredFilesMap, restoredNovelCoversMap)
             AppDatabase.closeAndResetDatabase()
 
@@ -150,7 +130,6 @@ class RestoreService(private val context: Context) {
             val downloadDao = db.downloadDao()
             val novelDao = db.novelDao()
 
-            // 1. Reconcile Downloads to relative paths
             val allDownloads = downloadDao.getAllDownloads()
             for (download in allDownloads) {
                 val oldLocation = download.fileLocation
@@ -174,7 +153,6 @@ class RestoreService(private val context: Context) {
                 }
             }
 
-            // 2. Reconcile Novel Covers to relative paths
             val allNovels = novelDao.getAllNovelsOnce()
             for (novel in allNovels) {
                 val oldCover = novel.coverUrl

@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.domain.models.SearchItem
-import com.halovoid.bunori.ui.core.logging.AppLog
+import com.halovoid.bunori.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -97,10 +97,6 @@ class SearchViewModel(
                         val results = withContext(Dispatchers.IO) {
                             crawler.getSearchResults(query)
                         }
-                        AppLog.d(
-                            "SearchViewModel",
-                            "Crawler '${crawler.name}' returned ${results.size} results for query '$query': ${results.map { "${it.title} (${it.url})" }}"
-                        )
                         val searchItems = results.map { novel ->
                             SearchItem(
                                 title = novel.title,
@@ -113,7 +109,6 @@ class SearchViewModel(
                         }
                         updateSourceState(crawler.name, SourceSearchStatus.Success(searchItems))
                     } catch (e: Exception) {
-                        AppLog.e("SearchViewModel", "Error searching ${crawler.name}: ${e.message}", e)
                         updateSourceState(crawler.name, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
                     }
                 }
@@ -187,7 +182,6 @@ class SearchViewModel(
                     }
                     updateSourceState(crawler.name, SourceSearchStatus.Success(searchItems))
                 } catch (e: Exception) {
-                    AppLog.e("SearchViewModel", "Error searching ${crawler.name}: ${e.message}", e)
                     updateSourceState(crawler.name, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
                 }
             }
@@ -228,7 +222,6 @@ class SearchViewModel(
                 }
                 updateSourceState(crawler.name, SourceSearchStatus.Success(searchItems))
             } catch (e: Exception) {
-                AppLog.e("SearchViewModel", "Error retrying ${crawler.name}: ${e.message}", e)
                 updateSourceState(crawler.name, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
             }
         }

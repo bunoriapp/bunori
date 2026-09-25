@@ -48,18 +48,6 @@ class LibraryViewModel(
             initialValue = false
         )
 
-    fun toggleShowAllSavedNovels() {
-        viewModelScope.launch {
-            preferenceRepository.setShowAllSavedNovels(!showAllSavedNovels.value)
-        }
-    }
-
-    fun setShowAllSavedNovels(show: Boolean) {
-        viewModelScope.launch {
-            preferenceRepository.setShowAllSavedNovels(show)
-        }
-    }
-
     fun setLibraryCompactView(compact: Boolean) {
         viewModelScope.launch {
             preferenceRepository.setLibraryCompactView(compact)

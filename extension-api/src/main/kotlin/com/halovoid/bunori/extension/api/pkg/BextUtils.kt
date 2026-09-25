@@ -15,22 +15,11 @@ class IncompatibleApiException(val requiredVersion: Int, val currentVersion: Int
 class InvalidBextPackageException(message: String, cause: Throwable? = null) :
     Exception(message, cause)
 
-/**
- * Utilities for packing, unpacking, and validating Bunori Extension (.bext) archives.
- */
 object BextUtils {
     const val CURRENT_API_VERSION = 1
     const val MANIFEST_FILE_NAME = "manifest.json"
     const val WASM_FILE_NAME = "source.wasm"
 
-    /**
-     * Reads and unpacks a .bext archive from an [InputStream].
-     *
-     * @param inputStream Input stream reading the .bext ZIP file.
-     * @param validateApiVersion If true, verifies that apiVersion <= [CURRENT_API_VERSION].
-     * @throws InvalidBextPackageException if manifest or source.wasm is missing or corrupted.
-     * @throws IncompatibleApiException if apiVersion is incompatible.
-     */
     fun readPackage(
         inputStream: InputStream,
         validateApiVersion: Boolean = true
@@ -45,7 +34,6 @@ object BextUtils {
                 var entry: ZipEntry? = zis.nextEntry
                 while (entry != null) {
                     val name = entry.name
-                    // Prevent zip-slip security vulnerabilities
                     if (name.contains("..") || name.startsWith("/")) {
                         zis.closeEntry()
                         entry = zis.nextEntry
@@ -83,7 +71,6 @@ object BextUtils {
             validateManifest(resolvedManifest)
         }
 
-        // Extract icon if manifest specifies iconPath, or search extraFiles for bundled icons
         val candidatePath = resolvedManifest.iconPath?.removePrefix("/")?.replace('\\', '/')
         if (candidatePath != null) {
             iconBytes = extraFiles[candidatePath]
@@ -108,23 +95,17 @@ object BextUtils {
         )
     }
 
-    /**
-     * Packs a [BextPackage] into an archive written to [outputStream].
-     */
     fun writePackage(pkg: BextPackage, outputStream: OutputStream) {
         ZipOutputStream(outputStream).use { zos ->
-            // 1. Write manifest.json
             zos.putNextEntry(ZipEntry(MANIFEST_FILE_NAME))
             val manifestJson = ExtensionJson.json.encodeToString(ExtensionManifest.serializer(), pkg.manifest)
             zos.write(manifestJson.toByteArray(Charsets.UTF_8))
             zos.closeEntry()
 
-            // 2. Write source.wasm
             zos.putNextEntry(ZipEntry(WASM_FILE_NAME))
             zos.write(pkg.wasmBytes)
             zos.closeEntry()
 
-            // 3. Write icon if present and not already in extraFiles
             pkg.manifest.iconPath?.let { iconPath ->
                 val normalizedPath = iconPath.removePrefix("/")
                 if (pkg.iconBytes != null && !pkg.extraFiles.containsKey(normalizedPath)) {
@@ -134,7 +115,6 @@ object BextUtils {
                 }
             }
 
-            // 4. Write any additional extra files
             for ((name, bytes) in pkg.extraFiles) {
                 if (name != MANIFEST_FILE_NAME && name != WASM_FILE_NAME) {
                     zos.putNextEntry(ZipEntry(name))
@@ -145,9 +125,6 @@ object BextUtils {
         }
     }
 
-    /**
-     * Validates manifest fields and checks API version compatibility.
-     */
     fun validateManifest(manifest: ExtensionManifest, maxApiVersion: Int = CURRENT_API_VERSION) {
         if (manifest.id.isBlank()) {
             throw InvalidBextPackageException("Manifest 'id' cannot be blank")

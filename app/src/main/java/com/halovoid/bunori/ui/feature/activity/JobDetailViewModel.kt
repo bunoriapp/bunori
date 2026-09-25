@@ -16,9 +16,10 @@ import com.halovoid.bunori.domain.models.Artifact
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.domain.models.Task
-import com.halovoid.bunori.ui.core.logging.AppLog
+import com.halovoid.bunori.utils.Logger
 import com.halovoid.bunori.ui.core.platform.openFile
 import androidx.core.net.toUri
+import com.halovoid.bunori.api.core.scrapper.Scrapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -38,22 +39,14 @@ class JobDetailViewModel(
     }
 
     private val _statusFilter = MutableStateFlow<JobStatus?>(null)
-    val statusFilter: StateFlow<JobStatus?> = _statusFilter.asStateFlow()
-
-    fun setStatusFilter(status: JobStatus?) {
-        _statusFilter.value = status
-    }
 
     val cancellingBatchIds: StateFlow<Set<String>> = batchRepository.cancellingBatchIds
     val activeActionIds: StateFlow<Set<String>> = batchRepository.activeActionIds
 
     fun resolveWebView(batchId: String, url: String) {
         viewModelScope.launch {
-            AppLog.i("JobDetailViewModel", "Starting WebView resolution for $batchId at $url")
-            val success = com.halovoid.bunori.api.core.scrapper.Scrapper.globalResolver?.resolve(url) ?: false
-            AppLog.i("JobDetailViewModel", "Resolution result: $success")
+            val success = Scrapper.globalResolver?.resolve(url) ?: false
             if (success) {
-                AppLog.i("JobDetailViewModel", "Resuming batch $batchId")
                 batchRepository.resumeBatch(batchId)
             }
         }

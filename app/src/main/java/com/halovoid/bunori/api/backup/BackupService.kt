@@ -7,7 +7,9 @@ import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepositoryImpl
 import com.halovoid.bunori.data.scheduler.jobs.JobHandler
 import com.halovoid.bunori.data.scheduler.jobs.JobResult
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -35,8 +37,10 @@ class BackupService(private val context: Context): JobHandler {
         val fileName = "backup.bbak"
 
         val tempFile = File(context.cacheDir, fileName)
-        FileOutputStream(tempFile).use { fos ->
-            writeBackupToStream(fos, backupDatabase, backupChapters, backupCovers, timestamp)
+        withContext(Dispatchers.IO) {
+            FileOutputStream(tempFile).use { fos ->
+                writeBackupToStream(fos, backupDatabase, backupChapters, backupCovers, timestamp)
+            }
         }
         val bytes = tempFile.readBytes()
         tempFile.delete()
@@ -68,7 +72,6 @@ class BackupService(private val context: Context): JobHandler {
             }
         }
 
-        // Fallback to local external/internal filesDir if exportUri is not set or failed
         val backupDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "backup").apply { mkdirs() }
         val fallbackFile = File(backupDir, fileName)
         fallbackFile.writeBytes(bytes)
@@ -97,7 +100,6 @@ class BackupService(private val context: Context): JobHandler {
             1
         }
 
-        // Checkpoint SQLite WAL to ensure all tables (novels, chapters, downloads, batches, tasks, artifacts) are synced
         try {
             val db = AppDatabase.getDatabase(context).openHelper.writableDatabase
             db.query("PRAGMA wal_checkpoint(FULL)").use { it.moveToFirst() }
@@ -133,7 +135,6 @@ class BackupService(private val context: Context): JobHandler {
             if (backupChapters || backupCovers) {
                 val addedEntries = mutableSetOf<String>()
 
-                // 1. Fetch files from SAF External Storage (StorageRepository)
                 try {
                     val storageRepository = StorageRepositoryImpl.getInstance(context)
                     val storageFiles = storageRepository.listFilesRecursively("novels")
@@ -157,12 +158,6 @@ class BackupService(private val context: Context): JobHandler {
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
-                }
-
-                // 2. Legacy internal filesDir/novels if present
-                val novelsDir = File(context.filesDir, "novels")
-                if (novelsDir.exists() && novelsDir.isDirectory) {
-                    zipDirectoryFiltered(novelsDir, "novels", zos, backupChapters, backupCovers, addedEntries)
                 }
             }
 

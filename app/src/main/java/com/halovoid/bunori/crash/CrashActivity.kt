@@ -10,6 +10,9 @@ import com.halovoid.bunori.data.repository.StorageRepositoryImpl
 import com.halovoid.bunori.ui.core.theme.BunoriTheme
 import com.halovoid.bunori.ui.feature.settings.CrashScreen
 
+/*
+Directly pulled over from tachiyomi source code
+ */
 class CrashActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

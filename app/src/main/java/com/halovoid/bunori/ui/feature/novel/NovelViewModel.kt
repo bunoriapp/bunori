@@ -12,9 +12,11 @@ import com.halovoid.bunori.data.factory.JobFactory
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
+import com.halovoid.bunori.data.repository.ChapterRepositoryImpl
 import com.halovoid.bunori.data.repository.CopyResult
 import com.halovoid.bunori.data.repository.DownloadRepositoryImpl
 import com.halovoid.bunori.data.repository.NovelRepository
+import com.halovoid.bunori.data.repository.NovelRepositoryImpl
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepositoryImpl
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
@@ -23,7 +25,9 @@ import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.domain.usecase.DeleteChapterUseCase
+import com.halovoid.bunori.domain.usecase.DownloadRangeUseCase
 import com.halovoid.bunori.domain.usecase.ReplayChapterUseCase
+import com.halovoid.bunori.domain.usecase.SaveNovelUseCase
 import com.halovoid.bunori.ui.core.platform.openFile
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ExportFormat
 import com.halovoid.bunori.utils.SimhashUtils
@@ -84,11 +88,12 @@ class NovelViewModel(
         batchRepository,
         jobFactory
     ),
-    private val downloadRangeUseCase: com.halovoid.bunori.domain.usecase.DownloadRangeUseCase = com.halovoid.bunori.domain.usecase.DownloadRangeUseCase(
+    private val downloadRangeUseCase: DownloadRangeUseCase = DownloadRangeUseCase(
         ChapterRepository.getInstance(application),
         batchRepository,
         jobFactory
     ),
+    private val saveNovelUseCae: SaveNovelUseCase = SaveNovelUseCase(NovelRepositoryImpl.getInstance(application)),
     private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
 ) : AndroidViewModel(application) {
     private val novelRepository = NovelRepository.getInstance(application)
@@ -357,10 +362,7 @@ class NovelViewModel(
             }
         } else {
             viewModelScope.launch(Dispatchers.IO) {
-                val hash = novel.titleHash ?: SimhashUtils.generateSimhash(novel.title)
-                val similar = novelRepository.getSimilarNovels(hash, threshold = 6)
-                    .filter { it.url != novel.url }
-
+                val similar = saveNovelUseCae.check(novel)
                 if (similar.isNotEmpty() && onSimilarFound != null) {
                     withContext(Dispatchers.Main) {
                         onSimilarFound(similar)
@@ -393,7 +395,7 @@ class NovelViewModel(
 
     fun selectChapter(chapterId: Int) {
         _isSelectionMode.value = true
-        _selectedChapterIds.value = _selectedChapterIds.value + chapterId
+        _selectedChapterIds.value += chapterId
     }
 
     fun clearSelection() {

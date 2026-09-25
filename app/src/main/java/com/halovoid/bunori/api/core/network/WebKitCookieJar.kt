@@ -6,10 +6,6 @@ import android.webkit.CookieManager
 import okhttp3.Cookie
 import okhttp3.HttpUrl
 
-/**
- * Ensures all OkHttp calls (including WAMR Host calls and redirects across different domains)
- * automatically share cookies with webview
- */
 class WebKitCookieJar: CookieJar {
     private val cookieManager: CookieManager
         get() = CookieManager.getInstance()

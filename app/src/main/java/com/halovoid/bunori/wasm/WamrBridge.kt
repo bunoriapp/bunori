@@ -7,7 +7,6 @@ object WamrBridge {
 
     init {
         try {
-            // Touch WamrHttpBridge class so it's loaded before JNI_OnLoad registers callbacks
             Class.forName("com.halovoid.bunori.wasm.WamrHttpBridge")
             System.loadLibrary("wamr")
             Log.i(TAG, "Successfully loaded libwamr.so")

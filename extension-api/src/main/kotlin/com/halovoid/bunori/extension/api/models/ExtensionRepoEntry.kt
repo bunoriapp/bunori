@@ -6,22 +6,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
-
-/**
- * Metadata entry representing an extension available in an online or local repository index.
- *
- * @property id Unique identifier of the extension (e.g. "novelbins").
- * @property name Display name of the extension source.
- * @property version Monotonically increasing release version of this specific extension.
- * @property apiVersion Target Bunori Extension API contract version (currently 1).
- * @property lang Supported language code (e.g. "en", "es").
- * @property baseUrl Canonical base URL of the website.
- * @property entryClass Fully-qualified class name implementing [com.halovoid.bunori.extension.api.IExtension].
- * @property iconPath Optional path to the icon asset inside the .bext package (e.g. "assets/icon.png").
- * @property bextUrl URL or relative path to the .bext archive file.
- * @property size File size in bytes.
- * @property sha256 Optional SHA-256 checksum of the .bext file.
- */
 @Serializable
 data class ExtensionRepoEntry(
     val id: String,
@@ -73,15 +57,10 @@ data class ExtensionRepoEntry(
     )
 
     companion object {
-        /**
-         * Parses repository index JSON from standard Bunori `index.json`, array `[...]`,
-         * or LNReader `plugins.min.json`.
-         */
         fun parseIndex(jsonString: String): List<ExtensionRepoEntry> {
             val trimmed = jsonString.trim()
             if (trimmed.isEmpty()) return emptyList()
 
-            // 1. Standard repository index object { "extensions": [...] }
             if (trimmed.startsWith("{")) {
                 return try {
                     ExtensionJson.json.decodeFromString<ExtensionRepoIndex>(trimmed).extensions
@@ -90,7 +69,6 @@ data class ExtensionRepoEntry(
                 }
             }
 
-            // 2. Repository index array [...]
             return try {
                 val root = ExtensionJson.json.parseToJsonElement(trimmed)
                 val isLnReader = (root as? JsonArray)?.any { elem ->
@@ -113,11 +91,6 @@ data class ExtensionRepoEntry(
                 }
             }
         }
-
-        /**
-         * Checks whether [candidateVersion] is strictly newer than [currentVersion]
-         * using Semantic Versioning (e.g. "1.0.1" > "1.0.0", "1.1.0" > "1.0.9").
-         */
         fun isVersionNewer(candidateVersion: String, currentVersion: String?): Boolean {
             if (currentVersion == null) return true
             val candidateParts = candidateVersion.split(".").map { it.toIntOrNull() ?: 0 }
@@ -133,10 +106,6 @@ data class ExtensionRepoEntry(
         }
     }
 }
-
-/**
- * Metadata format representing an entry in LNReader `plugins.min.json`.
- */
 @Serializable
 data class LnReaderPluginRepoItem(
     val id: String,
@@ -161,13 +130,9 @@ data class LnReaderPluginRepoItem(
         )
     }
 }
-
-/**
- * Top-level metadata wrapper for an extension repository index.
- */
 @Serializable
 data class ExtensionRepoIndex(
-    val repoName: String = "Bunori Extensions",
+    val repoName: String = "Extensions",
     val version: Int = 1,
     val extensions: List<ExtensionRepoEntry> = emptyList()
 )

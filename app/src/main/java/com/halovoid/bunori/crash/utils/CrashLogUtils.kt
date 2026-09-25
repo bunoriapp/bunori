@@ -15,6 +15,9 @@ import java.io.File
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
+/*
+Directly pulled over from tachiyomi source code
+ */
 class CrashLogUtil(
     private val context: Context,
     private val storageRepository: StorageRepository

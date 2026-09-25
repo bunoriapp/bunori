@@ -38,7 +38,7 @@ object JobStateMachine {
             JobStatus.PENDING to JobEvent.PAUSE_REQUESTED -> JobStatus.PAUSED
 
             JobStatus.RUNNING to JobEvent.HANDLER_SUCCESS -> JobStatus.SUCCESS
-            JobStatus.RUNNING to JobEvent.HANDLER_FAILURE_RETRYABLE -> JobStatus.RUNNING
+            JobStatus.RUNNING to JobEvent.HANDLER_FAILURE_RETRYABLE -> JobStatus.PENDING // job now goes to pending if it fails once leaving the space for other jobs
             JobStatus.RUNNING to JobEvent.HANDLER_FAILURE_FINAL -> JobStatus.FAILED
             JobStatus.RUNNING to JobEvent.CANCEL_REQUESTED -> JobStatus.CANCELLED
             JobStatus.RUNNING to JobEvent.PAUSE_REQUESTED -> JobStatus.PAUSED

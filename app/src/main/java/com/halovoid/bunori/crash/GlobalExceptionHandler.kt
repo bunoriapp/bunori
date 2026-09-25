@@ -11,6 +11,9 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import kotlin.system.exitProcess
 
+/*
+Directly pulled over from tachiyomi source code
+ */
 class GlobalExceptionHandler private constructor(
     private val context: Context,
     private val defaultHandler: Thread.UncaughtExceptionHandler,
