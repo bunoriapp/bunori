@@ -32,18 +32,21 @@ class CloudflareInterceptor(
 
     companion object {
         private const val TAG = "CloudflareInterceptor"
-        private val SERVER_CHECK = arrayOf("cloudflare-nginx", "cloudflare")
-        private val COOKIE_NAMES = listOf("cf_clearance")
+        private val SERVER_CHECK = arrayOf("cloudflare-nginx", "cloudflare", "ddos-guard")
+        private val COOKIE_NAMES = listOf("cf_clearance", "__ddg1_", "__ddg2_", "__ddg8_", "__ddg9_", "__ddg10_")
     }
 
     override fun shouldIntercept(response: Response): Boolean {
         val hasCfMitigated = response.header("cf-mitigated") == "challenge"
-        val isCfServer = response.header("Server")?.lowercase()?.let { s -> 
+        val serverHeader = response.header("Server")?.lowercase()
+        val isCfServer = serverHeader?.let { s -> 
             SERVER_CHECK.any { s.contains(it) } 
         } == true
         val isChallengeCode = response.code in listOf(403, 429, 503)
+        val isDdosGuard = serverHeader?.contains("ddos-guard") == true && 
+            cookieManager.get(response.request.url).none { it.name.startsWith("__ddg1") }
 
-        return (hasCfMitigated && isCfServer) || (isChallengeCode && isCfServer) || hasCfMitigated
+        return (hasCfMitigated && isCfServer) || (isChallengeCode && isCfServer) || hasCfMitigated || isDdosGuard
     }
 
     override fun intercept(
