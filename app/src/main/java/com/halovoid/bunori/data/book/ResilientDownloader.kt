@@ -41,12 +41,23 @@ object ResilientDownloader {
         val tempFile = File(parentDir, "${destFile.name}.tmp")
         val client = NetworkClient.okHttpClient
 
-        for ((index, mirrorUrl) in mirrors.withIndex()) {
-            Log.i(TAG, "Attempting mirror [${index + 1}/${mirrors.size}]: $mirrorUrl")
+        val cleanMirrors = mirrors.filter { url ->
+            val u = url.lowercase()
+            !u.contains("/search?") && !u.contains("ipfs_cid:") && (u.startsWith("http://") || u.startsWith("https://"))
+        }
+
+        if (cleanMirrors.isEmpty()) {
+            Log.w(TAG, "No valid direct download mirror URLs found in list of ${mirrors.size} candidates")
+            return@withContext false
+        }
+
+        for ((index, mirrorUrl) in cleanMirrors.withIndex()) {
+            Log.i(TAG, "Attempting mirror [${index + 1}/${cleanMirrors.size}]: $mirrorUrl")
             var retryCount = 0
 
             while (retryCount < MAX_RETRIES_PER_MIRROR) {
                 var append = false
+                var isHtml = false
                 try {
                     val existingBytes = if (tempFile.exists()) tempFile.length() else 0L
                     val requestBuilder = Request.Builder()
@@ -61,6 +72,14 @@ object ResilientDownloader {
                     client.newCall(requestBuilder.build()).execute().use { response ->
                         if (!response.isSuccessful && response.code != 206) {
                             throw IOException("HTTP ${response.code}: ${response.message}")
+                        }
+
+                        val contentType = response.header("Content-Type")?.lowercase() ?: ""
+                        if (contentType.contains("text/html") || contentType.contains("application/xhtml+xml")) {
+                            Log.w(TAG, "Mirror $mirrorUrl returned webpage/HTML ($contentType). Skipping non-direct mirror.")
+                            if (tempFile.exists()) tempFile.delete()
+                            isHtml = true
+                            return@use
                         }
 
                         append = (response.code == 206)
@@ -84,6 +103,10 @@ object ResilientDownloader {
                         }
                     }
 
+                    if (isHtml) {
+                        break
+                    }
+
                     // Verify EPUB archive integrity
                     if (EpubExtractor.isEpub(tempFile)) {
                         Log.i(TAG, "EPUB integrity verified for ${tempFile.name} (${tempFile.length()} bytes)")
@@ -93,25 +116,27 @@ object ResilientDownloader {
                             return@withContext true
                         }
                     } else {
-                        Log.w(TAG, "Downloaded file is not a valid EPUB (size=${tempFile.length()} bytes). Will retry or resume.")
+                        Log.w(TAG, "Downloaded file from $mirrorUrl is not a valid EPUB (size=${tempFile.length()} bytes). Skipping invalid mirror.")
+                        if (tempFile.exists()) tempFile.delete()
+                        retryCount++
                     }
 
                 } catch (e: Exception) {
                     retryCount++
                     Log.w(TAG, "Download interrupted on mirror $mirrorUrl (retry $retryCount/$MAX_RETRIES_PER_MIRROR): ${e.message}")
                     if (!append && tempFile.exists()) {
-                        // If server didn't support resumption, reset corrupted partial file
                         tempFile.delete()
                     }
                     delay(1000L * retryCount)
                 }
             }
-            Log.w(TAG, "Mirror $mirrorUrl failed after $MAX_RETRIES_PER_MIRROR attempts. Trying next mirror...")
+            if (tempFile.exists()) tempFile.delete()
+            Log.w(TAG, "Mirror $mirrorUrl failed after $retryCount attempts. Trying next mirror...")
         }
 
         // All mirrors exhausted
-        tempFile.delete()
-        Log.e(TAG, "Failed to download EPUB from all ${mirrors.size} mirrors.")
+        if (tempFile.exists()) tempFile.delete()
+        Log.e(TAG, "Failed to download EPUB from all ${cleanMirrors.size} mirrors.")
         false
     }
 }

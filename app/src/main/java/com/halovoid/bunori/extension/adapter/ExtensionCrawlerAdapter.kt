@@ -7,6 +7,7 @@ import com.halovoid.bunori.data.book.EpubBookManager
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.extension.api.IExtension
+import com.halovoid.bunori.extension.api.models.ChapterDto
 import com.halovoid.bunori.extension.api.models.ListingDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -121,13 +122,24 @@ class ExtensionCrawlerAdapter(
         val novelDto = extension.getNovelDetails(novelUrl)
         val fetchDuration = System.currentTimeMillis() - start
         val mapStart = System.currentTimeMillis()
-        val rawChapters = if (novelDto.chapters.isEmpty() && novelDto.extra.containsKey("mirrors") && context != null) {
-            val mirrors = novelDto.extra["mirrors"]?.split(";")?.filter { it.isNotBlank() } ?: emptyList()
-            val bookId = novelDto.extra["bookId"] ?: novelDto.url.substringAfterLast('/').substringBefore('?')
-            EpubBookManager.ensureBookDownloaded(context, bookId, mirrors)
-            EpubBookManager.getChapters(context, bookId, novelDto.url)
-        } else {
+        val bookId = novelDto.extra["bookId"] ?: novelDto.url.substringAfterLast('/').substringBefore('?')
+        val mirrors = novelDto.extra["mirrors"]?.split(";")?.filter { it.isNotBlank() } ?: emptyList()
+        if (mirrors.isNotEmpty()) {
+            EpubBookManager.registerMirrors(bookId, mirrors)
+        }
+
+        val rawChapters = if (novelDto.chapters.isNotEmpty()) {
             novelDto.chapters
+        } else if (context != null && EpubBookManager.hasBook(context, bookId)) {
+            EpubBookManager.getChapters(context, bookId, bookId)
+        } else {
+            listOf(
+                ChapterDto(
+                    url = "epub://$bookId/book",
+                    title = novelDto.title.ifBlank { "Complete Book" },
+                    index = 1
+                )
+            )
         }
 
         val novel = Novel(

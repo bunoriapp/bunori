@@ -130,11 +130,44 @@ object EpubExtractor {
     fun extractChapterHtml(epubFile: File, entryPath: String): String {
         return try {
             ZipFile(epubFile).use { zip ->
-                val cleanPath = entryPath.removePrefix("epub://").substringAfter('/')
-                // Normalize and locate entry
-                val entry = zip.getEntry(cleanPath)
-                    ?: zip.entries().asSequence().firstOrNull { it.name.endsWith(cleanPath.substringAfterLast('/')) }
-                    ?: return "<html><body><p>Chapter content not found in EPUB: $cleanPath</p></body></html>"
+                val cleanPath = entryPath.removePrefix("epub://")
+                var entry: ZipEntry? = zip.getEntry(cleanPath)
+                if (entry == null && cleanPath.contains('/')) {
+                    val stripped = cleanPath.substringAfter('/')
+                    entry = zip.getEntry(stripped)
+                        ?: zip.entries().asSequence().firstOrNull { it.name.endsWith(stripped.substringAfterLast('/')) }
+                }
+                if (entry == null) {
+                    entry = zip.entries().asSequence().firstOrNull { it.name.endsWith(cleanPath.substringAfterLast('/')) }
+                }
+
+                if (entry == null || cleanPath == "book" || cleanPath.endsWith("/book")) {
+                    val opfPath = getOpfPath(zip)
+                    if (opfPath != null) {
+                        val opfDoc = parseXml(zip.getInputStream(zip.getEntry(opfPath)))
+                        val spineNode = opfDoc.getElementsByTagName("spine").item(0) as? Element
+                        val itemrefs = spineNode?.getElementsByTagName("itemref")
+                        val firstItem = itemrefs?.item(0) as? Element
+                        val idref = firstItem?.getAttribute("idref")
+                        val itemNodes = opfDoc.getElementsByTagName("item")
+                        var foundHref: String? = null
+                        for (i in 0 until itemNodes.length) {
+                            val el = itemNodes.item(i) as? Element ?: continue
+                            if (el.getAttribute("id") == idref) {
+                                foundHref = el.getAttribute("href")
+                                break
+                            }
+                        }
+                        if (foundHref != null) {
+                            val opfDir = opfPath.substringBeforeLast('/', "")
+                            entry = zip.getEntry(resolveZipPath(opfDir, foundHref))
+                        }
+                    }
+                }
+
+                if (entry == null) {
+                    return "<html><body><p>Chapter content not found in EPUB: $cleanPath</p></body></html>"
+                }
 
                 val entryDir = entry.name.substringBeforeLast('/', "")
                 var rawHtml = zip.getInputStream(entry).bufferedReader(Charsets.UTF_8).use { it.readText() }
