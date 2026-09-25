@@ -30,7 +30,9 @@ object WamrHttpBridge {
             currentUrl = req.url
             Log.i(TAG, "--> [WASM HTTP REQ] ${req.method} ${req.url} (headers: ${req.headers}, body: ${req.body?.take(300)})")
 
-            val requestBuilder = Request.Builder().url(req.url)
+            val requestBuilder = Request.Builder()
+                .url(req.url)
+                .cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
 
             req.headers.forEach { (key, value) ->
                 requestBuilder.header(key, value)
@@ -55,7 +57,12 @@ object WamrHttpBridge {
                 val bodyStr = response.body?.string() ?: ""
                 Log.i(TAG, "<-- [WASM HTTP RESP] status=${response.code} for ${req.url} (body length: ${bodyStr.length} chars, preview: ${bodyStr.take(300)})")
 
-                if (response.code in listOf(403, 429) && (response.header("cf-mitigated") == "challenge" || bodyStr.contains("<title>Just a moment...</title>"))) {
+                if (response.code in listOf(403, 429) && (
+                    response.header("cf-mitigated") == "challenge" ||
+                    response.header("Server")?.contains("ddos-guard", ignoreCase = true) == true ||
+                    bodyStr.contains("<title>Just a moment...</title>") ||
+                    bodyStr.contains("<title>DDoS-Guard</title>")
+                )) {
                     lastCloudflareBlockedUrl = req.url
                 }
 
@@ -70,7 +77,8 @@ object WamrHttpBridge {
             Log.e(TAG, "Error executing HTTP request in WamrHttpBridge: ${e.message}", e)
             if (e is CloudflareBypassException ||
                 e.cause is CloudflareBypassException ||
-                e.message?.contains("Cloudflare", ignoreCase = true) == true
+                e.message?.contains("Cloudflare", ignoreCase = true) == true ||
+                e.message?.contains("ddos", ignoreCase = true) == true
             ) {
                 lastCloudflareBlockedUrl = currentUrl
             }
