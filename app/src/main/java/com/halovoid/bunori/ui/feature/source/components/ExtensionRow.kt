@@ -88,10 +88,11 @@ fun ExtensionRow(
             val statusPrefix = if (item.isActionInProgress) {
                 if (item.isInstalled) "Updating • " else "Installing • "
             } else ""
+            val typeTag = item.extensionType.badgeText
             val metadata = if (item.isDeprecated && !item.deprecationReason.isNullOrBlank()) {
-                "${item.deprecationReason} • $langText • $versionText"
+                "$typeTag • ${item.deprecationReason} • $langText • $versionText"
             } else {
-                "$statusPrefix$langText • $versionText$ageRatingText"
+                "$typeTag • $statusPrefix$langText • $versionText$ageRatingText"
             }
 
             Text(

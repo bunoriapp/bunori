@@ -111,6 +111,7 @@ class ExtensionDtoTest {
         val entriesFromArray = com.halovoid.bunori.extension.api.models.ExtensionRepoEntry.parseIndex(jsonArray)
         assertEquals(1, entriesFromArray.size)
         assertEquals("novelfull", entriesFromArray[0].id)
+        assertEquals(com.halovoid.bunori.extension.api.models.ExtensionFormat.BEXT_WASM, entriesFromArray[0].format)
         assertEquals("Novel Full", entriesFromArray[0].name)
         assertEquals("1.0.0", entriesFromArray[0].version)
         assertEquals("novelfull.bext", entriesFromArray[0].bextUrl)
@@ -132,6 +133,7 @@ class ExtensionDtoTest {
         assertEquals(1, wasmEntries.size)
         assertNull(wasmEntries[0].entryClass)
         assertEquals("novelbins", wasmEntries[0].id)
+        assertEquals(com.halovoid.bunori.extension.api.models.ExtensionFormat.BEXT_WASM, wasmEntries[0].format)
 
         val jsonObject = """
             {
@@ -155,6 +157,7 @@ class ExtensionDtoTest {
         val entriesFromObject = com.halovoid.bunori.extension.api.models.ExtensionRepoEntry.parseIndex(jsonObject)
         assertEquals(1, entriesFromObject.size)
         assertEquals("novelbins", entriesFromObject[0].id)
+        assertEquals(com.halovoid.bunori.extension.api.models.ExtensionFormat.BEXT_WASM, entriesFromObject[0].format)
         assertEquals("2.1.0", entriesFromObject[0].version)
         assertEquals("novelbins.bext", entriesFromObject[0].bextUrl)
     }

@@ -41,7 +41,7 @@ fun ExtensionDetailDialog(
     val maxAttempts = metadata?.maxAttempts ?: repoEntry?.maxAttempts ?: manifest?.maxAttempts ?: 3
     val webviewNeeded = metadata?.webviewNeeded ?: repoEntry?.webviewNeeded ?: manifest?.webviewNeeded ?: false
 
-    val packageSizeBytes = item.loadedExtension?.bextFile?.takeIf { it.exists() }?.length()
+    val packageSizeBytes = item.loadedExtension?.packageFile?.takeIf { it.exists() }?.length()
         ?: repoEntry?.size
         ?: 0L
     val packageSizeFormatted = if (packageSizeBytes > 0) {
@@ -74,7 +74,7 @@ fun ExtensionDetailDialog(
                     )
                     val ver = item.installedVersion ?: item.repoVersion ?: "1.0.0"
                     Text(
-                        text = "v$ver • ${item.lang.uppercase()}",
+                        text = "v$ver • ${item.lang.uppercase()} • ${item.extensionType.badgeText}",
                         style = MaterialTheme.typography.bodySmall,
                         color = SecondaryText
                     )
@@ -190,6 +190,14 @@ fun ExtensionDetailDialog(
                 }
 
                 HorizontalDivider(color = BorderColor.copy(alpha = 0.3f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Architecture", style = MaterialTheme.typography.bodySmall, color = SecondaryText)
+                    Text("${item.extensionType.label} (${item.extensionType.fileExtension})", style = MaterialTheme.typography.bodySmall, color = PrimaryText, fontWeight = FontWeight.Medium)
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

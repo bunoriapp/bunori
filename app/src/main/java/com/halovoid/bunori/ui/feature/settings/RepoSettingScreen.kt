@@ -505,7 +505,7 @@ fun AddRepoDialog(
                             urlText = DEFAULT_EXTENSION_REPO_URL
                             errorMessage = null
                         },
-                        label = { Text("Bunori Official (.bext)", fontSize = 12.sp) },
+                        label = { Text("BEXT Official (.bext)", fontSize = 12.sp) },
                         colors = SuggestionChipDefaults.suggestionChipColors(
                             containerColor = DarkSurfaceVariant.copy(alpha = 0.5f),
                             labelColor = PrimaryText
@@ -572,13 +572,13 @@ fun AddRepoDialog(
 
 private fun getRepoTitle(url: String): String {
     return when (url) {
-        DEFAULT_EXTENSION_REPO_URL -> "Bunori Official (.bext)"
+        DEFAULT_EXTENSION_REPO_URL -> "BEXT Official (.bext)"
         DEFAULT_LNREADER_REPO_URL -> "LNReader Plugins (.js)"
         else -> {
             try {
                 val host = URI(url).host ?: url
                 when {
-                    url.contains("bunori-extensions", ignoreCase = true) -> "Bunori Repository"
+                    url.contains("bunori", ignoreCase = true) || url.contains("bext", ignoreCase = true) -> "BEXT Repository"
                     url.contains("lnreader", ignoreCase = true) -> "LNReader Repository"
                     host.isNotBlank() -> host
                     else -> "Custom Repository"

@@ -7,6 +7,7 @@ import android.util.Log
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.extension.adapter.ExtensionCrawlerAdapter
 import com.halovoid.bunori.extension.api.IExtension
+import com.halovoid.bunori.extension.api.models.ExtensionFormat
 import com.halovoid.bunori.extension.api.models.ExtensionMetadata
 import com.halovoid.bunori.extension.api.models.ExtensionRepoEntry
 import com.halovoid.bunori.extension.api.pkg.BextUtils
@@ -257,7 +258,7 @@ class ExtensionManager private constructor(private val context: Context) {
                 async { fetchRepoCatalog(url, forceNetwork).getOrDefault(emptyList()) }
             }.awaitAll()
         }.flatten()
-            .groupBy { it.id }
+            .groupBy { "${it.format.name}:${it.id}" }
             .values
             .map { entries ->
                 entries.maxWithOrNull { a, b ->
@@ -281,7 +282,7 @@ class ExtensionManager private constructor(private val context: Context) {
         val installed = _installedExtensions.value
 
         catalog.filter { entry ->
-            val installedExt = installed[entry.id]
+            val installedExt = installed.values.find { it.manifest.id == entry.id && it.manifest.format == entry.format }
             installedExt != null && ExtensionRepoEntry.isVersionNewer(entry.version, installedExt.manifest.version)
         }
     }
@@ -292,7 +293,7 @@ class ExtensionManager private constructor(private val context: Context) {
      * Downloads and installs an extension from a repository entry (either .bext or .js).
      */
     suspend fun downloadAndInstall(entry: ExtensionRepoEntry): Result<LoadedExtension> = withContext(Dispatchers.IO) {
-        val isJsPlugin = entry.downloadUrl.endsWith(".js")
+        val isJsPlugin = entry.format == ExtensionFormat.LNREADER_JS || entry.downloadUrl.endsWith(".js")
         val downloadUrl = entry.downloadUrl
 
         try {
@@ -414,23 +415,30 @@ class ExtensionManager private constructor(private val context: Context) {
      */
     suspend fun uninstall(extensionId: String): Boolean = withContext(Dispatchers.IO) {
         val current = _installedExtensions.value.toMutableMap()
-        val loaded = current.remove(extensionId)
 
         _installedExtensions.value = current
-        _failedExtensions.value = _failedExtensions.value - extensionId
+        _failedExtensions.value -= extensionId
         syncWithCrawlerFactory(current)
 
-        // Delete installed directory (including read-only dex files and package.bext)
-        val targetDir = File(extensionsDir, extensionId)
-        if (targetDir.exists()) {
-            try {
-                targetDir.walkBottomUp().forEach { file ->
-                    file.setWritable(true)
-                    file.delete()
+        val rawId = extensionId.removePrefix("bext.").removePrefix("lnreader.")
+        val candidateDirs = listOf(
+            File(extensionsDir, extensionId),
+            File(extensionsDir, rawId),
+            File(extensionsDir, "lnreader.$rawId"),
+            File(extensionsDir, "bext.$rawId")
+        ).distinct()
+
+        for (targetDir in candidateDirs) {
+            if (targetDir.exists()) {
+                try {
+                    targetDir.walkBottomUp().forEach { file ->
+                        file.setWritable(true)
+                        file.delete()
+                    }
+                    targetDir.deleteRecursively()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error cleaning directory for ${targetDir.name}: ${e.message}")
                 }
-                targetDir.deleteRecursively()
-            } catch (e: Exception) {
-                Log.w(TAG, "Error cleaning directory for $extensionId: ${e.message}")
             }
         }
 
@@ -457,28 +465,6 @@ class ExtensionManager private constructor(private val context: Context) {
      */
     fun getExtension(id: String): IExtension? {
         return _installedExtensions.value[id]?.extension
-    }
-
-    /**
-     * Returns all active [IExtension] implementations.
-     */
-    fun getAllExtensions(): List<IExtension> {
-        return _installedExtensions.value.values.map { it.extension }
-    }
-
-    /**
-     * Finds an extension capable of handling [url] by domain/baseUrl matching.
-     */
-    fun findExtensionForUrl(url: String): IExtension? {
-        val cleanUrl = url.lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.")
-        val domain = cleanUrl.substringBefore('/')
-
-        return _installedExtensions.value.values.map { it.extension }.firstOrNull { ext ->
-            val extDomain = ext.metadata.baseUrl.lowercase()
-                .removePrefix("https://").removePrefix("http://").removePrefix("www.")
-                .substringBefore('/')
-            domain.contains(extDomain) || extDomain.contains(domain)
-        }
     }
 
     private fun syncWithCrawlerFactory(extensions: Map<String, LoadedExtension>) {

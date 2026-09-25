@@ -10,6 +10,7 @@ import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.UpdateRepository
+import com.halovoid.bunori.extension.api.models.ExtensionFormat
 import com.halovoid.bunori.extension.api.models.ExtensionRepoEntry
 import com.halovoid.bunori.extension.loader.LoadedExtension
 import com.halovoid.bunori.extension.manager.ExtensionManager
@@ -41,6 +42,15 @@ sealed class CatalogState {
     data class Error(val message: String) : CatalogState()
 }
 
+enum class ExtensionType(
+    val label: String,
+    val badgeText: String,
+    val fileExtension: String
+) {
+    BEXT("BEXT", "BEXT", ".bext"),
+    LNREADER("LNReader", "LNREADER", ".js")
+}
+
 data class ExtensionUiItem(
     val id: String,
     val name: String,
@@ -54,6 +64,13 @@ data class ExtensionUiItem(
     val repoEntry: ExtensionRepoEntry? = null,
     val loadedExtension: LoadedExtension? = null
 ) {
+    val extensionType: ExtensionType
+        get() {
+            if (loadedExtension?.manifest?.format == ExtensionFormat.LNREADER_JS || repoEntry?.format == ExtensionFormat.LNREADER_JS || repoEntry?.downloadUrl?.endsWith(".js") == true) {
+                return ExtensionType.LNREADER
+            }
+            return ExtensionType.BEXT
+        }
     val iconModel: Any?
         get() {
             if (loadedExtension?.iconFile != null && loadedExtension.iconFile.exists()) {
@@ -103,36 +120,20 @@ class SourceViewModel(
 
     var selectedTabOrdinal: Int = 0
 
-    val crawlers: StateFlow<List<Crawler>> = CrawlerFactory.crawlersFlow
     val failedExtensions: StateFlow<List<String>> = extensionManager.failedExtensions
 
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
-    val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
     private val _catalogState = MutableStateFlow<CatalogState>(CatalogState.Idle)
     val catalogState: StateFlow<CatalogState> = _catalogState.asStateFlow()
 
     private val _catalogEntries = MutableStateFlow<List<ExtensionRepoEntry>>(emptyList())
-    val catalogEntries: StateFlow<List<ExtensionRepoEntry>> = _catalogEntries.asStateFlow()
 
     private val _inProgressIds = MutableStateFlow<Set<String>>(emptySet())
     val inProgressIds: StateFlow<Set<String>> = _inProgressIds.asStateFlow()
 
     private val _messageFlow = MutableSharedFlow<String>()
     val messageFlow: SharedFlow<String> = _messageFlow.asSharedFlow()
-
-    val repoUrl: StateFlow<String> = preferenceRepository.extensionRepoUrl
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DEFAULT_EXTENSION_REPO_URL)
-
-    val repoUrls: StateFlow<List<String>> = preferenceRepository.extensionRepoUrls
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf(DEFAULT_EXTENSION_REPO_URL))
-
-    val isUpdateAvailable: StateFlow<Boolean> = UpdateRepository.getInstance(application)
-        .isCrawlerUpdateAvailable
-
-    val showSyncOption: StateFlow<Boolean> = crawlers
-        .map { it.isEmpty() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val extensionItems: StateFlow<List<ExtensionUiItem>> = combine(
         extensionManager.installedExtensions,
@@ -141,7 +142,7 @@ class SourceViewModel(
         preferenceRepository.enabledExtensionLanguages
     ) { installed, catalog, inProgress, enabledLangs ->
         val items = mutableListOf<ExtensionUiItem>()
-        val catalogMap = catalog.associateBy { it.id }
+        val catalogMap = catalog.associateBy { "${it.format.name}:${it.id}" }
 
         val activeLangs = enabledLangs.map { it.lowercase().trim() }.toSet()
 
@@ -151,9 +152,8 @@ class SourceViewModel(
             return lower in activeLangs || "all" in activeLangs
         }
 
-        // 1. Add entries from catalog
         for (entry in catalog) {
-            val inst = installed[entry.id]
+            val inst = installed.values.find { it.manifest.id == entry.id && it.manifest.format == entry.format }
             val installedVer = inst?.manifest?.version
             val hasUpdate = inst != null && ExtensionRepoEntry.isVersionNewer(entry.version, installedVer)
 
@@ -176,9 +176,9 @@ class SourceViewModel(
             }
         }
 
-        // 2. Add sideloaded/locally installed entries not in current catalog
         for ((id, inst) in installed) {
-            if (!catalogMap.containsKey(id)) {
+            val key = "${inst.manifest.format.name}:${inst.manifest.id}"
+            if (!catalogMap.containsKey(key) && !catalogMap.containsKey(id)) {
                 items.add(
                     ExtensionUiItem(
                         id = id,
@@ -197,7 +197,6 @@ class SourceViewModel(
             }
         }
 
-        // Sort: Updates available first, then installed, then alphabetical
         items.sortedWith(
             compareBy(
                 { !it.hasUpdate },
@@ -271,27 +270,6 @@ class SourceViewModel(
         }
     }
 
-    fun installFromUri(uri: Uri) {
-        viewModelScope.launch {
-            _syncState.value = SyncState.Loading
-            val result = extensionManager.installFromUri(uri)
-            result.onSuccess { loaded ->
-                _syncState.value = SyncState.Success("Installed ${loaded.manifest.name}")
-                _messageFlow.emit("Installed ${loaded.manifest.name}")
-            }.onFailure { err ->
-                _syncState.value = SyncState.Error("Failed to install package: ${err.message}")
-                _messageFlow.emit("Error: ${err.message}")
-            }
-        }
-    }
-
-    fun setRepoUrl(url: String) {
-        viewModelScope.launch {
-            preferenceRepository.setExtensionRepoUrl(url)
-            refreshCatalog(forceNetwork = true)
-        }
-    }
-
     fun updateAll() {
         viewModelScope.launch {
             val toUpdate = extensionItems.value.filter { it.hasUpdate && it.repoEntry != null }
@@ -311,14 +289,5 @@ class SourceViewModel(
                 Log.e("CrawlerViewModel", "Failed to check for updates: ${e.message}", e)
             }
         }
-    }
-
-    fun syncCrawlers() {
-        refreshCatalog()
-        updateAll()
-    }
-
-    fun resetSyncState() {
-        _syncState.value = SyncState.Idle
     }
 }

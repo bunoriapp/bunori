@@ -22,6 +22,7 @@ data class ExtensionManifest(
     val apiVersion: Int = 1,
     val lang: String = "en",
     val baseUrl: String,
+    val format: ExtensionFormat = ExtensionFormat.BEXT_WASM,
     val authors: List<String> = emptyList(),
     val isDeprecated: Boolean = false,
     val deprecationReason: String? = null,

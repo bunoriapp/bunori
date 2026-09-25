@@ -23,7 +23,7 @@ class JobFactory {
             name = "Metadata: ${novel.title}",
             metadata = metadata,
             status = JobStatus.PENDING,
-            priority = 0
+            priority = 10
         )
     }
 

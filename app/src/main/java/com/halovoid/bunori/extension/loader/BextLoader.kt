@@ -7,6 +7,7 @@ import android.util.Log
 import android.widget.Toast
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.extension.api.IExtension
+import com.halovoid.bunori.extension.api.models.ExtensionFormat
 import com.halovoid.bunori.extension.api.pkg.BextPackage
 import com.halovoid.bunori.extension.api.pkg.BextUtils
 import com.halovoid.bunori.wasm.WamrExtension
@@ -38,8 +39,10 @@ class BextLoader(private val context: Context) {
     }
 
     fun loadPackage(pkg: BextPackage, sourceBextFile: File): LoadedExtension {
-        val extensionId = pkg.manifest.id
-        val targetDir = File(File(context.filesDir, "installed_extensions"), extensionId)
+        val rawId = pkg.manifest.id.removePrefix("bext.").removePrefix("lnreader.")
+        val normalizedManifest = pkg.manifest.copy(id = rawId, format = ExtensionFormat.BEXT_WASM)
+
+        val targetDir = File(File(context.filesDir, "installed_extensions"), rawId)
         if (!targetDir.exists()) {
             targetDir.mkdirs()
         }
@@ -56,7 +59,7 @@ class BextLoader(private val context: Context) {
                 selectedBytes = aotBytes
                 binaryName = "extension_$abi.aot"
                 isAot = true
-                Log.i(TAG, "Selected native AOT binary for ABI '$abi' (${aotBytes.size} bytes) for ${pkg.manifest.name}")
+                Log.i(TAG, "Selected native AOT binary for ABI '$abi' (${aotBytes.size} bytes) for ${normalizedManifest.name}")
                 break
             }
         }
@@ -69,7 +72,7 @@ class BextLoader(private val context: Context) {
         // 2. Write icon if present
         var iconFile: File? = null
         if (pkg.iconBytes != null) {
-            val ext = pkg.manifest.iconPath?.substringAfterLast('.', "webp") ?: "webp"
+            val ext = normalizedManifest.iconPath?.substringAfterLast('.', "webp") ?: "webp"
             val file = File(targetDir, "icon.$ext")
             FileOutputStream(file).use { fos ->
                 fos.write(pkg.iconBytes)
@@ -86,16 +89,16 @@ class BextLoader(private val context: Context) {
         // 3. Instantiate native WamrExtension with automatic fallback
         val extensionInstance: IExtension = try {
             val mode = if (isAot) "AOT Native Machine Code" else "Fast Interpreter"
-            Log.i(TAG, "Initializing WamrExtension [$mode] for ${pkg.manifest.name} from ${binaryFile.name}")
+            Log.i(TAG, "Initializing WamrExtension [$mode] for ${normalizedManifest.name} from ${binaryFile.name}")
             WamrExtension(
-                manifest = pkg.manifest,
+                manifest = normalizedManifest,
                 binaryBytes = selectedBytes
             ).also {
-                Log.i(TAG, "Successfully loaded extension: ${pkg.manifest.name} (v${pkg.manifest.version}) in $mode mode")
+                Log.i(TAG, "Successfully loaded extension: ${normalizedManifest.name} (v${normalizedManifest.version}) in $mode mode")
             }
         } catch (e: Exception) {
             if (isAot && pkg.wasmBytes.isNotEmpty()) {
-                Log.w(TAG, "AOT binary instantiation failed for ${pkg.manifest.name}. Falling back to portable WASM bytecode.", e)
+                Log.w(TAG, "AOT binary instantiation failed for ${normalizedManifest.name}. Falling back to portable WASM bytecode.", e)
                 val fallbackFile = File(targetDir, BextUtils.WASM_FILE_NAME)
                 FileOutputStream(fallbackFile).use { fos ->
                     fos.write(pkg.wasmBytes)
@@ -109,17 +112,17 @@ class BextLoader(private val context: Context) {
                     Handler(Looper.getMainLooper()).post {
                         Toast.makeText(
                             context,
-                            "${pkg.manifest.name} entered slow mode due to a version mismatch. It will still work normally, but please report to the developer to resolve.",
+                            "${normalizedManifest.name} entered slow mode due to a version mismatch. It will still work normally, but please report to the developer to resolve.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
                 }
 
                 WamrExtension(
-                    manifest = pkg.manifest,
+                    manifest = normalizedManifest,
                     binaryBytes = pkg.wasmBytes
                 ).also {
-                    Log.i(TAG, "Successfully loaded extension fallback: ${pkg.manifest.name} (v${pkg.manifest.version}) in Fast Interpreter mode")
+                    Log.i(TAG, "Successfully loaded extension fallback: ${normalizedManifest.name} (v${normalizedManifest.version}) in Fast Interpreter mode")
                 }
             } else {
                 throw e
@@ -127,7 +130,7 @@ class BextLoader(private val context: Context) {
         }
 
         return LoadedExtension(
-            manifest = pkg.manifest,
+            manifest = normalizedManifest,
             extension = extensionInstance,
             bextFile = sourceBextFile,
             iconFile = iconFile

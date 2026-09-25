@@ -145,7 +145,7 @@ private fun FavoriteActionItem(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = if (inLibrary) "In Library" else "Add to Library",
+                contentDescription = if (inLibrary) "Liked" else "Like",
                 tint = iconTint,
                 modifier = Modifier
                     .size(22.dp)
@@ -156,7 +156,7 @@ private fun FavoriteActionItem(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = if (inLibrary) "Library" else "Add",
+            text = if (inLibrary) "Liked" else "Like",
             style = MaterialTheme.typography.labelSmall,
             color = if (inLibrary) BrandAccent else PrimaryText,
             fontSize = 11.sp,

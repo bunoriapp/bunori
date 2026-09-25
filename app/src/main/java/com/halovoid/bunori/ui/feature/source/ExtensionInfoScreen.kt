@@ -224,7 +224,7 @@ fun ExtensionInfoScreen(
         val apiVersion = metadata?.apiVersion ?: repoEntry?.apiVersion ?: manifest?.apiVersion ?: 1
         val entryClass = manifest?.entryClass ?: repoEntry?.entryClass ?: "Not specified"
 
-        val packageSizeBytes = item.loadedExtension?.bextFile?.takeIf { it.exists() }?.length()
+        val packageSizeBytes = item.loadedExtension?.packageFile?.takeIf { it.exists() }?.length()
             ?: repoEntry?.size
             ?: 0L
         val packageSizeFormatted = if (packageSizeBytes > 0) {
@@ -463,6 +463,15 @@ fun ExtensionInfoScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Column(modifier = Modifier.fillMaxWidth()) {
+                ConfigItemRow(
+                    icon = Icons.Outlined.Code,
+                    title = "Extension Architecture",
+                    subtitle = "Package format: ${item.id}",
+                    value = "${item.extensionType.label} (${item.extensionType.fileExtension})"
+                )
+
+                ConfigDivider()
+
                 ConfigItemRow(
                     icon = Icons.Outlined.Speed,
                     title = "Rate Limit (Cooldown)",

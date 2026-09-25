@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.halovoid.bunori.extension.api.ExtensionJson
 import com.halovoid.bunori.extension.api.IExtension
+import com.halovoid.bunori.extension.api.models.ExtensionFormat
 import com.halovoid.bunori.extension.api.models.ExtensionManifest
 import com.halovoid.bunori.lnreader.LnReaderExtension
 import com.halovoid.bunori.lnreader.LnReaderRuntime
@@ -31,7 +32,9 @@ class LnReaderLoader(private val context: Context) {
         Log.i(TAG, "Loading LNReader plugin from: ${dir.name}")
 
         val manifestJson = manifestFile.readText(Charsets.UTF_8)
-        val manifest = ExtensionJson.json.decodeFromString<ExtensionManifest>(manifestJson)
+        val decodedManifest = ExtensionJson.json.decodeFromString<ExtensionManifest>(manifestJson)
+        val rawId = decodedManifest.id.removePrefix("lnreader.").removePrefix("bext.")
+        val manifest = decodedManifest.copy(id = rawId, format = ExtensionFormat.LNREADER_JS)
         val jsContent = jsFile.readText(Charsets.UTF_8)
         val runtimeJs = LnReaderRuntime.getScript(context)
 
@@ -52,13 +55,15 @@ class LnReaderLoader(private val context: Context) {
         )
     }
     fun install(manifest: ExtensionManifest, jsBytes: ByteArray, iconBytes: ByteArray? = null): LoadedExtension {
-        val targetDir = File(File(context.filesDir, "installed_extensions"), manifest.id).apply { mkdirs() }
+        val rawId = manifest.id.removePrefix("lnreader.").removePrefix("bext.")
+        val normalizedManifest = manifest.copy(id = rawId, format = ExtensionFormat.LNREADER_JS)
+        val targetDir = File(File(context.filesDir, "installed_extensions"), normalizedManifest.id).apply { mkdirs() }
 
         val jsFile = File(targetDir, JS_FILE_NAME)
         FileOutputStream(jsFile).use { it.write(jsBytes) }
 
         val manifestFile = File(targetDir, MANIFEST_FILE_NAME)
-        val manifestJson = ExtensionJson.json.encodeToString(ExtensionManifest.serializer(), manifest)
+        val manifestJson = ExtensionJson.json.encodeToString(ExtensionManifest.serializer(), normalizedManifest)
         manifestFile.writeText(manifestJson, Charsets.UTF_8)
 
         if (iconBytes != null && iconBytes.isNotEmpty()) {
