@@ -5,14 +5,11 @@ import com.halovoid.bunori.data.config.SchedulerConfig
 import com.halovoid.bunori.data.db.dao.BatchDao
 import com.halovoid.bunori.data.db.dao.TaskDao
 import com.halovoid.bunori.data.db.entities.JobStatus
+import com.halovoid.bunori.data.db.entities.JobType
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.crawlerName
 import com.halovoid.bunori.data.scheduler.SourceRateLimiter
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import kotlin.time.Duration.Companion.milliseconds
 
 class JobRunner(
     private val batchDao: BatchDao,
@@ -22,101 +19,82 @@ class JobRunner(
     private val config: SchedulerConfig,
     private val rateLimiter: SourceRateLimiter? = null,
     private val onCrawlerBlocked: (suspend (crawlerName: String, task: TaskEntity) -> Unit)? = null,
-    private val releaseSlot: (() -> Unit)? = null,
-    private val acquireSlot: (suspend () -> Unit)? = null
+    private val onRetryScheduled: ((delayMs: Long) -> Unit)? = null
 ) {
     companion object {
         private const val DEFAULT_MAX_ATTEMPTS = 3
     }
 
     suspend fun run(task: TaskEntity, onComplete: suspend () -> Unit) {
-        var currentTask = task
         try {
-            val preClaim = taskDao.getTaskById(currentTask.id)
+            val preClaim = taskDao.getTaskById(task.id)
             if (preClaim == null || preClaim.status == JobStatus.CANCELLED || preClaim.status == JobStatus.PAUSED) {
                 return
             }
 
-            val claimedStatus = JobStateMachine.transition(currentTask.status, JobEvent.CLAIMED)
-            taskDao.updateStatus(currentTask.id, claimedStatus)
-            batchDao.updateStatus(currentTask.batchId, JobStatus.RUNNING)
+            val claimedStatus = JobStateMachine.transition(task.status, JobEvent.CLAIMED)
+            taskDao.updateStatus(task.id, claimedStatus)
+            batchDao.updateStatus(task.batchId, JobStatus.RUNNING)
 
-            val handler = handlerRegistry.getHandler(currentTask.type)
+            val handler = handlerRegistry.getHandler(task.type)
             if (handler == null) {
-                fail(currentTask, "No handler found for ${currentTask.type}", currentTask.attemptCount)
+                fail(task, "No handler found for ${task.type}", task.attemptCount)
                 return
             }
 
-            val maxAttempts = maxAttemptsFor(currentTask)
+            val maxAttempts = maxAttemptsFor(task)
+            val isHighPriority = task.priority >= 5 || task.type == JobType.NOVEL_METADATA || task.type == JobType.CHAPTER
 
-            while (true) {
-                val crawlerName = currentTask.crawlerName
-                if (crawlerName != null && rateLimiter != null) {
-                    val crawler = CrawlerFactory.getCrawler(crawlerName)
-                    val cooldownMs = crawler?.config?.runnerCooldownMs ?: 1000L
-                    rateLimiter.acquire(crawlerName, cooldownMs, maxJitterMs = 250L)
-                }
+            val crawlerName = task.crawlerName
+            if (crawlerName != null && rateLimiter != null) {
+                val crawler = CrawlerFactory.getCrawler(crawlerName)
+                val cooldownMs = crawler?.config?.runnerCooldownMs ?: 1000L
+                rateLimiter.acquire(crawlerName, cooldownMs, maxJitterMs = 250L, isHighPriority = isHighPriority)
+            }
 
-                val preExec = taskDao.getTaskById(currentTask.id) ?: currentTask
-                if (preExec.status == JobStatus.CANCELLED || preExec.status == JobStatus.PAUSED) {
+            val preExec = taskDao.getTaskById(task.id) ?: task
+            if (preExec.status == JobStatus.CANCELLED || preExec.status == JobStatus.PAUSED) {
+                return
+            }
+
+            val result = handler.handle(task)
+
+            val latest = taskDao.getTaskById(task.id) ?: task
+            if (latest.status == JobStatus.CANCELLED || latest.status == JobStatus.PAUSED) {
+                return
+            }
+
+            when (result) {
+                is JobResult.Success -> {
+                    markSuccess(latest)
                     return
                 }
 
-                val result = handler.handle(currentTask)
-
-                val latest = taskDao.getTaskById(currentTask.id) ?: currentTask
-                if (latest.status == JobStatus.CANCELLED || latest.status == JobStatus.PAUSED) {
+                is JobResult.Cancelled -> {
+                    markCancelled(latest)
                     return
                 }
 
-                when (result) {
-                    is JobResult.Success -> {
-                        markSuccess(latest)
+                is JobResult.Blocked -> {
+                    markBlocked(latest)
+                    return
+                }
+
+                is JobResult.Failure -> {
+                    val attemptsSoFar = latest.attemptCount + 1
+                    val canRetry = result.isRecoverable && attemptsSoFar < maxAttempts
+
+                    if (!canRetry) {
+                        fail(latest, result.error.message ?: "Execution Failed", attemptsSoFar)
                         return
                     }
 
-                    is JobResult.Cancelled -> {
-                        markCancelled(latest)
-                        return
-                    }
+                    val delayMs = retryPolicy.getNextDelay(attemptsSoFar)
+                    val nextRunAt = System.currentTimeMillis() + delayMs
 
-                    is JobResult.Blocked -> {
-                        markBlocked(latest)
-                        return
-                    }
-
-                    is JobResult.Failure -> {
-                        val attemptsSoFar = latest.attemptCount + 1
-                        val canRetry = result.isRecoverable && attemptsSoFar < maxAttempts
-
-                        if (!canRetry) {
-                            fail(latest, result.error.message ?: "Execution Failed", attemptsSoFar)
-                            return
-                        }
-
-                        JobStateMachine.transition(latest.status, JobEvent.HANDLER_FAILURE_RETRYABLE)
-                        taskDao.markRetrying(latest.id, attemptsSoFar, result.error.message)
-                        val delayMs = retryPolicy.getNextDelay(attemptsSoFar)
-
-                        // free the concurrency slot while backing off so other ready tasks aren't straved
-                        releaseSlot?.invoke()
-                        try {
-                            delay(delayMs.milliseconds)
-                        } finally {
-                            // must reacquire even if this coroutine is being canceled mid-delay
-                            // otherwise Job-scheduler's unconditional pool.release() in its own
-                            // finally block would over release the semaphore
-                            withContext(NonCancellable) {
-                                acquireSlot?.invoke()
-                            }
-                        }
-
-                        val postDelay = taskDao.getTaskById(currentTask.id)
-                        if (postDelay == null || postDelay.status == JobStatus.CANCELLED || postDelay.status == JobStatus.PAUSED) {
-                            return
-                        }
-                        currentTask = postDelay
-                    }
+                    taskDao.markRetrying(latest.id, attemptsSoFar, result.error.message, nextRunAt)
+                    onRetryScheduled?.invoke(delayMs)
+                    return
                 }
             }
         } catch (e: CancellationException) {
@@ -136,7 +114,7 @@ class JobRunner(
             }
             throw e
         } catch (e: Exception) {
-            fail(task, e.message ?: "Unexpected error during execution", currentTask.attemptCount + 1)
+            fail(task, e.message ?: "Unexpected error during execution", task.attemptCount + 1)
         } finally {
             onComplete()
         }

@@ -28,10 +28,10 @@ interface TaskDao {
     @Query("""
         SELECT t.* FROM tasks t
         INNER JOIN batches b ON t.batchId = b.id
-        WHERE t.status = 'PENDING' AND b.status IN ('PENDING', 'RUNNING')
+        WHERE t.status = 'PENDING' AND t.updatedAt <= :now AND b.status IN ('PENDING', 'RUNNING')
         ORDER BY t.priority DESC, t.createdAt ASC, t.rowid ASC
     """)
-    suspend fun getRunnableTasks(): List<TaskEntity>
+    suspend fun getRunnableTasks(now: Long = System.currentTimeMillis()): List<TaskEntity>
 
     @Query("SELECT * FROM tasks WHERE status = 'RUNNING'")
     suspend fun getRunningTasks(): List<TaskEntity>
@@ -54,8 +54,8 @@ interface TaskDao {
     @Query("UPDATE tasks SET status = 'FAILED', error = :error, attemptCount = :attemptCount, updatedAt = :now WHERE id = :id")
     suspend fun markFailed(id: String, error: String?, attemptCount: Int, now: Long = System.currentTimeMillis())
 
-    @Query("UPDATE tasks SET status = 'RUNNING', error = :error, attemptCount = :attemptCount, updatedAt = :now WHERE id = :id")
-    suspend fun markRetrying(id: String, attemptCount: Int, error: String?, now: Long = System.currentTimeMillis())
+    @Query("UPDATE tasks SET status = 'PENDING', error = :error, attemptCount = :attemptCount, updatedAt = :nextRunAt WHERE id = :id")
+    suspend fun markRetrying(id: String, attemptCount: Int, error: String?, nextRunAt: Long)
 
     @Query("UPDATE tasks SET status = :newStatus, updatedAt = :now WHERE batchId = :batchId AND status != 'SUCCESS'")
     suspend fun updateUnfinishedStatusForBatch(batchId: String, newStatus: JobStatus, now: Long = System.currentTimeMillis())

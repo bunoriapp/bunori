@@ -176,7 +176,7 @@ class JobScheduler(
         blockedCrawlers.addAll(activeBlockedCrawlerNames)
 
         // 3. Fetch runnable tasks
-        val runnableTasks = taskDao.getRunnableTasks()
+        val runnableTasks = taskDao.getRunnableTasks(System.currentTimeMillis())
 
         val readyQueue = ReadyQueue()
         readyQueue.pushAll(runnableTasks)
@@ -200,6 +200,7 @@ class JobScheduler(
             val task = readyQueue.pop(saturatedCrawlers) ?: break
             if (activeJobs.containsKey(task.id)) continue
 
+            val isHighPriority = task.priority >= 5 || task.type == com.halovoid.bunori.data.db.entities.JobType.NOVEL_METADATA
             val crawlerName = task.crawlerName
             val pool = if (crawlerName != null) {
                 crawlerPools.getOrPut(crawlerName) {
@@ -211,15 +212,17 @@ class JobScheduler(
                 globalPool
             }
 
-            if (!globalPool.tryAcquire()) {
+            if (!globalPool.tryAcquire(isHighPriority)) {
                 readyQueue.pushFirst(task)
                 break
             }
 
-            if (pool != globalPool && !pool.tryAcquire()) {
+            if (pool != globalPool && !pool.tryAcquire(isHighPriority)) {
                 globalPool.release()
                 val key = crawlerName ?: "__global__"
-                saturatedCrawlers.add(key)
+                if (!isHighPriority) {
+                    saturatedCrawlers.add(key)
+                }
                 readyQueue.pushFirst(task)
                 continue
             }
@@ -234,13 +237,11 @@ class JobScheduler(
                         config,
                         rateLimiter,
                         onCrawlerBlocked = { blockedName, _ -> blockCrawler(blockedName) },
-                        releaseSlot = {
-                            pool.release()
-                            if (pool != globalPool) globalPool.release()
-                        },
-                        acquireSlot = {
-                            if (pool != globalPool) globalPool.acquire()
-                            pool.acquire()
+                        onRetryScheduled = { delayMs ->
+                            scope.launch {
+                                delay(delayMs.milliseconds)
+                                notifyWakeup()
+                            }
                         }
                     )
                     runner.run(task) { activeJobs.remove(task.id) }
@@ -274,11 +275,26 @@ class JobScheduler(
     }
 }
 
-internal class WorkerPool(maxConcurrent: Int) {
-    private val semaphore = Semaphore(maxConcurrent)
-    fun tryAcquire(): Boolean = semaphore.tryAcquire()
-    suspend fun acquire() = semaphore.acquire() // suspend only until a slot is free
-    fun release() = semaphore.release()
+internal class WorkerPool(val baseLimit: Int, val reservedHighPrioritySlots: Int = 1) {
+    private val lock = Any()
+    private var activeCount = 0
+
+    fun tryAcquire(isHighPriority: Boolean = false): Boolean {
+        synchronized(lock) {
+            val maxAllowed = if (isHighPriority) baseLimit + reservedHighPrioritySlots else baseLimit
+            if (activeCount < maxAllowed) {
+                activeCount++
+                return true
+            }
+            return false
+        }
+    }
+
+    fun release() {
+        synchronized(lock) {
+            if (activeCount > 0) activeCount--
+        }
+    }
 }
 
 internal class LeaseMonitor(private val leaseDurationMs: Long) {
