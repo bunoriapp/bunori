@@ -86,11 +86,17 @@ class JobFactory {
             put("endIndex", end)
         }.toString()
 
+        val rangeLabel = if (end == Int.MAX_VALUE) {
+            if (start <= 1) "All Chapters" else "From $start"
+        } else {
+            "$start-$end"
+        }
+
         return BatchEntity(
             id = "${novel.url}_download_${start}_${end}_${System.currentTimeMillis()}",
             type = JobType.RANGE_DOWNLOAD,
             novelUrl = novel.url,
-            name = "Download: ${novel.title} ($start-$end)",
+            name = "Download: ${novel.title} ($rangeLabel)",
             metadata = metadata,
             status = JobStatus.PENDING
         )
@@ -147,11 +153,17 @@ class JobFactory {
             }
         }.toString()
 
+        val rangeLabel = if (end == Int.MAX_VALUE) {
+            if (start <= 1) "All Chapters" else "From $start"
+        } else {
+            "$start-$end"
+        }
+
         return BatchEntity(
             id = "${novel.url}_export_${format}_${start}_${end}_${System.nanoTime()}",
             type = JobType.ARTIFACT,
             novelUrl = novel.url,
-            name = "Export: ${novel.title} ($format) [$start-$end]",
+            name = "Export: ${novel.title} ($format) [$rangeLabel]",
             metadata = metadata,
             status = JobStatus.PENDING
         )

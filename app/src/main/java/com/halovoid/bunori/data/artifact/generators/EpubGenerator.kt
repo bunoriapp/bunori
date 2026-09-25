@@ -93,19 +93,28 @@ class EpubGenerator(
         else -> "image/jpeg"
     }
 
+    private val imageHttpClient: okhttp3.OkHttpClient by lazy {
+        com.halovoid.bunori.api.core.network.NetworkClient.okHttpClient.newBuilder()
+            .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
     // Downloads image bytes from either a remote URL or a local content/file URI.
     private suspend fun downloadImageBytes(src: String): ByteArray? {
         return try {
             if (src.startsWith("http://", ignoreCase = true) || src.startsWith("https://", ignoreCase = true)) {
                 val request = okhttp3.Request.Builder().url(src).build()
-                com.halovoid.bunori.api.core.network.NetworkClient.okHttpClient.newCall(request).execute().use { response ->
+                imageHttpClient.newCall(request).execute().use { response ->
                     if (response.isSuccessful) response.body?.bytes() else null
                 }
-            } else {
+            } else if (src.startsWith("content://", ignoreCase = true) || src.startsWith("file://", ignoreCase = true) || src.startsWith("/")) {
                 storageRepository.openInputStream(src.toUri())?.use { it.readBytes() }
+            } else {
+                null
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (_: Exception) {
             null
         }
     }
@@ -117,6 +126,7 @@ class EpubGenerator(
         chapterId: String,
         html: String,
         imageCache: MutableMap<String, String>,
+        failedImageCache: MutableSet<String>,
         addItem: (EpubItem) -> Unit,
         ignoreImages: Boolean = false
     ): String {
@@ -127,8 +137,12 @@ class EpubGenerator(
         if (sources.isEmpty()) return html
 
         for (src in sources) {
-            if (imageCache.containsKey(src)) continue
-            val bytes = downloadImageBytes(src) ?: continue
+            if (imageCache.containsKey(src) || failedImageCache.contains(src)) continue
+            val bytes = downloadImageBytes(src)
+            if (bytes == null) {
+                failedImageCache.add(src)
+                continue
+            }
             val ext = extensionForUrl(src)
             val fileName = "img_${chapterId}_${imageCache.size}.$ext"
             imageCache[src] = fileName
@@ -334,7 +348,7 @@ class EpubGenerator(
             if (coverBytes == null && !coverHttpsUrl.isNullOrBlank()) {
                 try {
                     val request = okhttp3.Request.Builder().url(coverHttpsUrl).build()
-                    com.halovoid.bunori.api.core.network.NetworkClient.okHttpClient.newCall(request).execute().use { response ->
+                    imageHttpClient.newCall(request).execute().use { response ->
                         if (response.isSuccessful) {
                             coverBytes = response.body?.bytes()
                             resolvedUrl = coverHttpsUrl
@@ -360,13 +374,14 @@ class EpubGenerator(
         addItem(EpubItem("intro.xhtml", buildIntroPage(novel).toByteArray(), "application/xhtml+xml", "intro"))
 
         // 2. Build Chapters
+        val failedImageCache = mutableSetOf<String>()
         chapters.sortedBy { it.index }.forEach { chapter ->
             ensureActive()
             val download = downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
             val rawContent = download?.fileLocation?.let { loc ->
                 storageRepository.readText(loc)
             } ?: "<p><em>Content not available</em></p>"
-            val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, ::addItem, ignoreImages)
+            val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, failedImageCache, ::addItem, ignoreImages)
 
             val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
             addItem(EpubItem(

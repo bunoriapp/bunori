@@ -15,6 +15,7 @@ import com.halovoid.bunori.domain.models.Artifact
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.core.net.toUri
+import com.halovoid.bunori.domain.models.Chapter
 import org.json.JSONObject
 
 class ArtifactHandler(
@@ -29,20 +30,39 @@ class ArtifactHandler(
     override suspend fun handle(task: TaskEntity): JobResult = withContext(Dispatchers.IO) {
         val metadata = task.parsedMetadata
         val format = metadata.format ?: return@withContext JobResult.Failure(Exception("No Format Provided"))
-        val crawlerName = metadata.crawlerName ?: return@withContext JobResult.Failure(Exception("No Crawler Name provided"))
-        val startIndex = metadata.startIndex ?: 1
-        val endIndex = metadata.endIndex ?: Int.MAX_VALUE
-
-        val json = try { JSONObject(task.metadata ?: "{}") } catch (_: Exception) { JSONObject() }
-        val selectedSources = json.optJSONArray("selectedSources")?.let { arr ->
-            (0 until arr.length()).map { arr.getString(it) }.toSet()
-        }
 
         try {
             // 1. Fetch All Necessary data
             val novel = novelRepository.getNovelByUrl(task.novelUrl)
                 ?: return@withContext JobResult.Failure(Exception("Novel not found in database"))
-            val allChapters = chapterRepository.getChaptersByNovelUrl(task.novelUrl)
+
+            val crawlerName = metadata.crawlerName?.ifBlank { null }
+                ?: novel.crawlerName.takeIf { it.isNotBlank() }
+                ?: "local"
+
+            val startIndex = metadata.startIndex ?: 1
+            val endIndex = metadata.endIndex ?: Int.MAX_VALUE
+
+            val json = try { JSONObject(task.metadata ?: "{}") } catch (_: Exception) { JSONObject() }
+            val selectedSources = json.optJSONArray("selectedSources")?.let { arr ->
+                (0 until arr.length()).map { arr.getString(it) }.toSet()
+            }
+
+            val allChapters = chapterRepository.getChaptersByNovelUrl(task.novelUrl).ifEmpty {
+                val downloads = downloadRepository.getDownloadsForNovel(task.novelUrl)
+                downloads.mapIndexed { idx, dl ->
+                    Chapter(
+                        id = if (dl.id > 0) dl.id.toInt() else (idx + 1),
+                        url = dl.chapterUrl,
+                        title = dl.chapterTitle.ifBlank { "Chapter ${dl.chapterIndex}" },
+                        index = dl.chapterIndex,
+                        novelUrl = dl.novelUrl,
+                        isDownloaded = true,
+                        read = false,
+                        scanlationSource = dl.scanlationSource
+                    )
+                }
+            }
 
             // Filter by range
             val rangeChapters = allChapters.filter { it.index in startIndex..endIndex }
@@ -70,7 +90,6 @@ class ArtifactHandler(
             val generator = generatorFactory.getGenerator(format)
             val tempFile = generator.generate(novel, downloadedChapters, metadata)
             val crawler = crawlerFactory.getCrawler(crawlerName)
-                ?: return@withContext JobResult.Failure(Exception("Crawler '$crawlerName' not found"))
 
             // 3. Cleanup existing artifacts for this batch to prevent duplicates
             val existingArtifacts = artifactRepository.getArtifactForBatch(task.batchId)
@@ -82,7 +101,11 @@ class ArtifactHandler(
             }
 
             // 4. Save Permanently to the user's selected storage
-            val novelKey = crawler.getNovelKey(novel.title)
+            val novelKey = crawler?.getNovelKey(novel.title) ?: run {
+                val slug = novel.title.trimEnd('/').split('/').last()
+                "${crawlerName.lowercase()}_$slug".filter { it.isLetterOrDigit() || it == '_' || it == '-' }
+            }.ifBlank { "novel_${System.currentTimeMillis()}" }
+
             val fileName = "${novelKey}_${System.currentTimeMillis()}.$format"
             val relativeDir = "artifacts/$novelKey"
             val relativePath = "$relativeDir/$fileName"
@@ -91,7 +114,7 @@ class ArtifactHandler(
                 relativePath = relativeDir,
                 fileName = fileName,
                 mimeType = mimeType,
-                data = tempFile.readBytes()
+                sourceFile = tempFile
             )
 
             // 5. Insert New Artifact to Database

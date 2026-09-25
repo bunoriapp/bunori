@@ -12,6 +12,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
 import androidx.core.net.toUri
+import com.halovoid.bunori.api.core.network.NetworkClient
 import com.halovoid.bunori.data.artifact.ArtifactGenerator
 import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
@@ -239,18 +240,27 @@ class PdfGenerator(
     // Image loading
     // ---------------------------------------------------------------------------------------
 
+    private val imageHttpClient: okhttp3.OkHttpClient by lazy {
+        NetworkClient.okHttpClient.newBuilder()
+            .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
     private suspend fun downloadBytes(src: String): ByteArray? {
         return try {
             if (src.startsWith("http://", ignoreCase = true) || src.startsWith("https://", ignoreCase = true)) {
                 val request = okhttp3.Request.Builder().url(src).build()
-                com.halovoid.bunori.api.core.network.NetworkClient.okHttpClient.newCall(request).execute().use { response ->
+                imageHttpClient.newCall(request).execute().use { response ->
                     if (response.isSuccessful) response.body?.bytes() else null
                 }
-            } else {
+            } else if (src.startsWith("content://", ignoreCase = true) || src.startsWith("file://", ignoreCase = true) || src.startsWith("/")) {
                 storageRepository.openInputStream(src.toUri())?.use { it.readBytes() }
+            } else {
+                null
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (_: Exception) {
             null
         }
     }

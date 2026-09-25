@@ -73,6 +73,13 @@ interface StorageRepository {
         data: ByteArray
     ): Uri
 
+    suspend fun saveFile(
+        relativePath: String,
+        fileName: String,
+        mimeType: String,
+        sourceFile: File
+    ): Uri
+
     suspend fun saveText(
         relativePath: String,
         fileName: String,
@@ -233,6 +240,32 @@ class StorageRepositoryImpl private constructor(
             context.contentResolver.openOutputStream(fileUri, "wt")?.use {
                 it.write(data)
             } ?: throw StorageException("Failed to open output stream for $fileUri")
+        } catch (e: Exception) {
+            throw StorageException("Error writing to file: $fileName", e)
+        }
+
+        fileUri
+    }
+
+    override suspend fun saveFile(
+        relativePath: String,
+        fileName: String,
+        mimeType: String,
+        sourceFile: File
+    ): Uri = withContext(Dispatchers.IO) {
+        val rootUri = getRootUri()
+        val targetDirUri = getDirectory(rootUri, relativePath, createIfMissing = true)
+            ?: throw StorageException("Failed to navigate to or create path: $relativePath")
+
+        val existingFileUri = findChildUri(rootUri, targetDirUri, fileName)
+        val fileUri = existingFileUri ?: createDocument(targetDirUri, mimeType, fileName)
+
+        try {
+            sourceFile.inputStream().use { input ->
+                context.contentResolver.openOutputStream(fileUri, "wt")?.use { output ->
+                    input.copyTo(output)
+                } ?: throw StorageException("Failed to open output stream for $fileUri")
+            }
         } catch (e: Exception) {
             throw StorageException("Error writing to file: $fileName", e)
         }

@@ -463,8 +463,35 @@ class NovelViewModel(
         end: Int? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            val startIndex = start ?: 1
-            val endIndex = end ?: Int.MAX_VALUE
+            val allChapters = chapterRepository.getChaptersByNovelUrl(novel.url).ifEmpty {
+                downloadRepository.getDownloadsForNovel(novel.url).mapIndexed { idx, dl ->
+                    Chapter(
+                        id = if (dl.id > 0) dl.id.toInt() else (idx + 1),
+                        url = dl.chapterUrl,
+                        title = dl.chapterTitle.ifBlank { "Chapter ${dl.chapterIndex}" },
+                        index = dl.chapterIndex,
+                        novelUrl = dl.novelUrl,
+                        isDownloaded = true,
+                        read = false,
+                        scanlationSource = dl.scanlationSource
+                    )
+                }
+            }
+            val matchingChapters = if (!selectedSources.isNullOrEmpty()) {
+                allChapters.filter { chapter ->
+                    val eff = if (chapter.scanlationSource.isBlank() || chapter.scanlationSource == "NotProvided" || chapter.scanlationSource == "Not Provided") {
+                        novel.crawlerName
+                    } else {
+                        chapter.scanlationSource
+                    }
+                    selectedSources.contains(chapter.scanlationSource) || selectedSources.contains(eff)
+                }
+            } else {
+                allChapters
+            }
+
+            val startIndex = start ?: matchingChapters.minOfOrNull { it.index } ?: 1
+            val endIndex = end ?: matchingChapters.maxOfOrNull { it.index } ?: startIndex
             val batch = jobFactory.createExportBatch(novel, format, startIndex, endIndex, selectedSources)
             val task = jobFactory.createExportTask(batch.id, novel, format, startIndex, endIndex, selectedSources)
 
