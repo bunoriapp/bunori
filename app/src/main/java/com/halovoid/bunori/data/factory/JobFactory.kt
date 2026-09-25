@@ -142,8 +142,8 @@ class JobFactory {
         }
     }
 
-    fun createExportBatch(novel: Novel, format: ExportFormat, start: Int, end: Int, selectedSources: Set<String>? = null): BatchEntity {
-        val metadata = JSONObject().apply {
+    private fun createExportMetadata(novel: Novel, format: ExportFormat, start: Int, end: Int, selectedSources: Set<String>?): String {
+        return JSONObject().apply {
             put("format", format.toString())
             put("crawlerName", novel.crawlerName)
             put("startIndex", start)
@@ -152,7 +152,10 @@ class JobFactory {
                 put("selectedSources", org.json.JSONArray(selectedSources.toList()))
             }
         }.toString()
+    }
 
+    fun createExportBatch(novel: Novel, format: ExportFormat, start: Int, end: Int, selectedSources: Set<String>? = null): BatchEntity {
+        val metadata = createExportMetadata(novel, format, start, end, selectedSources)
         val rangeLabel = if (end == Int.MAX_VALUE) {
             if (start <= 1) "All Chapters" else "From $start"
         } else {
@@ -170,15 +173,7 @@ class JobFactory {
     }
 
     fun createExportTask(batchId: String, novel: Novel, format: ExportFormat, start: Int, end: Int, selectedSources: Set<String>? = null): TaskEntity {
-        val metadata = JSONObject().apply {
-            put("format", format.toString())
-            put("crawlerName", novel.crawlerName)
-            put("startIndex", start)
-            put("endIndex", end)
-            if (!selectedSources.isNullOrEmpty()) {
-                put("selectedSources", org.json.JSONArray(selectedSources.toList()))
-            }
-        }.toString()
+        val metadata = createExportMetadata(novel, format, start, end, selectedSources)
 
         return TaskEntity(
             id = "${batchId}_task",

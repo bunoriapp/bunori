@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import androidx.core.net.toUri
 import com.halovoid.bunori.data.db.dao.TaskDao
 import com.halovoid.bunori.domain.models.Chapter
+import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.ui.core.logging.AppLog
 import org.json.JSONObject
 
@@ -59,48 +60,9 @@ class ArtifactHandler(
                 (0 until arr.length()).map { arr.getString(it) }.toSet()
             }
 
-            val allChapters = chapterRepository.getChaptersByNovelUrl(task.novelUrl).ifEmpty {
-                val downloads = downloadRepository.getDownloadsForNovel(task.novelUrl)
-                downloads.mapIndexed { idx, dl ->
-                    Chapter(
-                        id = if (dl.id > 0) dl.id.toInt() else (idx + 1),
-                        url = dl.chapterUrl,
-                        title = dl.chapterTitle.ifBlank { "Chapter ${dl.chapterIndex}" },
-                        index = dl.chapterIndex,
-                        novelUrl = dl.novelUrl,
-                        isDownloaded = true,
-                        read = false,
-                        scanlationSource = dl.scanlationSource
-                    )
-                }
-            }
-
-            // Filter by range
-            val rangeChapters = allChapters.filter { it.index in startIndex..endIndex }
-
-            // Filter by selected sources
-            val sourceFiltered = if (!selectedSources.isNullOrEmpty()) {
-                rangeChapters.filter { chapter ->
-                    val src = chapter.scanlationSource
-                    val effective = if (src.isBlank() || src == "NotProvided" || src == "Not Provided") crawlerName else src
-                    selectedSources.contains(src) || selectedSources.contains(effective)
-                }
-            } else {
-                rangeChapters
-            }
-
-            // Filter ONLY those chapters that are actually downloaded!
-            val downloadedUrls = downloadRepository.getDownloadedChapterUrls(task.novelUrl).toSet()
-            val downloadedChapters = sourceFiltered.filter { downloadedUrls.contains(it.url) }
-
-            AppLog.i(
-                TAG,
-                "Chapters resolved: total=${allChapters.size}, range=$startIndex..$endIndex (${rangeChapters.size}), " +
-                "sources=${selectedSources ?: "all"} (${sourceFiltered.size}), downloaded=${downloadedChapters.size}"
-            )
-
+            val downloadedChapters = resolveExportChapters(task, novel, crawlerName, startIndex, endIndex, selectedSources)
             if (downloadedChapters.isEmpty()) {
-                AppLog.w(TAG, "No downloaded chapters found to export for novel: ${task.novelUrl}. (Downloaded URLs in DB: ${downloadedUrls.size})")
+                AppLog.w(TAG, "No downloaded chapters found to export for novel: ${task.novelUrl}")
                 return@withContext JobResult.Failure(Exception("No downloaded chapters found to export for the selected sources"))
             }
 
@@ -183,5 +145,53 @@ class ArtifactHandler(
             AppLog.e(TAG, "Export task #${task.id} failed after ${System.currentTimeMillis() - overallStartTime}ms: ${e.message}", e)
             JobResult.Failure(e)
         }
+    }
+
+    private suspend fun resolveExportChapters(
+        task: TaskEntity,
+        novel: Novel,
+        crawlerName: String,
+        startIndex: Int,
+        endIndex: Int,
+        selectedSources: Set<String>?
+    ): List<Chapter> {
+        val allChapters = chapterRepository.getChaptersByNovelUrl(task.novelUrl).ifEmpty {
+            val downloads = downloadRepository.getDownloadsForNovel(task.novelUrl)
+            downloads.mapIndexed { idx, dl ->
+                Chapter(
+                    id = if (dl.id > 0) dl.id.toInt() else (idx + 1),
+                    url = dl.chapterUrl,
+                    title = dl.chapterTitle.ifBlank { "Chapter ${dl.chapterIndex}" },
+                    index = dl.chapterIndex,
+                    novelUrl = dl.novelUrl,
+                    isDownloaded = true,
+                    read = false,
+                    scanlationSource = dl.scanlationSource
+                )
+            }
+        }
+
+        val rangeChapters = allChapters.filter { it.index in startIndex..endIndex }
+
+        val sourceFiltered = if (!selectedSources.isNullOrEmpty()) {
+            rangeChapters.filter { chapter ->
+                val src = chapter.scanlationSource
+                val effective = if (src.isBlank() || src == "NotProvided" || src == "Not Provided") crawlerName else src
+                selectedSources.contains(src) || selectedSources.contains(effective)
+            }
+        } else {
+            rangeChapters
+        }
+
+        val downloadedUrls = downloadRepository.getDownloadedChapterUrls(task.novelUrl).toSet()
+        val downloadedChapters = sourceFiltered.filter { downloadedUrls.contains(it.url) }
+
+        AppLog.i(
+            TAG,
+            "Chapters resolved: total=${allChapters.size}, range=$startIndex..$endIndex (${rangeChapters.size}), " +
+            "sources=${selectedSources ?: "all"} (${sourceFiltered.size}), downloaded=${downloadedChapters.size}"
+        )
+
+        return downloadedChapters
     }
 }

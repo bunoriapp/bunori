@@ -71,7 +71,7 @@ class DownloadNotificationManager(private val context: Context) {
         var isIndeterminate = total <= 0
         var percent = if (total > 0) (completed * 100) / total else 0
 
-        if (batch.type == JobType.ARTIFACT) {
+        if (total <= 1) {
             val ratioMatch = activeTaskName?.let { Regex("""\((\d+)/(\d+)\)""").find(it) }
             if (ratioMatch != null) {
                 val cur = ratioMatch.groupValues[1].toIntOrNull() ?: 0
@@ -83,7 +83,7 @@ class DownloadNotificationManager(private val context: Context) {
                     percent = (cur * 100) / tot
                 }
             } else {
-                isIndeterminate = true
+                isIndeterminate = batch.status == JobStatus.RUNNING
             }
         }
 

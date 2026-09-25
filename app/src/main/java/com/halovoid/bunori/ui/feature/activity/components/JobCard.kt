@@ -108,13 +108,15 @@ fun CompactJobItem(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        if (batch.type == JobType.ARTIFACT) {
+                        if (batch.progressTotal <= 1) {
                             Text(
                                 text = when (batch.status) {
-                                    JobStatus.RUNNING -> "Exporting..."
-                                    JobStatus.SUCCESS -> "Export complete"
-                                    JobStatus.FAILED -> "Export failed"
-                                    else -> "Artifact"
+                                    JobStatus.RUNNING -> "In progress"
+                                    JobStatus.SUCCESS -> "Completed"
+                                    JobStatus.FAILED -> "Failed"
+                                    JobStatus.CANCELLED -> "Cancelled"
+                                    JobStatus.PAUSED -> "Paused"
+                                    else -> "Queued"
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (batch.status == JobStatus.RUNNING) BrandAccent else SecondaryText,
@@ -127,7 +129,7 @@ fun CompactJobItem(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = SecondaryText.copy(alpha = 0.4f)
                             )
-                        } else if (batch.progressTotal > 0) {
+                        } else {
                             Text(
                                 text = if (batch.progressSuccess > 0) {
                                     "${batch.progressSuccess}/${batch.progressTotal} tasks"
@@ -423,6 +425,7 @@ fun JobCard(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Row 3: x/y tasks on Left | % on Right
+            val isSingleTask = batch.progressTotal <= 1
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -430,18 +433,19 @@ fun JobCard(
             ) {
                 Text(
                     text = when {
-                        batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING -> "Exporting book..."
-                        batch.type == JobType.ARTIFACT && batch.status == JobStatus.SUCCESS -> "Export complete"
+                        isSingleTask && batch.status == JobStatus.RUNNING -> "Processing..."
+                        isSingleTask && batch.status == JobStatus.SUCCESS -> "Completed"
+                        isSingleTask && batch.status == JobStatus.FAILED -> "Failed"
                         batch.progressTotal > 0 -> "${batch.progressSuccess}/${batch.progressTotal} tasks"
                         else -> "0 tasks"
                     },
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING) BrandAccent else SecondaryText,
+                    color = if (isSingleTask && batch.status == JobStatus.RUNNING) BrandAccent else SecondaryText,
                     fontSize = 11.sp,
-                    fontWeight = if (batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING) FontWeight.Medium else FontWeight.Normal
+                    fontWeight = if (isSingleTask && batch.status == JobStatus.RUNNING) FontWeight.Medium else FontWeight.Normal
                 )
 
-                if (batch.type != JobType.ARTIFACT || batch.status != JobStatus.RUNNING) {
+                if (!isSingleTask || batch.status != JobStatus.RUNNING) {
                     Text(
                         text = "${(progress * 100).toInt()}%",
                         style = MaterialTheme.typography.labelSmall,
@@ -455,7 +459,7 @@ fun JobCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             // Row 4: Progress Bar
-            if (batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING) {
+            if (isSingleTask && batch.status == JobStatus.RUNNING) {
                 LinearProgressIndicator(
                     modifier = Modifier
                         .fillMaxWidth()

@@ -6,12 +6,12 @@ import com.halovoid.bunori.domain.models.Novel
 import java.io.File
 
 interface ArtifactGenerator {
-    val format: String // which format of Artifact is to be generated
+    val format: String
 
     suspend fun generate(
         novel: Novel,
         chapters: List<Chapter>,
         metadata: JobMetadata,
         onProgress: (suspend (current: Int, total: Int, stage: String) -> Unit)? = null
-    ): File // Returns the temporary file in cache
+    ): File
 }

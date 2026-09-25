@@ -35,20 +35,16 @@ fun ActiveRequestCard(
         Column(
             modifier = Modifier.padding(10.dp)
         ) {
+            val isSingleTask = batch.progressTotal <= 1
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val headerText = when {
-                    batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING ->
-                        "${batch.name} · Exporting..."
-                    batch.type == JobType.ARTIFACT && batch.status == JobStatus.SUCCESS ->
-                        "${batch.name} · Completed"
-                    batch.type == JobType.ARTIFACT ->
-                        batch.name
-                    else ->
-                        "${batch.name} · ${batch.progressSuccess} / ${batch.progressTotal}"
+                val headerText = if (isSingleTask) {
+                    batch.name
+                } else {
+                    "${batch.name} · ${batch.progressSuccess} / ${batch.progressTotal}"
                 }
 
                 Text(
@@ -66,7 +62,7 @@ fun ActiveRequestCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (batch.type == JobType.ARTIFACT && batch.status == JobStatus.RUNNING) {
+            if (isSingleTask && batch.status == JobStatus.RUNNING) {
                 LinearProgressIndicator(
                     modifier = Modifier
                         .fillMaxWidth()
