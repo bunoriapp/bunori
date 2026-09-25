@@ -482,7 +482,7 @@ class ExtensionManager private constructor(private val context: Context) {
     }
 
     private fun syncWithCrawlerFactory(extensions: Map<String, LoadedExtension>) {
-        val adapters = extensions.values.map { ExtensionCrawlerAdapter(it.extension, it.iconFile) }
+        val adapters = extensions.values.map { ExtensionCrawlerAdapter(it.extension, it.iconFile, context) }
         CrawlerFactory.registerCrawlers(adapters)
     }
 

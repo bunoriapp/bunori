@@ -1,7 +1,9 @@
 package com.halovoid.bunori.extension.adapter
 
+import android.content.Context
 import com.halovoid.bunori.api.core.config.CrawlerConfig
 import com.halovoid.bunori.api.core.crawler.Crawler
+import com.halovoid.bunori.data.book.EpubBookManager
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import com.halovoid.bunori.extension.api.IExtension
@@ -15,7 +17,8 @@ import kotlinx.coroutines.withContext
  */
 class ExtensionCrawlerAdapter(
     val extension: IExtension,
-    override val iconFile: java.io.File? = null
+    override val iconFile: java.io.File? = null,
+    private val context: Context? = null
 ) : Crawler() {
 
     override val id: String = extension.metadata.id
@@ -118,6 +121,15 @@ class ExtensionCrawlerAdapter(
         val novelDto = extension.getNovelDetails(novelUrl)
         val fetchDuration = System.currentTimeMillis() - start
         val mapStart = System.currentTimeMillis()
+        val rawChapters = if (novelDto.chapters.isEmpty() && novelDto.extra.containsKey("mirrors") && context != null) {
+            val mirrors = novelDto.extra["mirrors"]?.split(";")?.filter { it.isNotBlank() } ?: emptyList()
+            val bookId = novelDto.extra["bookId"] ?: novelDto.url.substringAfterLast('/').substringBefore('?')
+            EpubBookManager.ensureBookDownloaded(context, bookId, mirrors)
+            EpubBookManager.getChapters(context, bookId, novelDto.url)
+        } else {
+            novelDto.chapters
+        }
+
         val novel = Novel(
             url = novelDto.url,
             title = novelDto.title,
@@ -125,7 +137,7 @@ class ExtensionCrawlerAdapter(
             coverUrl = novelDto.coverUrl,
             description = novelDto.description,
             status = novelDto.status,
-            chapters = novelDto.chapters.mapIndexed { idx, chDto ->
+            chapters = rawChapters.mapIndexed { idx, chDto ->
                 Chapter(
                     id = 0,
                     url = chDto.url,
@@ -152,6 +164,15 @@ class ExtensionCrawlerAdapter(
     }
 
     override suspend fun getChapterContent(chapterUrl: String): String? = withContext(Dispatchers.IO) {
+        if (chapterUrl.startsWith("epub://") && context != null) {
+            val uriPart = chapterUrl.removePrefix("epub://")
+            val bookId = uriPart.substringBefore('/')
+            val entryPath = uriPart.substringAfter('/')
+            val content = EpubBookManager.getChapterContent(context, bookId, entryPath)
+            if (!content.isNullOrBlank()) {
+                return@withContext content
+            }
+        }
         extension.getChapterContent(chapterUrl)
     }
 }

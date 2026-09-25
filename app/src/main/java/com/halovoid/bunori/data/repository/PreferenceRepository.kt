@@ -45,6 +45,7 @@ private val IS_OFFLINE_MODE = booleanPreferencesKey("is_offline_mode")
 private val SHOW_ALL_SAVED_NOVELS = booleanPreferencesKey("show_all_saved_novels")
 private val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
 private val EXTENSION_REPO_URLS = stringSetPreferencesKey("extension_repo_urls")
+private val DISABLED_EXTENSION_REPO_URLS = stringSetPreferencesKey("disabled_extension_repo_urls")
 private val CUSTOM_USER_AGENT = stringPreferencesKey("custom_user_agent")
 private val SHOW_WASM_SLOW_MODE_TOAST = booleanPreferencesKey("show_wasm_slow_mode_toast")
 const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/extensions/index.min.json"
@@ -100,9 +101,11 @@ interface PreferenceRepository {
     val showAllSavedNovels: Flow<Boolean>
     val extensionRepoUrl: Flow<String>
     val extensionRepoUrls: Flow<List<String>>
+    val disabledExtensionRepoUrls: Flow<Set<String>>
     suspend fun addExtensionRepoUrl(url: String)
     suspend fun removeExtensionRepoUrl(url: String)
     suspend fun setExtensionRepoUrls(urls: List<String>)
+    suspend fun setExtensionRepoEnabled(url: String, enabled: Boolean)
     val customUserAgent: Flow<String?>
     val readerSettings: Flow<ReaderSettings>
     val customFonts: Flow<List<CustomFont>>
@@ -483,6 +486,11 @@ class PreferenceRepositoryImpl private constructor(
             }
         }
 
+    override val disabledExtensionRepoUrls: Flow<Set<String>> =
+        context.appDataStore.data.map { preferences ->
+            preferences[DISABLED_EXTENSION_REPO_URLS] ?: emptySet()
+        }
+
     override suspend fun addExtensionRepoUrl(url: String) {
         val trimmed = url.trim()
         if (trimmed.isBlank()) return
@@ -495,11 +503,29 @@ class PreferenceRepositoryImpl private constructor(
     }
 
     override suspend fun removeExtensionRepoUrl(url: String) {
+        val trimmed = url.trim()
         context.appDataStore.edit { preferences ->
             val current = preferences[EXTENSION_REPO_URLS] 
                 ?: preferences[EXTENSION_REPO_URL]?.let { setOf(it) } 
                 ?: setOf(DEFAULT_EXTENSION_REPO_URL)
-            preferences[EXTENSION_REPO_URLS] = current - url.trim()
+            preferences[EXTENSION_REPO_URLS] = current - trimmed
+            val disabled = preferences[DISABLED_EXTENSION_REPO_URLS] ?: emptySet()
+            if (disabled.contains(trimmed)) {
+                preferences[DISABLED_EXTENSION_REPO_URLS] = disabled - trimmed
+            }
+        }
+    }
+
+    override suspend fun setExtensionRepoEnabled(url: String, enabled: Boolean) {
+        val trimmed = url.trim()
+        if (trimmed.isBlank()) return
+        context.appDataStore.edit { preferences ->
+            val current = preferences[DISABLED_EXTENSION_REPO_URLS] ?: emptySet()
+            if (enabled) {
+                preferences[DISABLED_EXTENSION_REPO_URLS] = current - trimmed
+            } else {
+                preferences[DISABLED_EXTENSION_REPO_URLS] = current + trimmed
+            }
         }
     }
 

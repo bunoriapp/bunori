@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -38,7 +39,8 @@ fun SourceSearchTopBar(
     onBack: () -> Unit,
     isCompactMode: Boolean,
     onToggleCompactMode: (Boolean) -> Unit,
-    focusRequester: FocusRequester
+    focusRequester: FocusRequester,
+    onOpenWebView: (() -> Unit)? = null
 ) {
     if (isSearchMode) {
         TopAppBar(
@@ -102,6 +104,15 @@ fun SourceSearchTopBar(
                 }
             },
             actions = {
+                if (onOpenWebView != null) {
+                    IconButton(onClick = onOpenWebView) {
+                        Icon(
+                            imageVector = Icons.Default.Public,
+                            contentDescription = "Open in WebView",
+                            tint = SecondaryText
+                        )
+                    }
+                }
                 IconButton(onClick = { onToggleCompactMode(!isCompactMode) }) {
                     Icon(
                         imageVector = if (isCompactMode) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
@@ -122,6 +133,15 @@ fun SourceSearchTopBar(
             title = sourceName,
             onBack = onBack,
             actions = {
+                if (onOpenWebView != null) {
+                    IconButton(onClick = onOpenWebView) {
+                        Icon(
+                            imageVector = Icons.Default.Public,
+                            contentDescription = "Open in WebView",
+                            tint = SecondaryText
+                        )
+                    }
+                }
                 IconButton(onClick = { onToggleCompactMode(!isCompactMode) }) {
                     Icon(
                         imageVector = if (isCompactMode) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,

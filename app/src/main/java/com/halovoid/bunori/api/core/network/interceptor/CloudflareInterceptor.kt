@@ -32,18 +32,21 @@ class CloudflareInterceptor(
 
     companion object {
         private const val TAG = "CloudflareInterceptor"
-        private val SERVER_CHECK = arrayOf("cloudflare-nginx", "cloudflare")
-        private val COOKIE_NAMES = listOf("cf_clearance")
+        private val SERVER_CHECK = arrayOf("cloudflare-nginx", "cloudflare", "ddos-guard")
+        private val COOKIE_NAMES = listOf("cf_clearance", "__ddg1_", "__ddg2_", "__ddg8_", "__ddg9_", "__ddg10_")
     }
 
     override fun shouldIntercept(response: Response): Boolean {
         val hasCfMitigated = response.header("cf-mitigated") == "challenge"
-        val isCfServer = response.header("Server")?.lowercase()?.let { s -> 
+        val serverHeader = response.header("Server")?.lowercase()
+        val isCfServer = serverHeader?.let { s -> 
             SERVER_CHECK.any { s.contains(it) } 
         } == true
         val isChallengeCode = response.code in listOf(403, 429, 503)
+        val isDdosGuard = serverHeader?.contains("ddos-guard") == true && 
+            cookieManager.get(response.request.url).none { it.name.startsWith("__ddg1") }
 
-        return (hasCfMitigated && isCfServer) || (isChallengeCode && isCfServer) || hasCfMitigated
+        return (hasCfMitigated && isCfServer) || (isChallengeCode && isCfServer) || hasCfMitigated || isDdosGuard
     }
 
     override fun intercept(
@@ -112,22 +115,28 @@ class CloudflareInterceptor(
                         val title = view.title ?: ""
                         Log.i(TAG, "[HeadlessWebView] Page finished: url=$url, title='$title'")
 
+                        val isChallengeTitle = title.contains("Just a moment", ignoreCase = true) ||
+                            title.contains("Attention Required", ignoreCase = true) ||
+                            title.contains("Security Check", ignoreCase = true) ||
+                            title.contains("DDoS-Guard", ignoreCase = true) ||
+                            title.contains("Checking your browser", ignoreCase = true)
+
                         fun isCleared(): Boolean {
-                            val current = cookieManager.get(origRequestUrl.toHttpUrl())
-                                .firstOrNull { it.name == "cf_clearance" }
-                            return current != null && (oldCookie == null || current.value != oldCookie.value)
+                            val cookies = cookieManager.get(origRequestUrl.toHttpUrl())
+                            val current = cookies.firstOrNull { it.name == "cf_clearance" }
+                            val cfCleared = current != null && (oldCookie == null || current.value != oldCookie.value)
+                            val ddgCleared = cookies.any { it.name.startsWith("__ddg2") } ||
+                                (challengeFound && !isChallengeTitle && !url.contains("check=") && !url.contains("ddos-guard"))
+                            return cfCleared || ddgCleared
                         }
 
                         if (isCleared()) {
-                            Log.i(TAG, "[HeadlessWebView] SUCCESS: Acquired valid cf_clearance cookie!")
+                            Log.i(TAG, "[HeadlessWebView] SUCCESS: Acquired valid clearance cookie or page passed!")
+                            android.webkit.CookieManager.getInstance().flush()
                             cloudflareBypassed = true
                             latch.countDown()
                             return
                         }
-
-                        val isChallengeTitle = title.contains("Just a moment", ignoreCase = true) ||
-                            title.contains("Attention Required", ignoreCase = true) ||
-                            title.contains("Security Check", ignoreCase = true)
 
                         if (isChallengeTitle) {
                             challengeFound = true
@@ -161,7 +170,7 @@ class CloudflareInterceptor(
                                 k.equals("cf-mitigated", ignoreCase = true) && v.equals("challenge", ignoreCase = true)
                             } == true
                             if (hasCfMitigated || code in listOf(403, 429, 503)) {
-                                Log.i(TAG, "[HeadlessWebView] Cloudflare challenge status confirmed ($code)")
+                                Log.i(TAG, "[HeadlessWebView] Challenge status confirmed ($code)")
                                 challengeFound = true
                             }
                         }
@@ -175,16 +184,18 @@ class CloudflareInterceptor(
             }
         }
 
-        // Poll for cf_clearance periodically instead of blindly waiting for full timeout
+        // Poll for clearance periodically instead of blindly waiting for full timeout
         val startTime = System.currentTimeMillis()
         val maxWaitMs = 30_000L
         val pollIntervalMs = 500L
 
         while (latch.count > 0 && (System.currentTimeMillis() - startTime) < maxWaitMs) {
-            val current = cookieManager.get(origRequestUrl.toHttpUrl())
-                .firstOrNull { it.name == "cf_clearance" }
-            if (current != null && (oldCookie == null || current.value != oldCookie.value)) {
-                Log.i(TAG, "[HeadlessWebView] SUCCESS: cf_clearance detected via polling! Value=${current.value.take(20)}...")
+            val cookies = cookieManager.get(origRequestUrl.toHttpUrl())
+            val current = cookies.firstOrNull { it.name == "cf_clearance" }
+            val ddg2 = cookies.firstOrNull { it.name.startsWith("__ddg2") }
+            if ((current != null && (oldCookie == null || current.value != oldCookie.value)) || ddg2 != null) {
+                Log.i(TAG, "[HeadlessWebView] SUCCESS: Clearance detected via polling!")
+                android.webkit.CookieManager.getInstance().flush()
                 cloudflareBypassed = true
                 latch.countDown()
                 break

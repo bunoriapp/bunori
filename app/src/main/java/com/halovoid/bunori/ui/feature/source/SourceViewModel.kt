@@ -212,12 +212,14 @@ class SourceViewModel(
             _catalogState.value = CatalogState.Loading
             try {
                 val urls = preferenceRepository.extensionRepoUrls.first()
-                if (urls.isEmpty()) {
+                val disabledUrls = preferenceRepository.disabledExtensionRepoUrls.first()
+                val activeUrls = urls.filter { it !in disabledUrls }
+                if (activeUrls.isEmpty()) {
                     _catalogEntries.value = emptyList()
                     _catalogState.value = CatalogState.Idle
                     return@launch
                 }
-                val result = extensionManager.fetchAllRepoCatalogs(urls, forceNetwork = forceNetwork)
+                val result = extensionManager.fetchAllRepoCatalogs(activeUrls, forceNetwork = forceNetwork)
                 result.onSuccess { entries ->
                     _catalogEntries.value = entries
                     _catalogState.value = CatalogState.Success(entries.size)
