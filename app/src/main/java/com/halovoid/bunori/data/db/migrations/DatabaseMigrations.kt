@@ -22,17 +22,9 @@ object DatabaseMigrations {
         override fun onOpen(db: SupportSQLiteDatabase) {
             super.onOpen(db)
             sanitizeLegacyPaths(db)
-            migrateCrawlerNames(db)
-        }
-
-        private fun migrateCrawlerNames(db: SupportSQLiteDatabase) {
-            try {
-                val targetPrefix = "${ExtensionRepo.generateStableKey("https://bunoriapp.github.io/extensions/index.min.json")}."
-                db.execSQL("UPDATE novels SET crawlerName = '$targetPrefix' || crawlerName WHERE crawlerName NOT LIKE '%.%'")
-                db.execSQL("UPDATE novels SET crawlerName = '$targetPrefix' || SUBSTR(crawlerName, 6) WHERE crawlerName LIKE 'bext.%'")
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            // NOTE: crawlerName prefixing is handled one-time by Migration_1_2.
+            // CrawlerFactory.getCrawler() resolves any remaining legacy/cross-repo
+            // IDs at runtime, so no repeated migration is needed here.
         }
 
 
