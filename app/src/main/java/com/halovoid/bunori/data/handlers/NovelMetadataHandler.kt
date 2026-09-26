@@ -97,6 +97,7 @@ class NovelMetadataHandler(
                 chapters = mergedChapters,
                 inLibrary = existingNovel?.inLibrary ?: false,
                 titleHash = existingNovel?.titleHash,
+                crawlerName = existingNovel?.crawlerName ?: crawlerName,
                 refreshExpiry = System.currentTimeMillis() + 2 * 24 * 60 * 60 * 1000L
             )
             novelRepository.saveNovel(novelToSave)
