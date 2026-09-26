@@ -168,12 +168,16 @@ class SourceViewModel(
         }
 
         for (entry in catalog) {
-            if (!isRepoEnabled(entry.id)) continue
-            if (!isLangEnabled(entry.lang)) continue
-
             val inst = installed[entry.id]
+            val isInst = inst != null
+
+            // If not installed, only show if its repo is enabled
+            if (!isInst && !isRepoEnabled(entry.id)) continue
+            val lang = inst?.manifest?.lang ?: entry.lang
+            if (!isLangEnabled(lang)) continue
+
             val installedVer = inst?.manifest?.version
-            val hasUpdate = inst != null && ExtensionRepoEntry.isVersionNewer(entry.version, installedVer)
+            val hasUpdate = isInst && ExtensionRepoEntry.isVersionNewer(entry.version, installedVer)
 
             items.add(
                 ExtensionUiItem(
@@ -183,7 +187,7 @@ class SourceViewModel(
                     baseUrl = entry.baseUrl,
                     installedVersion = installedVer,
                     repoVersion = entry.version,
-                    isInstalled = inst != null,
+                    isInstalled = isInst,
                     hasUpdate = hasUpdate,
                     isActionInProgress = inProgress.contains(entry.id),
                     repoDisplayName = resolveRepoName(entry.id),
@@ -195,7 +199,6 @@ class SourceViewModel(
 
         for ((id, inst) in installed) {
             if (!catalogMap.containsKey(id)) {
-                if (!isRepoEnabled(id)) continue
                 if (!isLangEnabled(inst.manifest.lang)) continue
 
                 items.add(
