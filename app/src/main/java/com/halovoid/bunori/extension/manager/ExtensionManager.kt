@@ -6,7 +6,6 @@ import android.net.Uri
 import android.util.Log
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.network.NetworkClient
-import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.extension.adapter.ExtensionCrawlerAdapter
 import com.halovoid.bunori.extension.api.IExtension
 import com.halovoid.bunori.extension.api.models.ExtensionFormat
@@ -24,7 +23,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -370,32 +368,11 @@ class ExtensionManager private constructor(private val context: Context) {
 
     suspend fun syncWithCrawlerFactory() = withContext(Dispatchers.IO) {
         try {
-            val prefRepo = PreferenceRepository.getInstance(context)
-            val repos = prefRepo.extensionRepos.first()
-            val enabledLangs = prefRepo.enabledExtensionLanguages.first().map { it.lowercase().trim() }.toSet()
-            val activeLangs = if (enabledLangs.isEmpty()) setOf("all") else enabledLangs
-            val enabledRepoKeys = repos.filter { it.enabled }.map { it.stableKey.lowercase() }.toSet()
-
-            val activeLoaded = _installedExtensions.value.values.filter { loaded ->
-                val extId = loaded.manifest.id
-                val repoKey = if (extId.contains('.')) extId.substringBefore('.').lowercase() else ""
-                val isRepoActive = if (repoKey.isBlank()) {
-                    true
-                } else {
-                    repoKey in enabledRepoKeys || repos.find {
-                        it.stableKey.equals(repoKey, ignoreCase = true) || it.name.equals(repoKey, ignoreCase = true)
-                    }?.enabled ?: true
-                }
-
-                val lang = loaded.manifest.lang.lowercase().trim()
-                val isLangActive = "all" in activeLangs || lang in activeLangs
-
-                isRepoActive && isLangActive
+            val adapters = _installedExtensions.value.values.map {
+                ExtensionCrawlerAdapter(it.extension, it.iconFile)
             }
-
-            val adapters = activeLoaded.map { ExtensionCrawlerAdapter(it.extension, it.iconFile) }
             CrawlerFactory.registerCrawlers(adapters)
-            Log.i(TAG, "Registered ${adapters.size} active crawlers in CrawlerFactory (out of ${_installedExtensions.value.size} installed)")
+            Log.i(TAG, "Registered ${adapters.size} crawlers in CrawlerFactory (out of ${_installedExtensions.value.size} installed)")
         } catch (e: Exception) {
             Log.e(TAG, "Error syncing with CrawlerFactory", e)
         }
