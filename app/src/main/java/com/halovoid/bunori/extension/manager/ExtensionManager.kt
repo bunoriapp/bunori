@@ -6,9 +6,11 @@ import android.net.Uri
 import android.util.Log
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.network.NetworkClient
+import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.extension.adapter.ExtensionCrawlerAdapter
 import com.halovoid.bunori.extension.api.IExtension
 import com.halovoid.bunori.extension.api.models.ExtensionFormat
+import com.halovoid.bunori.extension.api.models.ExtensionManifest
 import com.halovoid.bunori.extension.api.models.ExtensionRepo
 import com.halovoid.bunori.extension.api.models.ExtensionRepoEntry
 import com.halovoid.bunori.extension.api.pkg.BextUtils
@@ -23,6 +25,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -41,6 +44,9 @@ class ExtensionManager private constructor(private val context: Context) {
 
     private val _failedExtensions = MutableStateFlow<List<String>>(emptyList())
     val failedExtensions: StateFlow<List<String>> = _failedExtensions.asStateFlow()
+
+    private val _catalogUpdatedTrigger = MutableStateFlow(System.currentTimeMillis())
+    val catalogUpdatedTrigger: StateFlow<Long> = _catalogUpdatedTrigger.asStateFlow()
 
     private val extensionsDir: File
         get() = File(context.filesDir, "installed_extensions").also { if (!it.exists()) it.mkdirs() }
@@ -106,6 +112,7 @@ class ExtensionManager private constructor(private val context: Context) {
             if (file.exists()) file.delete()
             val legacy = getCatalogFile(repo.name)
             if (legacy.exists()) legacy.delete()
+            _catalogUpdatedTrigger.value = System.currentTimeMillis()
         } catch (e: Exception) {
             Log.w(TAG, "Error deleting catalog cache for ${repo.name}: ${e.message}")
         }
@@ -197,6 +204,7 @@ class ExtensionManager private constructor(private val context: Context) {
 
             try {
                 getCatalogFile(repo.stableKey).writeText(jsonString, Charsets.UTF_8)
+                _catalogUpdatedTrigger.value = System.currentTimeMillis()
             } catch (e: Exception) {
                 Log.w(TAG, "Failed caching catalog for ${repo.name}: ${e.message}")
             }
@@ -283,6 +291,7 @@ class ExtensionManager private constructor(private val context: Context) {
                 val updated = _installedExtensions.value.toMutableMap().apply { put(loaded.manifest.id, loaded) }
                 _installedExtensions.value = updated
                 syncWithCrawlerFactory()
+                ensureExtensionLanguageEnabled(loaded.manifest.lang)
                 Result.success(loaded)
             } else {
                 val tempFile = File(context.cacheDir, "download_${entry.id}_${System.currentTimeMillis()}.bext")
@@ -299,6 +308,32 @@ class ExtensionManager private constructor(private val context: Context) {
 
     suspend fun installFromFile(sourceFile: File, extensionId: String? = null): Result<LoadedExtension> = withContext(Dispatchers.IO) {
         try {
+            val isJs = sourceFile.name.endsWith(".js", ignoreCase = true) || sourceFile.name.startsWith("plugin", ignoreCase = true)
+            if (isJs) {
+                val jsContent = sourceFile.readText(Charsets.UTF_8)
+                val id = Regex("id\\s*:\\s*[\"']([^\"']+)[\"']").find(jsContent)?.groupValues?.get(1) ?: sourceFile.nameWithoutExtension
+                val name = Regex("name\\s*:\\s*[\"']([^\"']+)[\"']").find(jsContent)?.groupValues?.get(1) ?: sourceFile.nameWithoutExtension
+                val lang = Regex("lang\\s*:\\s*[\"']([^\"']+)[\"']").find(jsContent)?.groupValues?.get(1) ?: "en"
+                val site = Regex("site\\s*:\\s*[\"']([^\"']+)[\"']").find(jsContent)?.groupValues?.get(1) ?: ""
+                val version = Regex("version\\s*:\\s*[\"']([^\"']+)[\"']").find(jsContent)?.groupValues?.get(1) ?: "1.0.0"
+
+                val manifest = ExtensionManifest(
+                    id = extensionId ?: id,
+                    name = name,
+                    version = version,
+                    lang = lang,
+                    baseUrl = site,
+                    format = ExtensionFormat.LNREADER_JS
+                )
+                val loaded = lnReaderLoader.install(manifest, jsContent.toByteArray(Charsets.UTF_8))
+                val updated = _installedExtensions.value.toMutableMap().apply { put(loaded.manifest.id, loaded) }
+                _installedExtensions.value = updated
+                syncWithCrawlerFactory()
+                ensureExtensionLanguageEnabled(loaded.manifest.lang)
+                Log.i(TAG, "Installed LNReader JS extension: ${loaded.manifest.name} (${loaded.manifest.id})")
+                return@withContext Result.success(loaded)
+            }
+
             val pkg = sourceFile.inputStream().use { stream ->
                 BextUtils.readPackage(stream, validateApiVersion = true)
             }
@@ -312,12 +347,28 @@ class ExtensionManager private constructor(private val context: Context) {
             val updated = _installedExtensions.value.toMutableMap().apply { put(loaded.manifest.id, loaded) }
             _installedExtensions.value = updated
             syncWithCrawlerFactory()
+            ensureExtensionLanguageEnabled(loaded.manifest.lang)
 
             Log.i(TAG, "Installed extension: ${loaded.manifest.name} (${loaded.manifest.id})")
             Result.success(loaded)
         } catch (e: Exception) {
             Log.e(TAG, "Failed installing from file ${sourceFile.name}", e)
             Result.failure(e)
+        }
+    }
+
+    private suspend fun ensureExtensionLanguageEnabled(lang: String) {
+        val clean = lang.lowercase().trim()
+        if (clean.isNotBlank() && clean != "all" && clean != "multi") {
+            try {
+                val prefRepo = PreferenceRepository.getInstance(context)
+                val currentLangs = prefRepo.enabledExtensionLanguages.first()
+                if (clean !in currentLangs.map { it.lowercase().trim() }) {
+                    prefRepo.setExtensionLanguageEnabled(clean, true)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to auto-enable language '$clean': ${e.message}")
+            }
         }
     }
 

@@ -64,7 +64,7 @@ fun PermissionScreen(
         title = "App Permissions",
         subtitle = "Enable system permissions for seamless background chapter downloads, updates, and maintenance.",
         stepNumber = 3,
-        totalSteps = 4,
+        totalSteps = 3,
         onBack = onBack,
         onNext = onNext
     ) {

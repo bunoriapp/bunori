@@ -21,33 +21,7 @@ import com.halovoid.bunori.ui.core.components.AppTopBar
 import com.halovoid.bunori.ui.core.theme.*
 import kotlinx.coroutines.launch
 
-private fun getLanguageDisplayName(code: String): String {
-    return when (code.lowercase().trim()) {
-        "all", "multi" -> "Multi-language"
-        "en" -> "English"
-        "es" -> "Spanish"
-        "fr" -> "French"
-        "de" -> "German"
-        "it" -> "Italian"
-        "pt", "pt-br" -> "Portuguese"
-        "ru" -> "Russian"
-        "zh" -> "Chinese"
-        "ja" -> "Japanese"
-        "ko" -> "Korean"
-        "ar" -> "Arabic"
-        "id" -> "Indonesian"
-        "vi" -> "Vietnamese"
-        "th" -> "Thai"
-        "tr" -> "Turkish"
-        else -> try {
-            val loc = java.util.Locale.forLanguageTag(code)
-            val name = loc.getDisplayName(loc)
-            if (name.isNotBlank() && !name.equals(code, ignoreCase = true)) name.replaceFirstChar { it.uppercase() } else code.uppercase()
-        } catch (_: Exception) {
-            code.uppercase()
-        }
-    }
-}
+
 
 @Composable
 fun ExtensionSettingsScreen(
@@ -56,7 +30,6 @@ fun ExtensionSettingsScreen(
     onNavigateToRepoSettings: () -> Unit = {}
 ) {
     val extensionRepos by viewModel.extensionRepos.collectAsStateWithLifecycle()
-    val showWasmSlowModeToast by viewModel.showWasmSlowModeToast.collectAsStateWithLifecycle()
     val enabledLanguages by viewModel.enabledExtensionLanguages.collectAsStateWithLifecycle()
     val availableLanguages by viewModel.availableExtensionLanguages.collectAsStateWithLifecycle()
 
@@ -141,7 +114,7 @@ fun ExtensionSettingsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = getLanguageDisplayName(lang),
+                                    text = lang,
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Medium,
                                     color = PrimaryText

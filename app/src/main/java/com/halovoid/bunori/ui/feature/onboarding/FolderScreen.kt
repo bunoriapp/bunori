@@ -44,7 +44,7 @@ fun FolderScreen(
         title = "Storage Location",
         subtitle = "Choose a directory to store offline novels, chapters, and backups.",
         stepNumber = 1,
-        totalSteps = 4,
+        totalSteps = 3,
         onBack = onBack,
         onNext = onNext,
         isNextEnabled = isStepValid

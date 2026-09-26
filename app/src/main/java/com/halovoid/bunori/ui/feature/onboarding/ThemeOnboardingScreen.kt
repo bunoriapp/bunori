@@ -62,7 +62,7 @@ fun ThemeOnboardingScreen(
         title = "Choose Your Style",
         subtitle = "Customize the interface to suit your personal aesthetic and reading comfort.",
         stepNumber = 2,
-        totalSteps = 4,
+        totalSteps = 3,
         onBack = onBack,
         onNext = onNext
     ) {

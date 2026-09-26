@@ -628,7 +628,7 @@ class PreferenceRepositoryImpl private constructor(
 
     override val enabledExtensionLanguages: Flow<Set<String>> =
         context.appDataStore.data.map { preferences ->
-            preferences[ENABLED_EXTENSION_LANGUAGES] ?: setOf("en")
+            preferences[ENABLED_EXTENSION_LANGUAGES] ?: setOf("en", "english")
         }
 
     override suspend fun setEnabledExtensionLanguages(languages: Set<String>) {
@@ -639,12 +639,16 @@ class PreferenceRepositoryImpl private constructor(
 
     override suspend fun setExtensionLanguageEnabled(language: String, enabled: Boolean) {
         context.appDataStore.edit { preferences ->
-            val current = (preferences[ENABLED_EXTENSION_LANGUAGES] ?: setOf("en")).toMutableSet()
-            val langLower = language.lowercase()
+            val current = (preferences[ENABLED_EXTENSION_LANGUAGES] ?: setOf("en", "english")).toMutableSet()
+            val langLower = language.lowercase().trim()
             if (enabled) {
                 current.add(langLower)
+                if (langLower == "en") current.add("english")
+                if (langLower == "english") current.add("en")
             } else {
                 current.remove(langLower)
+                if (langLower == "en") current.remove("english")
+                if (langLower == "english") current.remove("en")
             }
             preferences[ENABLED_EXTENSION_LANGUAGES] = current
         }

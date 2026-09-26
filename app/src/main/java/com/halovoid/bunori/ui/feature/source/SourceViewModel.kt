@@ -157,8 +157,12 @@ class SourceViewModel(
         }
 
         fun isLangEnabled(lang: String): Boolean {
-            if (activeLangs.isEmpty() || "all" in activeLangs) return true
-            return lang.lowercase().trim() in activeLangs
+            if ("all" in activeLangs || "multi" in activeLangs) return true
+            if (activeLangs.isEmpty()) return false
+            val clean = lang.lowercase().trim()
+            if (clean in activeLangs) return true
+            if ((clean == "en" && "english" in activeLangs) || (clean == "english" && "en" in activeLangs)) return true
+            return false
         }
 
         fun resolveRepoName(extId: String): String? {

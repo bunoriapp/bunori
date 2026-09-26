@@ -84,12 +84,6 @@ class SettingsViewModel(
         initialValue = com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPOS
     )
 
-    val extensionRepoUrl: StateFlow<String> = preferenceRepository.extensionRepoUrl.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
-    )
-
     val enabledExtensionLanguages: StateFlow<Set<String>> = preferenceRepository.enabledExtensionLanguages.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -98,8 +92,9 @@ class SettingsViewModel(
 
     val availableExtensionLanguages: StateFlow<List<String>> = combine(
         extensionRepos,
-        ExtensionManager.getInstance(getApplication()).installedExtensions
-    ) { repos, installedMap ->
+        ExtensionManager.getInstance(getApplication()).installedExtensions,
+        ExtensionManager.getInstance(getApplication()).catalogUpdatedTrigger
+    ) { repos, installedMap, _ ->
         val app = getApplication<Application>()
         val installedLangs = installedMap.values.map { it.manifest.lang }
         val catalogLangs = ExtensionManager.getInstance(app).getAllCachedRepoCatalogs(repos).map { it.lang }
@@ -125,7 +120,16 @@ class SettingsViewModel(
     fun addExtensionRepo(repo: ExtensionRepo) {
         viewModelScope.launch {
             preferenceRepository.addExtensionRepo(repo)
-            ExtensionManager.getInstance(getApplication()).syncWithCrawlerFactory()
+            val extManager = ExtensionManager.getInstance(getApplication())
+            extManager.syncWithCrawlerFactory()
+            val result = extManager.fetchRepoCatalog(repo, forceNetwork = true)
+            result.onSuccess { entries ->
+                val newLangs = entries.map { it.lang.lowercase().trim() }.filter { it.isNotBlank() }.toSet()
+                if (newLangs.isNotEmpty()) {
+                    val currentEnabled = preferenceRepository.enabledExtensionLanguages.first()
+                    preferenceRepository.setEnabledExtensionLanguages(currentEnabled + newLangs)
+                }
+            }
         }
     }
 
@@ -524,12 +528,6 @@ class SettingsViewModel(
     fun setAmoledMode(enabled: Boolean) {
         viewModelScope.launch {
             preferenceRepository.setAmoledMode(enabled)
-        }
-    }
-
-    fun setExtensionRepoUrl(url: String) {
-        viewModelScope.launch {
-            preferenceRepository.setExtensionRepoUrl(url)
         }
     }
 
