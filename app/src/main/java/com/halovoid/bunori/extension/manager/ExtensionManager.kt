@@ -378,10 +378,14 @@ class ExtensionManager private constructor(private val context: Context) {
 
             val activeLoaded = _installedExtensions.value.values.filter { loaded ->
                 val extId = loaded.manifest.id
-                val repoKey = if (extId.contains('.')) extId.substringBefore('.').lowercase() else "bext"
-                val isRepoActive = repoKey in enabledRepoKeys || repos.find {
-                    it.stableKey.equals(repoKey, ignoreCase = true) || it.name.equals(repoKey, ignoreCase = true)
-                }?.enabled ?: true
+                val repoKey = if (extId.contains('.')) extId.substringBefore('.').lowercase() else ""
+                val isRepoActive = if (repoKey.isBlank()) {
+                    true
+                } else {
+                    repoKey in enabledRepoKeys || repos.find {
+                        it.stableKey.equals(repoKey, ignoreCase = true) || it.name.equals(repoKey, ignoreCase = true)
+                    }?.enabled ?: true
+                }
 
                 val lang = loaded.manifest.lang.lowercase().trim()
                 val isLangActive = "all" in activeLangs || lang in activeLangs

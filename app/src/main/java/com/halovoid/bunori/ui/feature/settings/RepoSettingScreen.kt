@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
-import com.halovoid.bunori.data.repository.DEFAULT_LNREADER_REPO_URL
 import com.halovoid.bunori.extension.api.models.ExtensionRepo
 import com.halovoid.bunori.ui.core.components.AppDialog
 import com.halovoid.bunori.ui.core.components.AppTopBar
@@ -609,7 +608,7 @@ private fun getRepoWebsiteUrl(url: String): String {
         url == DEFAULT_EXTENSION_REPO_URL || url.contains("bunoriapp/bunori-extensions") -> {
             "https://github.com/bunoriapp/bunori-extensions"
         }
-        url == DEFAULT_LNREADER_REPO_URL || url.contains("LNReader/lnreader-plugins") -> {
+        url.contains("lnreader", ignoreCase = true) || url.contains("lnreader-plugins", ignoreCase = true) -> {
             "https://github.com/LNReader/lnreader-plugins"
         }
         url.startsWith("https://raw.githubusercontent.com/") -> {

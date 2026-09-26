@@ -5,31 +5,39 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+import com.halovoid.bunori.extension.api.models.ExtensionRepo
+
 object DatabaseMigrations {
 
     val Migration_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("""
-                    UPDATE novels SET crawlerName = 'bext.' || crawlerName WHERE crawlerName NOT LIKE 'bext.%'
-                """.trimIndent())
+            db.execSQL("ALTER TABLE novels ADD COLUMN status TEXT DEFAULT NULL")
+            val targetPrefix = "${ExtensionRepo.generateStableKey("https://bunoriapp.github.io/extensions/index.min.json")}."
+            db.execSQL("UPDATE novels SET crawlerName = '$targetPrefix' || crawlerName WHERE crawlerName NOT LIKE '%.%'")
+            db.execSQL("UPDATE novels SET crawlerName = '$targetPrefix' || SUBSTR(crawlerName, 6) WHERE crawlerName LIKE 'bext.%'")
         }
     }
 
-    val Migration_2_3 = object : Migration(2, 3) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE novels ADD COLUMN status TEXT DEFAULT NULL")
-        }
-    }
     val SANITIZE_CALLBACK = object : RoomDatabase.Callback() {
         override fun onOpen(db: SupportSQLiteDatabase) {
             super.onOpen(db)
             sanitizeLegacyPaths(db)
+            migrateCrawlerNames(db)
+        }
+
+        private fun migrateCrawlerNames(db: SupportSQLiteDatabase) {
+            try {
+                val targetPrefix = "${ExtensionRepo.generateStableKey("https://bunoriapp.github.io/extensions/index.min.json")}."
+                db.execSQL("UPDATE novels SET crawlerName = '$targetPrefix' || crawlerName WHERE crawlerName NOT LIKE '%.%'")
+                db.execSQL("UPDATE novels SET crawlerName = '$targetPrefix' || SUBSTR(crawlerName, 6) WHERE crawlerName LIKE 'bext.%'")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
 
         private fun sanitizeLegacyPaths(db: SupportSQLiteDatabase) {
             try {
-                // 1. Sanitize downloads table fileLocation
                 db.query("SELECT id, fileLocation FROM downloads WHERE fileLocation LIKE 'content://%' OR fileLocation LIKE 'file://%'").use { cursor ->
                     val idIdx = cursor.getColumnIndex("id")
                     val locIdx = cursor.getColumnIndex("fileLocation")
@@ -47,7 +55,6 @@ object DatabaseMigrations {
                     }
                 }
 
-                // 2. Sanitize novels table coverUrl
                 db.query("SELECT url, coverUrl FROM novels WHERE coverUrl LIKE 'content://%' OR coverUrl LIKE 'file://%'").use { cursor ->
                     val urlIdx = cursor.getColumnIndex("url")
                     val coverIdx = cursor.getColumnIndex("coverUrl")
@@ -64,7 +71,6 @@ object DatabaseMigrations {
                         }
                     }
                 }
-                // 3. Sanitize artifacts table artifactDestination
                 db.query("SELECT id, artifactDestination FROM artifacts WHERE artifactDestination LIKE 'content://%' OR artifactDestination LIKE 'file://%'").use { cursor ->
                     val idIdx = cursor.getColumnIndex("id")
                     val destIdx = cursor.getColumnIndex("artifactDestination")

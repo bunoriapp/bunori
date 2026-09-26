@@ -33,7 +33,7 @@ fun OnboardingStep(
     title: String? = null,
     subtitle: String? = null,
     stepNumber: Int? = null,
-    totalSteps: Int = 4,
+    totalSteps: Int = 3,
     buttonText: String? = null,
     onBack: (() -> Unit)? = null,
     onNext: (() -> Unit)? = null,

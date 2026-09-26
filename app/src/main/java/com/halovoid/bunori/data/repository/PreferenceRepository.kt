@@ -54,10 +54,9 @@ private val ENABLED_EXTENSION_LANGUAGES = stringSetPreferencesKey("enabled_exten
 private val CUSTOM_USER_AGENT = stringPreferencesKey("custom_user_agent")
 private val SHOW_WASM_SLOW_MODE_TOAST = booleanPreferencesKey("show_wasm_slow_mode_toast")
 const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/extensions/index.min.json"
-const val DEFAULT_LNREADER_REPO_URL = "https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json"
 
 val DEFAULT_EXTENSION_REPOS = listOf(
-    ExtensionRepo(name = "bext", url = DEFAULT_EXTENSION_REPO_URL, enabled = true)
+    ExtensionRepo(name = "Bunori", url = DEFAULT_EXTENSION_REPO_URL, enabled = true)
 )
 
 // Reader Preferences
@@ -491,9 +490,9 @@ class PreferenceRepositoryImpl private constructor(
                 val disabled = preferences[DISABLED_EXTENSION_REPO_URLS] ?: emptySet()
                 if (urls.isNotEmpty()) {
                     urls.mapIndexed { index, url ->
-                        val defaultName = when (url) {
-                            DEFAULT_EXTENSION_REPO_URL -> "bext"
-                            DEFAULT_LNREADER_REPO_URL -> "lnreader"
+                        val defaultName = when {
+                            url == DEFAULT_EXTENSION_REPO_URL || url.contains("bunori", ignoreCase = true) -> "Bunori"
+                            url.contains("lnreader", ignoreCase = true) -> "LNReader"
                             else -> "repo_${index + 1}"
                         }
                         ExtensionRepo(
@@ -548,9 +547,9 @@ class PreferenceRepositoryImpl private constructor(
     override suspend fun addExtensionRepoUrl(url: String) {
         val trimmed = url.trim()
         if (trimmed.isBlank()) return
-        val name = when (trimmed) {
-            DEFAULT_EXTENSION_REPO_URL -> "bext"
-            DEFAULT_LNREADER_REPO_URL -> "lnreader"
+        val name = when {
+            trimmed == DEFAULT_EXTENSION_REPO_URL || trimmed.contains("bunori", ignoreCase = true) -> "Bunori"
+            trimmed.contains("lnreader", ignoreCase = true) -> "LNReader"
             else -> "repo_${System.currentTimeMillis() % 1000}"
         }
         addExtensionRepo(ExtensionRepo(name = name, url = trimmed, enabled = true))
@@ -580,9 +579,9 @@ class PreferenceRepositoryImpl private constructor(
 
     override suspend fun setExtensionRepoUrls(urls: List<String>) {
         val repos = urls.mapIndexed { index, u ->
-            val name = when (u.trim()) {
-                DEFAULT_EXTENSION_REPO_URL -> "bext"
-                DEFAULT_LNREADER_REPO_URL -> "lnreader"
+            val name = when {
+                u.trim() == DEFAULT_EXTENSION_REPO_URL || u.contains("bunori", ignoreCase = true) -> "Bunori"
+                u.contains("lnreader", ignoreCase = true) -> "LNReader"
                 else -> "repo_${index + 1}"
             }
             ExtensionRepo(name = name, url = u.trim(), enabled = true)

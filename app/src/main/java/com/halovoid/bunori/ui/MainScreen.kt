@@ -106,7 +106,10 @@ fun MainScreen() {
         }
     ) { innerPadding ->
         Surface(
-            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = innerPadding.calculateBottomPadding())
+                .consumeWindowInsets(PaddingValues(bottom = innerPadding.calculateBottomPadding())),
             color = MaterialTheme.colorScheme.background
         ) {
             NavGraph(navController = navController)

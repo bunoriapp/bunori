@@ -46,7 +46,6 @@ import com.halovoid.bunori.ui.feature.library.LibraryViewModel
 import com.halovoid.bunori.ui.feature.novel.NovelArtifactsScreen
 import com.halovoid.bunori.ui.feature.novel.NovelScreen
 import com.halovoid.bunori.ui.feature.novel.NovelViewModel
-import com.halovoid.bunori.ui.feature.onboarding.ExtensionRepoScreen
 import com.halovoid.bunori.ui.feature.onboarding.FolderScreen
 import com.halovoid.bunori.ui.feature.onboarding.FolderViewModel
 import com.halovoid.bunori.ui.feature.onboarding.PermissionScreen
@@ -83,7 +82,6 @@ sealed class Screen(val route: String) {
     object Welcome : Screen("welcome")
     object OnboardingTheme : Screen("onboarding_theme")
     object Permissions : Screen("permissions")
-    object OnboardingExtensionRepo : Screen("onboarding_extension_repo")
     object FolderSelection: Screen("folder_selection")
     object Browse : Screen("browse")
 
@@ -279,20 +277,6 @@ fun NavGraph(navController: NavHostController) {
             PermissionScreen(
                 viewModel = settingsViewModel,
                 onNext = {
-                    navController.navigate(Screen.OnboardingExtensionRepo.route)
-                },
-                onBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-        composable(Screen.OnboardingExtensionRepo.route) {
-            val settingsViewModel: SettingsViewModel = viewModel(
-                factory = remember { ViewModelFactory(application) }
-            )
-            ExtensionRepoScreen(
-                viewModel = settingsViewModel,
-                onComplete = {
                     scope.launch {
                         preferenceRepository.setOnboardingCompleted(true)
                         navController.navigate(Screen.Library.route) {

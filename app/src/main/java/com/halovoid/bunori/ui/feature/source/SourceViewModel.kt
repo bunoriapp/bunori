@@ -150,7 +150,7 @@ class SourceViewModel(
         val enabledRepoKeys = repos.filter { it.enabled }.map { it.stableKey.lowercase() }.toSet()
 
         fun isRepoEnabled(extId: String): Boolean {
-            val key = if (extId.contains('.')) extId.substringBefore('.').lowercase() else "bext"
+            val key = if (extId.contains('.')) extId.substringBefore('.').lowercase() else return true
             if (key in enabledRepoKeys) return true
             val matching = repos.find { it.stableKey.equals(key, ignoreCase = true) || it.name.equals(key, ignoreCase = true) }
             return matching?.enabled ?: true
