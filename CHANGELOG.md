@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.0.3] - 2026-09-26
+
+### Highlights
+- Bunori now supports LNReader Plugins
+- New multi catalog handling system
+- Task Progress update for Exporting
+
+### Major Fixes
+- Navigation bar height has been fixed across all devices
+- Export Progress is now clearly visible
+- Metadata updates have been given an extra slot to always work fast
+- Optimised the amount of DB Calls required for getting files for exports
+
+### Added
+- Multi Catalog System to support JS and BEXT based extensions
+- Language Filter for Extensions
+
+### Improvements
+- Search UI for Extension Searching has been improved
+
+### Known Issues
+- Since a new catalog has been implemented so of the older installed extensions might show problems with working
+- It is recommented to delete and reinstall the same if possible or better take a backup and reinstall the app
+
 ## [2.0.2] - 2026-09-23
 
 ### Highlights
