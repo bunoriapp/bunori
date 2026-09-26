@@ -33,8 +33,11 @@ fun LazyListScope.sourceResultSection(
     }
 
     item(key = "header_$source") {
+        val crawler = remember(source) { CrawlerFactory.getCrawler(source) }
+        val repoTag = if (source.contains('.')) source.substringBefore('.') else null
+        val displayName = if (repoTag != null) "${crawler?.name ?: source} ($repoTag)" else (crawler?.name ?: source)
         SourceHeader(
-            source = source,
+            source = displayName,
             count = count,
             onDrillDown = if (onDrillDown != null) { { onDrillDown(source) } } else null
         )
@@ -60,7 +63,7 @@ fun LazyListScope.sourceResultSection(
         is SourceSearchStatus.Error -> {
             item(key = "error_$source") {
                 val crawler = remember(source) {
-                    CrawlerFactory.getCrawlers().find { it.name.equals(source, ignoreCase = true) }
+                    CrawlerFactory.getCrawler(source)
                 }
                 val isCloudflare = crawler?.webviewNeeded == true ||
                     status.message.contains("cloudflare", ignoreCase = true) ||

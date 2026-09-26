@@ -27,6 +27,7 @@ data class ExtensionManifest(
     val isDeprecated: Boolean = false,
     val deprecationReason: String? = null,
     val suggestedAlternative: String? = null,
+    val latestChangelog: String? = null,
     val entryClass: String? = null,
     val iconPath: String? = null,
     val iconUrl: String? = null,

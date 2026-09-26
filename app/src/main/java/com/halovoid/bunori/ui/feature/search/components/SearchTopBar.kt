@@ -37,13 +37,22 @@ fun SearchTopBar(
     onBack: () -> Unit,
     onClearQuery: () -> Unit,
     focusRequester: FocusRequester,
+    extensionRepos: List<com.halovoid.bunori.extension.api.models.ExtensionRepo> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     var showSourceDropdown by remember { mutableStateOf(false) }
 
+    fun formatCrawlerDisplayName(crawler: Crawler): String {
+        val repoKey = if (crawler.id.contains('.')) crawler.id.substringBefore('.') else null
+        val repoName = repoKey?.let { key ->
+            extensionRepos.find { it.stableKey.equals(key, ignoreCase = true) || it.name.equals(key, ignoreCase = true) }?.name
+        } ?: repoKey?.uppercase()
+        return if (repoName != null) "$repoName • ${crawler.name}" else crawler.name
+    }
+
     val selectedCrawler = remember(selectedSource, installedCrawlers) {
         selectedSource?.let { src ->
-            installedCrawlers.find { it.name.equals(src, ignoreCase = true) }
+            installedCrawlers.find { it.id.equals(src, ignoreCase = true) || it.name.equals(src, ignoreCase = true) }
         }
     }
 
@@ -68,8 +77,9 @@ fun SearchTopBar(
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
                 placeholder = {
+                    val displaySelected = selectedCrawler?.let { formatCrawlerDisplayName(it) } ?: selectedSource
                     Text(
-                        text = if (selectedSource != null) "Search in $selectedSource..." else "Search for novels...",
+                        text = if (displaySelected != null) "Search in $displaySelected..." else "Search for novels...",
                         style = MaterialTheme.typography.bodyLarge,
                         fontSize = 16.sp,
                         color = SecondaryText.copy(alpha = 0.7f),
@@ -173,7 +183,7 @@ fun SearchTopBar(
                         HorizontalDivider(color = BorderColor.copy(alpha = 0.3f))
 
                         installedCrawlers.forEach { crawler ->
-                            val isSelected = selectedSource.equals(crawler.name, ignoreCase = true)
+                            val isSelected = selectedSource.equals(crawler.id, ignoreCase = true) || selectedSource.equals(crawler.name, ignoreCase = true)
                             val crawlerIconModel = remember(crawler) {
                                 when {
                                     crawler.iconFile != null && crawler.iconFile?.exists() == true -> crawler.iconFile
@@ -182,6 +192,7 @@ fun SearchTopBar(
                                     else -> null
                                 }
                             }
+                            val displayName = formatCrawlerDisplayName(crawler)
 
                             DropdownMenuItem(
                                 text = {
@@ -196,7 +207,7 @@ fun SearchTopBar(
                                             shape = RoundedCornerShape(5.dp)
                                         )
                                         Text(
-                                            text = crawler.name,
+                                            text = displayName,
                                             color = if (isSelected) BrandAccent else PrimaryText,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                             fontSize = 14.sp,
@@ -207,7 +218,7 @@ fun SearchTopBar(
                                 },
                                 onClick = {
                                     showSourceDropdown = false
-                                    onSelectSource(crawler.name)
+                                    onSelectSource(crawler.id)
                                 }
                             )
                         }

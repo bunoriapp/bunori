@@ -30,6 +30,16 @@ fun SearchControlsHeader(
     val totalSources = sourceStates.size
     val completedSources = sourceStates.values.count { it !is SourceSearchStatus.Loading }
 
+    val displaySelectedSource = androidx.compose.runtime.remember(selectedSource) {
+        if (selectedSource == null) null
+        else {
+            val crawler = com.halovoid.bunori.api.core.crawler.CrawlerFactory.getCrawler(selectedSource)
+            val repoTag = if (selectedSource.contains('.')) selectedSource.substringBefore('.').uppercase() else null
+            if (crawler != null && repoTag != null) "$repoTag • ${crawler.name}"
+            else crawler?.name ?: selectedSource
+        }
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -49,7 +59,7 @@ fun SearchControlsHeader(
                     strokeWidth = 2.dp
                 )
                 Text(
-                    text = if (selectedSource != null) "Searching $selectedSource..." else "Searching ($completedSources/$totalSources sources)...",
+                    text = if (displaySelectedSource != null) "Searching $displaySelectedSource..." else "Searching ($completedSources/$totalSources sources)...",
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryText,
                     fontSize = 12.sp,
@@ -59,7 +69,7 @@ fun SearchControlsHeader(
             } else {
                 Text(
                     text = if (totalNovels > 0) {
-                        if (selectedSource != null) "$totalNovels results in $selectedSource" else "$totalNovels results across $totalSources sources"
+                        if (displaySelectedSource != null) "$totalNovels results in $displaySelectedSource" else "$totalNovels results across $totalSources sources"
                     } else {
                         "Search completed"
                     },

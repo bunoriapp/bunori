@@ -30,8 +30,8 @@ class ExtensionUpdateWorker(
             val extensionManager = ExtensionManager.getInstance(applicationContext)
             val preferenceRepository = PreferenceRepository.getInstance(applicationContext)
 
-            val repoUrl = preferenceRepository.extensionRepoUrl.first()
-            if (repoUrl.isBlank()) {
+            val repos = preferenceRepository.extensionRepos.first().filter { it.enabled }
+            if (repos.isEmpty()) {
                 return Result.success()
             }
 
@@ -39,7 +39,7 @@ class ExtensionUpdateWorker(
 
             LnReaderRuntime.updateIfAvailable(applicationContext)
 
-            val updates = extensionManager.checkForUpdates(repoUrl)
+            val updates = extensionManager.checkForUpdates(repos)
 
             if (updates.isNotEmpty()) {
                 Logger.d("[ExtensionUpdateWorker] Found ${updates.size} extension updates: ${updates.map { it.name }}")

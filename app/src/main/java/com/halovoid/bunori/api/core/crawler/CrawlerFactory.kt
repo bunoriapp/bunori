@@ -18,6 +18,10 @@ object CrawlerFactory {
         val crawlers = getCrawlers()
         return crawlers.find { it.id.equals(identifier, ignoreCase = true) }
             ?: crawlers.find { it.name.equals(identifier, ignoreCase = true) }
+            ?: run {
+                val rawId = identifier.substringAfterLast('.')
+                crawlers.find { it.id.substringAfterLast('.').equals(rawId, ignoreCase = true) }
+            }
     }
     fun getCrawlerByUrl(url: String): Crawler? = getCrawlers().find { it.canHandle(url) }
     fun registerCrawlers(newCrawlers: List<Crawler>) {

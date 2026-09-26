@@ -5,10 +5,12 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
+import com.halovoid.bunori.api.core.network.NetworkClient
+import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.extension.adapter.ExtensionCrawlerAdapter
 import com.halovoid.bunori.extension.api.IExtension
 import com.halovoid.bunori.extension.api.models.ExtensionFormat
-import com.halovoid.bunori.extension.api.models.ExtensionMetadata
+import com.halovoid.bunori.extension.api.models.ExtensionRepo
 import com.halovoid.bunori.extension.api.models.ExtensionRepoEntry
 import com.halovoid.bunori.extension.api.pkg.BextUtils
 import com.halovoid.bunori.extension.loader.BextLoader
@@ -22,34 +24,31 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.security.MessageDigest
-import java.util.concurrent.TimeUnit
 
-/**
- * Manages the lifecycle, storage, installation, catalog retrieval, and querying of Bunori extensions.
- */
 class ExtensionManager private constructor(private val context: Context) {
 
     private val bextLoader = BextLoader(context)
     private val lnReaderLoader = LnReaderLoader(context)
+    private val httpClient: OkHttpClient = NetworkClient.okHttpClient
+
     private val _installedExtensions = MutableStateFlow<Map<String, LoadedExtension>>(emptyMap())
     val installedExtensions: StateFlow<Map<String, LoadedExtension>> = _installedExtensions.asStateFlow()
 
     private val _failedExtensions = MutableStateFlow<List<String>>(emptyList())
     val failedExtensions: StateFlow<List<String>> = _failedExtensions.asStateFlow()
 
-    private val httpClient: OkHttpClient = OkHttpClient.Builder()
-        .dns(com.halovoid.bunori.api.core.network.NetworkClient.fastDns)
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .build()
+    private val extensionsDir: File
+        get() = File(context.filesDir, "installed_extensions").also { if (!it.exists()) it.mkdirs() }
+
+    private val catalogCacheDir: File
+        get() = File(context.filesDir, "catalog_cache").also { if (!it.exists()) it.mkdirs() }
 
     companion object {
         private const val TAG = "ExtensionManager"
@@ -65,15 +64,6 @@ class ExtensionManager private constructor(private val context: Context) {
         }
     }
 
-    private val extensionsDir: File
-        get() = File(context.filesDir, "installed_extensions").also {
-            if (!it.exists()) it.mkdirs()
-        }
-
-    /**
-     * Scans app storage, initializes all previously installed extensions,
-     * and synchronizes them with [CrawlerFactory].
-     */
     suspend fun loadInstalledExtensions() = withContext(Dispatchers.IO) {
         val loaded = mutableMapOf<String, LoadedExtension>()
         val failed = mutableListOf<String>()
@@ -86,320 +76,259 @@ class ExtensionManager private constructor(private val context: Context) {
             try {
                 when {
                     bextFile.exists() && bextFile.length() > 0 -> {
-                        val loadedExt = bextLoader.loadFromBextFile(bextFile)
+                        val loadedExt = bextLoader.loadFromBextFile(bextFile, extensionId = dir.name)
                         loaded[loadedExt.manifest.id] = loadedExt
-                        Log.i(TAG, "Loaded BEXT extension on startup: ${loadedExt.manifest.name}")
+                        Log.i(TAG, "Loaded BEXT extension: ${loadedExt.manifest.name} (${loadedExt.manifest.id})")
                     }
                     jsFile.exists() && jsFile.length() > 0 -> {
                         val loadedExt = lnReaderLoader.loadFromDirectory(dir)
                         loaded[loadedExt.manifest.id] = loadedExt
-                        Log.i(TAG, "Loaded LNReader extension on startup: ${loadedExt.manifest.name}")
+                        Log.i(TAG, "Loaded LNReader extension: ${loadedExt.manifest.name} (${loadedExt.manifest.id})")
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load extension from ${dir.absolutePath}", e)
+                Log.e(TAG, "Failed loading extension from ${dir.name}", e)
                 failed.add(dir.name)
             }
         }
 
         _failedExtensions.value = failed
         _installedExtensions.value = loaded
-        syncWithCrawlerFactory(loaded)
+        syncWithCrawlerFactory()
     }
 
-    private fun getCatalogCacheFile(repoUrl: String): File {
-        val cacheDir = File(context.filesDir, "catalog_cache").apply { mkdirs() }
-        val hash = try {
-            val md = MessageDigest.getInstance("SHA-256")
-            val bytes = md.digest(repoUrl.toByteArray(Charsets.UTF_8))
-            bytes.joinToString("") { "%02x".format(it) }
-        } catch (_: Exception) {
-            repoUrl.hashCode().toString()
+    private fun getCatalogFile(repoKey: String): File {
+        val safeKey = repoKey.trim().lowercase().replace(Regex("[^a-z0-9_-]"), "_")
+        return File(catalogCacheDir, "catalog_$safeKey.json")
+    }
+
+    fun deleteRepoCatalogCache(repo: ExtensionRepo) {
+        try {
+            val file = getCatalogFile(repo.stableKey)
+            if (file.exists()) file.delete()
+            val legacy = getCatalogFile(repo.name)
+            if (legacy.exists()) legacy.delete()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error deleting catalog cache for ${repo.name}: ${e.message}")
         }
-        return File(cacheDir, "catalog_$hash.json")
     }
 
-    /**
-     * Returns locally cached extension repository catalog entries if available.
-     * If [repoUrl] is provided, loads the cache specifically for that repository.
-     * Otherwise, aggregates all cached repository files.
-     */
-    fun getCachedRepoCatalog(repoUrl: String? = null): List<ExtensionRepoEntry>? {
+    fun getCachedRepoCatalog(repo: ExtensionRepo): List<ExtensionRepoEntry>? {
         return try {
-            if (repoUrl != null) {
-                val file = getCatalogCacheFile(repoUrl)
-                if (!file.exists() || file.length() == 0L) {
-                    val legacyFile = File(context.filesDir, "extension_catalog_cache.json")
-                    if (legacyFile.exists() && legacyFile.length() > 0L) {
-                        val jsonString = legacyFile.readText(Charsets.UTF_8)
-                        val entries = ExtensionRepoEntry.parseIndex(jsonString)
-                        return entries.map { entry ->
-                            val resolvedUrl = resolveUrl(repoUrl, entry.downloadUrl)
-                            entry.copy(url = resolvedUrl, bextUrl = resolvedUrl)
-                        }
-                    }
-                    return null
-                }
-                val jsonString = file.readText(Charsets.UTF_8)
-                val entries = ExtensionRepoEntry.parseIndex(jsonString)
-                entries.map { entry ->
-                    val resolvedUrl = resolveUrl(repoUrl, entry.downloadUrl)
-                    entry.copy(url = resolvedUrl, bextUrl = resolvedUrl)
-                }
-            } else {
-                val cacheDir = File(context.filesDir, "catalog_cache")
-                val files = cacheDir.listFiles { f -> f.extension == "json" }
-                val allEntries = mutableListOf<ExtensionRepoEntry>()
-                if (files != null && files.isNotEmpty()) {
-                    for (file in files) {
-                        try {
-                            val jsonString = file.readText(Charsets.UTF_8)
-                            allEntries.addAll(ExtensionRepoEntry.parseIndex(jsonString))
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed reading catalog cache ${file.name}: ${e.message}")
-                        }
-                    }
-                }
-                if (allEntries.isEmpty()) {
-                    val legacyFile = File(context.filesDir, "extension_catalog_cache.json")
-                    if (legacyFile.exists() && legacyFile.length() > 0L) {
-                        try {
-                            allEntries.addAll(ExtensionRepoEntry.parseIndex(legacyFile.readText(Charsets.UTF_8)))
-                        } catch (_: Exception) {}
-                    }
-                }
-                allEntries.ifEmpty { null }
+            val file = getCatalogFile(repo.stableKey).takeIf { it.exists() && it.length() > 0L }
+                ?: getCatalogFile(repo.name).takeIf { it.exists() && it.length() > 0L }
+                ?: return null
+
+            val jsonString = file.readText(Charsets.UTF_8)
+            val entries = ExtensionRepoEntry.parseIndex(jsonString, repoName = repo.stableKey)
+            entries.map { entry ->
+                val resolvedUrl = resolveUrl(repo.url, entry.downloadUrl)
+                entry.copy(url = resolvedUrl, bextUrl = resolvedUrl)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to read cached repository catalog: ${e.message}")
+            Log.w(TAG, "Error reading cached catalog for ${repo.name}: ${e.message}")
             null
         }
     }
 
-    /**
-     * Fetches and parses an extension catalog/repository index from [repoUrl].
-     * If [forceNetwork] is false and a local cache is present, returns the cached version.
-     * Resolves any relative package URLs to absolute URLs.
-     */
+    fun getAllCachedRepoCatalogs(repos: List<ExtensionRepo>? = null): List<ExtensionRepoEntry> {
+        val files = catalogCacheDir.listFiles { f -> f.extension == "json" } ?: return emptyList()
+        val allEntries = mutableListOf<ExtensionRepoEntry>()
+
+        for (file in files) {
+            try {
+                val fileKey = file.nameWithoutExtension.removePrefix("catalog_")
+                val matchingRepo = repos?.firstOrNull {
+                    it.stableKey.equals(fileKey, ignoreCase = true) || it.name.equals(fileKey, ignoreCase = true)
+                }
+
+                if (repos != null) {
+                    if (matchingRepo == null) {
+                        // Orphan cache file from removed repo
+                        file.delete()
+                        continue
+                    }
+                    if (!matchingRepo.enabled) continue
+                }
+
+                val jsonString = file.readText(Charsets.UTF_8)
+                val effectiveRepoKey = matchingRepo?.stableKey ?: fileKey
+                val entries = ExtensionRepoEntry.parseIndex(jsonString, repoName = effectiveRepoKey)
+                val baseUrl = matchingRepo?.url ?: ""
+                val resolved = if (baseUrl.isNotBlank()) {
+                    entries.map { e ->
+                        val res = resolveUrl(baseUrl, e.downloadUrl)
+                        e.copy(url = res, bextUrl = res)
+                    }
+                } else entries
+                allEntries.addAll(resolved)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error reading catalog cache file ${file.name}: ${e.message}")
+            }
+        }
+        return allEntries
+    }
+
     suspend fun fetchRepoCatalog(
-        repoUrl: String,
+        repo: ExtensionRepo,
         forceNetwork: Boolean = false
     ): Result<List<ExtensionRepoEntry>> = withContext(Dispatchers.IO) {
         try {
             if (!forceNetwork) {
-                val cached = getCachedRepoCatalog(repoUrl)
-                if (cached != null && cached.isNotEmpty()) {
-                    Log.i(TAG, "Loaded extension catalog from local cache (${cached.size} entries) for $repoUrl")
+                val cached = getCachedRepoCatalog(repo)
+                if (!cached.isNullOrEmpty()) {
                     return@withContext Result.success(cached)
                 }
             }
 
-            val jsonString = if (repoUrl.startsWith("file://")) {
-                val localPath = repoUrl.removePrefix("file://")
+            val jsonString = if (repo.url.startsWith("file://")) {
+                val localPath = repo.url.removePrefix("file://")
                 File(localPath).readText(Charsets.UTF_8)
             } else {
                 val request = Request.Builder()
-                    .url(repoUrl)
+                    .url(repo.url)
                     .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                     .build()
 
                 val response = httpClient.newCall(request).execute()
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(
-                        IOException("Failed to fetch repository index: HTTP ${response.code}")
-                    )
+                    return@withContext Result.failure(IOException("HTTP ${response.code} fetching ${repo.url}"))
                 }
-                response.body?.string() ?: return@withContext Result.failure(
-                    IOException("Empty response body from repository")
-                )
+                response.body?.string() ?: return@withContext Result.failure(IOException("Empty response body"))
             }
 
-            // Save raw json to repo-specific cache file
             try {
-                val cacheFile = getCatalogCacheFile(repoUrl)
-                cacheFile.writeText(jsonString, Charsets.UTF_8)
+                getCatalogFile(repo.stableKey).writeText(jsonString, Charsets.UTF_8)
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to write extension catalog cache for $repoUrl: ${e.message}")
+                Log.w(TAG, "Failed caching catalog for ${repo.name}: ${e.message}")
             }
 
-            val entries = ExtensionRepoEntry.parseIndex(jsonString)
-
-            // Resolve relative package URLs against repoUrl
+            val entries = ExtensionRepoEntry.parseIndex(jsonString, repoName = repo.stableKey)
             val resolvedEntries = entries.map { entry ->
-                val resolvedUrl = resolveUrl(repoUrl, entry.downloadUrl)
+                val resolvedUrl = resolveUrl(repo.url, entry.downloadUrl)
                 entry.copy(url = resolvedUrl, bextUrl = resolvedUrl)
             }
-
             Result.success(resolvedEntries)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching repository catalog from $repoUrl", e)
-            // Fallback to cache if network request failed
-            val cached = getCachedRepoCatalog(repoUrl)
-            if (cached != null && cached.isNotEmpty()) {
-                Log.i(TAG, "Falling back to cached extension catalog after network failure for $repoUrl")
-                Result.success(cached)
+            Log.e(TAG, "Error fetching catalog for ${repo.name} (${repo.url})", e)
+            val fallback = getCachedRepoCatalog(repo)
+            if (!fallback.isNullOrEmpty()) {
+                Result.success(fallback)
             } else {
                 Result.failure(e)
             }
         }
     }
 
-    /**
-     * Fetches and aggregates catalogs from multiple repository URLs concurrently.
-     * When duplicate IDs exist across repositories, the one with the newest version is retained.
-     */
     suspend fun fetchAllRepoCatalogs(
-        repoUrls: List<String>,
+        repos: List<ExtensionRepo>,
         forceNetwork: Boolean = false
     ): Result<List<ExtensionRepoEntry>> = withContext(Dispatchers.IO) {
-        if (repoUrls.isEmpty()) return@withContext Result.success(emptyList())
+        val enabledRepos = repos.filter { it.enabled }
+        if (enabledRepos.isEmpty()) return@withContext Result.success(emptyList())
+
         val combined = coroutineScope {
-            repoUrls.map { url ->
-                async { fetchRepoCatalog(url, forceNetwork).getOrDefault(emptyList()) }
+            enabledRepos.map { repo ->
+                async { fetchRepoCatalog(repo, forceNetwork).getOrDefault(emptyList()) }
             }.awaitAll()
         }.flatten()
-            .groupBy { "${it.format.name}:${it.id}" }
-            .values
-            .map { entries ->
-                entries.maxWithOrNull { a, b ->
-                    if (ExtensionRepoEntry.isVersionNewer(a.version, b.version)) 1
-                    else if (ExtensionRepoEntry.isVersionNewer(b.version, a.version)) -1
-                    else 0
-                } ?: entries.first()
-            }
 
         Result.success(combined)
     }
 
-    /**
-     * Checks if any installed extensions have updates across the provided [repoUrls].
-     */
-    suspend fun checkForUpdates(repoUrls: List<String>): List<ExtensionRepoEntry> = withContext(Dispatchers.IO) {
+    suspend fun checkForUpdates(repos: List<ExtensionRepo>): List<ExtensionRepoEntry> = withContext(Dispatchers.IO) {
         LnReaderRuntime.updateIfAvailable(context)
 
-        val result = fetchAllRepoCatalogs(repoUrls, forceNetwork = true)
+        val result = fetchAllRepoCatalogs(repos, forceNetwork = true)
         val catalog = result.getOrNull() ?: return@withContext emptyList()
         val installed = _installedExtensions.value
 
         catalog.filter { entry ->
-            val installedExt = installed.values.find { it.manifest.id == entry.id && it.manifest.format == entry.format }
+            val installedExt = installed[entry.id]
             installedExt != null && ExtensionRepoEntry.isVersionNewer(entry.version, installedExt.manifest.version)
         }
     }
 
-    suspend fun checkForUpdates(repoUrl: String): List<ExtensionRepoEntry> = checkForUpdates(listOf(repoUrl))
+    suspend fun checkForUpdates(repoUrl: String): List<ExtensionRepoEntry> =
+        checkForUpdates(listOf(ExtensionRepo(name = "repo", url = repoUrl, enabled = true)))
 
-    /**
-     * Downloads and installs an extension from a repository entry (either .bext or .js).
-     */
     suspend fun downloadAndInstall(entry: ExtensionRepoEntry): Result<LoadedExtension> = withContext(Dispatchers.IO) {
         val isJsPlugin = entry.format == ExtensionFormat.LNREADER_JS || entry.downloadUrl.endsWith(".js")
         val downloadUrl = entry.downloadUrl
 
         try {
             val fileBytes = if (downloadUrl.startsWith("file://")) {
-                val localPath = downloadUrl.removePrefix("file://")
-                File(localPath).readBytes()
+                File(downloadUrl.removePrefix("file://")).readBytes()
             } else {
                 val request = Request.Builder()
                     .url(downloadUrl)
                     .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                     .build()
-
                 val response = httpClient.newCall(request).execute()
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(
-                        IOException("Failed to download extension: HTTP ${response.code}")
-                    )
+                    return@withContext Result.failure(IOException("HTTP ${response.code} downloading extension"))
                 }
-                response.body?.bytes() ?: return@withContext Result.failure(
-                    IOException("Empty body downloading extension")
-                )
+                response.body?.bytes() ?: return@withContext Result.failure(IOException("Empty download response"))
             }
 
             if (isJsPlugin) {
-                // Download icon if present
                 var iconBytes: ByteArray? = null
                 val iconUrl = entry.iconUrl
                 if (!iconUrl.isNullOrBlank() && (iconUrl.startsWith("http://") || iconUrl.startsWith("https://"))) {
                     try {
-                        val iconReq = Request.Builder().url(iconUrl).build()
-                        val iconRes = httpClient.newCall(iconReq).execute()
-                        if (iconRes.isSuccessful) {
-                            iconBytes = iconRes.body?.bytes()
-                        }
+                        val iconRes = httpClient.newCall(Request.Builder().url(iconUrl).build()).execute()
+                        if (iconRes.isSuccessful) iconBytes = iconRes.body?.bytes()
                     } catch (_: Exception) {}
                 }
 
                 val loaded = lnReaderLoader.install(entry.toManifest(), fileBytes, iconBytes)
-                val updated = _installedExtensions.value.toMutableMap()
-                updated[loaded.manifest.id] = loaded
+                val updated = _installedExtensions.value.toMutableMap().apply { put(loaded.manifest.id, loaded) }
                 _installedExtensions.value = updated
-                syncWithCrawlerFactory(updated)
+                syncWithCrawlerFactory()
                 Result.success(loaded)
             } else {
                 val tempFile = File(context.cacheDir, "download_${entry.id}_${System.currentTimeMillis()}.bext")
                 FileOutputStream(tempFile).use { fos -> fos.write(fileBytes) }
-                val result = installFromFile(tempFile)
+                val result = installFromFile(tempFile, extensionId = entry.id)
                 tempFile.delete()
                 result
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to download and install extension: ${entry.id}", e)
+            Log.e(TAG, "Failed installing extension ${entry.id}", e)
             Result.failure(e)
         }
     }
 
-    /**
-     * Installs or updates an extension from a local .bext file.
-     *
-     * @param sourceFile The .bext archive.
-     * @return [Result] containing [LoadedExtension] on success.
-     */
-    suspend fun installFromFile(sourceFile: File): Result<LoadedExtension> = withContext(Dispatchers.IO) {
+    suspend fun installFromFile(sourceFile: File, extensionId: String? = null): Result<LoadedExtension> = withContext(Dispatchers.IO) {
         try {
-            // 1. Verify and read package
             val pkg = sourceFile.inputStream().use { stream ->
                 BextUtils.readPackage(stream, validateApiVersion = true)
             }
 
-            val targetDir = File(extensionsDir, pkg.manifest.id)
-            if (!targetDir.exists()) targetDir.mkdirs()
-
+            val targetId = extensionId ?: pkg.manifest.id
+            val targetDir = File(extensionsDir, targetId).apply { if (!exists()) mkdirs() }
             val targetBext = File(targetDir, "package.bext")
-            if (targetBext.exists()) {
-                targetBext.delete()
-            }
             sourceFile.copyTo(targetBext, overwrite = true)
 
-            // 2. Load into memory
-            val loaded = bextLoader.loadPackage(pkg, targetBext)
+            val loaded = bextLoader.loadPackage(pkg, targetBext, extensionId = targetId)
+            val updated = _installedExtensions.value.toMutableMap().apply { put(loaded.manifest.id, loaded) }
+            _installedExtensions.value = updated
+            syncWithCrawlerFactory()
 
-            // 3. Update registry and sync CrawlerFactory
-            val current = _installedExtensions.value.toMutableMap()
-            current[loaded.manifest.id] = loaded
-            _installedExtensions.value = current
-            syncWithCrawlerFactory(current)
-
-            Log.i(TAG, "Successfully installed extension: ${loaded.manifest.name} (id: ${loaded.manifest.id})")
+            Log.i(TAG, "Installed extension: ${loaded.manifest.name} (${loaded.manifest.id})")
             Result.success(loaded)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to install extension from ${sourceFile.absolutePath}", e)
+            Log.e(TAG, "Failed installing from file ${sourceFile.name}", e)
             Result.failure(e)
         }
     }
 
-    /**
-     * Installs or updates an extension selected via Android file picker [Uri].
-     */
     suspend fun installFromUri(uri: Uri): Result<LoadedExtension> = withContext(Dispatchers.IO) {
         val tempFile = File(context.cacheDir, "temp_${System.currentTimeMillis()}.bext")
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    input.copyTo(output)
-                }
-            } ?: return@withContext Result.failure(IllegalArgumentException("Could not open URI: $uri"))
+                FileOutputStream(tempFile).use { output -> input.copyTo(output) }
+            } ?: return@withContext Result.failure(IllegalArgumentException("Cannot open URI: $uri"))
 
             val result = installFromFile(tempFile)
             tempFile.delete()
@@ -410,35 +339,24 @@ class ExtensionManager private constructor(private val context: Context) {
         }
     }
 
-    /**
-     * Uninstalls and removes an extension by its identifier.
-     */
     suspend fun uninstall(extensionId: String): Boolean = withContext(Dispatchers.IO) {
         val current = _installedExtensions.value.toMutableMap()
+        current.remove(extensionId)
+        val altKeys = current.keys.filter { it.endsWith(".$extensionId") || extensionId.endsWith(".$it") }
+        altKeys.forEach { current.remove(it) }
 
         _installedExtensions.value = current
         _failedExtensions.value -= extensionId
-        syncWithCrawlerFactory(current)
+        syncWithCrawlerFactory()
 
-        val rawId = extensionId.removePrefix("bext.").removePrefix("lnreader.")
         val candidateDirs = listOf(
             File(extensionsDir, extensionId),
-            File(extensionsDir, rawId),
-            File(extensionsDir, "lnreader.$rawId"),
-            File(extensionsDir, "bext.$rawId")
+            File(extensionsDir, extensionId.substringAfter('.'))
         ).distinct()
 
         for (targetDir in candidateDirs) {
             if (targetDir.exists()) {
-                try {
-                    targetDir.walkBottomUp().forEach { file ->
-                        file.setWritable(true)
-                        file.delete()
-                    }
-                    targetDir.deleteRecursively()
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error cleaning directory for ${targetDir.name}: ${e.message}")
-                }
+                targetDir.deleteRecursively()
             }
         }
 
@@ -446,30 +364,37 @@ class ExtensionManager private constructor(private val context: Context) {
         true
     }
 
-    /**
-     * Returns whether an extension with [id] is installed.
-     */
-    fun isInstalled(id: String): Boolean {
-        return _installedExtensions.value.containsKey(id)
-    }
-
-    /**
-     * Returns installed release version for extension [id], or null if not installed.
-     */
-    fun getInstalledVersion(id: String): String? {
-        return _installedExtensions.value[id]?.manifest?.version
-    }
-
-    /**
-     * Retrieves an active [IExtension] by source id.
-     */
     fun getExtension(id: String): IExtension? {
         return _installedExtensions.value[id]?.extension
     }
 
-    private fun syncWithCrawlerFactory(extensions: Map<String, LoadedExtension>) {
-        val adapters = extensions.values.map { ExtensionCrawlerAdapter(it.extension, it.iconFile) }
-        CrawlerFactory.registerCrawlers(adapters)
+    suspend fun syncWithCrawlerFactory() = withContext(Dispatchers.IO) {
+        try {
+            val prefRepo = PreferenceRepository.getInstance(context)
+            val repos = prefRepo.extensionRepos.first()
+            val enabledLangs = prefRepo.enabledExtensionLanguages.first().map { it.lowercase().trim() }.toSet()
+            val activeLangs = if (enabledLangs.isEmpty()) setOf("all") else enabledLangs
+            val enabledRepoKeys = repos.filter { it.enabled }.map { it.stableKey.lowercase() }.toSet()
+
+            val activeLoaded = _installedExtensions.value.values.filter { loaded ->
+                val extId = loaded.manifest.id
+                val repoKey = if (extId.contains('.')) extId.substringBefore('.').lowercase() else "bext"
+                val isRepoActive = repoKey in enabledRepoKeys || repos.find {
+                    it.stableKey.equals(repoKey, ignoreCase = true) || it.name.equals(repoKey, ignoreCase = true)
+                }?.enabled ?: true
+
+                val lang = loaded.manifest.lang.lowercase().trim()
+                val isLangActive = "all" in activeLangs || lang in activeLangs
+
+                isRepoActive && isLangActive
+            }
+
+            val adapters = activeLoaded.map { ExtensionCrawlerAdapter(it.extension, it.iconFile) }
+            CrawlerFactory.registerCrawlers(adapters)
+            Log.i(TAG, "Registered ${adapters.size} active crawlers in CrawlerFactory (out of ${_installedExtensions.value.size} installed)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error syncing with CrawlerFactory", e)
+        }
     }
 
     private fun resolveUrl(base: String, relative: String): String {

@@ -33,8 +33,8 @@ class LnReaderLoader(private val context: Context) {
 
         val manifestJson = manifestFile.readText(Charsets.UTF_8)
         val decodedManifest = ExtensionJson.json.decodeFromString<ExtensionManifest>(manifestJson)
-        val rawId = decodedManifest.id.removePrefix("lnreader.").removePrefix("bext.")
-        val manifest = decodedManifest.copy(id = rawId, format = ExtensionFormat.LNREADER_JS)
+        val id = if (dir.name.contains('.')) dir.name else decodedManifest.id
+        val manifest = decodedManifest.copy(id = id, format = ExtensionFormat.LNREADER_JS)
         val jsContent = jsFile.readText(Charsets.UTF_8)
         val runtimeJs = LnReaderRuntime.getScript(context)
 
@@ -55,8 +55,7 @@ class LnReaderLoader(private val context: Context) {
         )
     }
     fun install(manifest: ExtensionManifest, jsBytes: ByteArray, iconBytes: ByteArray? = null): LoadedExtension {
-        val rawId = manifest.id.removePrefix("lnreader.").removePrefix("bext.")
-        val normalizedManifest = manifest.copy(id = rawId, format = ExtensionFormat.LNREADER_JS)
+        val normalizedManifest = manifest.copy(format = ExtensionFormat.LNREADER_JS)
         val targetDir = File(File(context.filesDir, "installed_extensions"), normalizedManifest.id).apply { mkdirs() }
 
         val jsFile = File(targetDir, JS_FILE_NAME)

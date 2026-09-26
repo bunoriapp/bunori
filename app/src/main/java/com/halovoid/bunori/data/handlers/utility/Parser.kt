@@ -31,17 +31,17 @@ private fun parseMetadataJson(rawJson: String?): JobMetadata {
 }
 
 val Batch.parsedMetadata: JobMetadata get() = parseMetadataJson(this.metadata)
-val Batch.crawlerName: String? get() = parsedMetadata.crawlerName?.takeIf { it.isNotBlank() } ?: CrawlerFactory.getCrawlerByUrl(novelUrl)?.name
+val Batch.crawlerName: String? get() = parsedMetadata.crawlerName?.takeIf { it.isNotBlank() } ?: CrawlerFactory.getCrawlerByUrl(novelUrl)?.let { it.id.ifBlank { it.name } }
 
 val BatchEntity.parsedMetadata: JobMetadata get() = parseMetadataJson(this.metadata)
-val BatchEntity.crawlerName: String? get() = parsedMetadata.crawlerName?.takeIf { it.isNotBlank() } ?: CrawlerFactory.getCrawlerByUrl(novelUrl)?.name
+val BatchEntity.crawlerName: String? get() = parsedMetadata.crawlerName?.takeIf { it.isNotBlank() } ?: CrawlerFactory.getCrawlerByUrl(novelUrl)?.let { it.id.ifBlank { it.name } }
 
 val TaskEntity.parsedMetadata: JobMetadata get() = parseMetadataJson(this.metadata)
 val TaskEntity.crawlerName: String? get() = parsedMetadata.crawlerName?.takeIf { it.isNotBlank() }
-    ?: url?.let { CrawlerFactory.getCrawlerByUrl(it)?.name }
-    ?: CrawlerFactory.getCrawlerByUrl(novelUrl)?.name
+    ?: url?.let { CrawlerFactory.getCrawlerByUrl(it)?.let { c -> c.id.ifBlank { c.name } } }
+    ?: CrawlerFactory.getCrawlerByUrl(novelUrl)?.let { c -> c.id.ifBlank { c.name } }
 
 val Task.parsedMetadata: JobMetadata get() = parseMetadataJson(this.metadata)
 val Task.crawlerName: String? get() = parsedMetadata.crawlerName?.takeIf { it.isNotBlank() }
-    ?: url?.let { CrawlerFactory.getCrawlerByUrl(it)?.name }
-    ?: CrawlerFactory.getCrawlerByUrl(novelUrl)?.name
+    ?: url?.let { CrawlerFactory.getCrawlerByUrl(it)?.let { c -> c.id.ifBlank { c.name } } }
+    ?: CrawlerFactory.getCrawlerByUrl(novelUrl)?.let { c -> c.id.ifBlank { c.name } }

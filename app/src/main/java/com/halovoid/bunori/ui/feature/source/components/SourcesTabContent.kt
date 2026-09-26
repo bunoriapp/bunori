@@ -132,7 +132,7 @@ fun SourcesTabContent(
             items(installedSources, key = { "source_${it.id}" }) { source ->
                 SourceItemRow(
                     source = source,
-                    onClick = { onNavigateToSearch(source.name) }
+                    onClick = { onNavigateToSearch(source.id) }
                 )
             }
         }

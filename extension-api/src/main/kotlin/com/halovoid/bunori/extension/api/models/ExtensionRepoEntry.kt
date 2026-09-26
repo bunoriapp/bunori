@@ -49,6 +49,7 @@ data class ExtensionRepoEntry(
         isDeprecated = isDeprecated,
         deprecationReason = deprecationReason,
         suggestedAlternative = suggestedAlternative,
+        latestChangelog = latestChangelog,
         entryClass = entryClass,
         iconPath = iconPath,
         iconUrl = iconUrl,
@@ -59,15 +60,18 @@ data class ExtensionRepoEntry(
     )
 
     companion object {
-        fun parseIndex(jsonString: String): List<ExtensionRepoEntry> {
+        fun parseIndex(jsonString: String, repoName: String? = null): List<ExtensionRepoEntry> {
             val trimmed = jsonString.trim()
             if (trimmed.isEmpty()) return emptyList()
+
+            fun applyRepoName(rawId: String): String {
+                return if (!repoName.isNullOrBlank()) "$repoName.$rawId" else rawId
+            }
 
             if (trimmed.startsWith("{")) {
                 return try {
                     ExtensionJson.json.decodeFromString<ExtensionRepoIndex>(trimmed).extensions.map { entry ->
-                        val rawId = entry.id.removePrefix("bext.").removePrefix("lnreader.")
-                        entry.copy(id = rawId)
+                        entry.copy(id = applyRepoName(entry.id))
                     }
                 } catch (_: Exception) {
                     emptyList()
@@ -82,21 +86,19 @@ data class ExtensionRepoEntry(
                 } == true
 
                 if (isLnReader) {
-                    ExtensionJson.json.decodeFromString<List<LnReaderPluginRepoItem>>(trimmed).map { it.toRepoEntry() }
+                    ExtensionJson.json.decodeFromString<List<LnReaderPluginRepoItem>>(trimmed).map { it.toRepoEntry(repoName) }
                 } else {
                     ExtensionJson.json.decodeFromString<List<ExtensionRepoEntry>>(trimmed).map { entry ->
-                        val rawId = entry.id.removePrefix("bext.").removePrefix("lnreader.")
-                        entry.copy(id = rawId)
+                        entry.copy(id = applyRepoName(entry.id))
                     }
                 }
             } catch (_: Exception) {
                 runCatching {
-                    ExtensionJson.json.decodeFromString<List<LnReaderPluginRepoItem>>(trimmed).map { it.toRepoEntry() }
+                    ExtensionJson.json.decodeFromString<List<LnReaderPluginRepoItem>>(trimmed).map { it.toRepoEntry(repoName) }
                 }.getOrElse {
                     runCatching {
                         ExtensionJson.json.decodeFromString<List<ExtensionRepoEntry>>(trimmed).map { entry ->
-                            val rawId = entry.id.removePrefix("bext.").removePrefix("lnreader.")
-                            entry.copy(id = rawId)
+                            entry.copy(id = applyRepoName(entry.id))
                         }
                     }.getOrDefault(emptyList())
                 }
@@ -127,10 +129,10 @@ data class LnReaderPluginRepoItem(
     val url: String,
     val iconUrl: String? = null
 ) {
-    fun toRepoEntry(): ExtensionRepoEntry {
-        val rawId = id.removePrefix("lnreader.").removePrefix("bext.")
+    fun toRepoEntry(repoName: String? = null): ExtensionRepoEntry {
+        val finalId = if (!repoName.isNullOrBlank()) "$repoName.$id" else id
         return ExtensionRepoEntry(
-            id = rawId,
+            id = finalId,
             name = name,
             version = version,
             lang = lang,

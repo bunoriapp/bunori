@@ -25,7 +25,6 @@ import com.halovoid.bunori.ui.core.theme.ErrorRed
 import com.halovoid.bunori.ui.core.theme.PrimaryText
 import com.halovoid.bunori.ui.core.theme.SecondaryText
 import com.halovoid.bunori.ui.feature.source.ExtensionUiItem
-import java.net.URI
 
 @Composable
 fun SourceItemRow(
@@ -81,15 +80,11 @@ fun SourceItemRow(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 val langDisplay = if (source.lang.equals("all", ignoreCase = true)) "Multi" else source.lang.uppercase()
-                val hostDisplay = try {
-                    URI(source.baseUrl).host ?: source.baseUrl
-                } catch (_: Exception) {
-                    source.baseUrl
-                }
+                val repoTag = source.repoDisplayName ?: source.extensionType.name
                 val subtitleText = if (source.isDeprecated && !source.deprecationReason.isNullOrBlank()) {
-                    "${source.deprecationReason} • $langDisplay"
+                    "${source.deprecationReason} • $langDisplay • $repoTag"
                 } else {
-                    "$langDisplay • $hostDisplay"
+                    "$langDisplay • $repoTag"
                 }
                 Text(
                     text = subtitleText,

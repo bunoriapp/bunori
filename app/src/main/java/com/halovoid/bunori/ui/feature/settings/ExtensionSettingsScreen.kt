@@ -8,8 +8,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -55,8 +55,7 @@ fun ExtensionSettingsScreen(
     onBack: () -> Unit,
     onNavigateToRepoSettings: () -> Unit = {}
 ) {
-    val extensionRepoUrls by viewModel.extensionRepoUrls.collectAsStateWithLifecycle()
-    val disabledRepoUrls by viewModel.disabledExtensionRepoUrls.collectAsStateWithLifecycle()
+    val extensionRepos by viewModel.extensionRepos.collectAsStateWithLifecycle()
     val showWasmSlowModeToast by viewModel.showWasmSlowModeToast.collectAsStateWithLifecycle()
     val enabledLanguages by viewModel.enabledExtensionLanguages.collectAsStateWithLifecycle()
     val availableLanguages by viewModel.availableExtensionLanguages.collectAsStateWithLifecycle()
@@ -96,17 +95,17 @@ fun ExtensionSettingsScreen(
 
             SectionHeader(text = "Repositories")
 
-            val activeCount = extensionRepoUrls.size - disabledRepoUrls.count { it in extensionRepoUrls }
-            val repoSubtitle = if (extensionRepoUrls.isEmpty()) {
+            val activeCount = extensionRepos.count { it.enabled }
+            val repoSubtitle = if (extensionRepos.isEmpty()) {
                 "No repositories configured"
             } else {
-                "${extensionRepoUrls.size} configured • $activeCount enabled"
+                "${extensionRepos.size} configured • $activeCount enabled"
             }
 
             SettingsRow(
                 title = "Extension Repositories",
                 subtitle = repoSubtitle,
-                icon = Icons.Outlined.Public,
+                icon = Icons.Outlined.Extension,
                 onClick = onNavigateToRepoSettings
             )
 
@@ -147,18 +146,6 @@ fun ExtensionSettingsScreen(
                                     fontWeight = FontWeight.Medium,
                                     color = PrimaryText
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = DarkSurfaceVariant
-                                ) {
-                                    Text(
-                                        text = lang.uppercase(),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = SecondaryText,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
                             }
                         }
                         Switch(
@@ -186,41 +173,6 @@ fun ExtensionSettingsScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = BorderColor.copy(alpha = 0.2f), thickness = 0.5.dp)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SectionHeader(text = "Runtime")
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Slow Mode Notifications",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = PrimaryText
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Show notification when WASM runtime enters interpreted mode",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SecondaryText
-                    )
-                }
-                Switch(
-                    checked = showWasmSlowModeToast,
-                    onCheckedChange = { viewModel.setShowWasmSlowModeToast(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = PrimaryText,
-                        checkedTrackColor = BrandAccent,
-                        uncheckedThumbColor = SecondaryText,
-                        uncheckedTrackColor = DarkBackground
-                    )
-                )
-            }
 
             Spacer(modifier = Modifier.height(32.dp))
         }

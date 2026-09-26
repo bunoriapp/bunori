@@ -52,6 +52,7 @@ fun SourceSearchScreen(
 ) {
     val context = LocalContext.current
     val crawler = remember(sourceName) { CrawlerFactory.getCrawler(sourceName) }
+    val displayName = crawler?.name ?: sourceName
 
     val openWebView: (() -> Unit)? = remember(crawler, context) {
         if (crawler != null && crawler.baseUrl.isNotBlank()) {
@@ -60,7 +61,7 @@ fun SourceSearchScreen(
                 val intent = Intent(context, WebViewActivity::class.java).apply {
                     putExtra("url", targetUrl)
                     putExtra("host", targetUrl.toUri().host ?: "")
-                    putExtra("crawler_name", sourceName)
+                    putExtra("crawler_name", crawler.id)
                 }
                 context.startActivity(intent)
             }
@@ -100,7 +101,7 @@ fun SourceSearchScreen(
         containerColor = DarkBackground,
         topBar = {
             SourceSearchTopBar(
-                sourceName = sourceName,
+                sourceName = displayName,
                 isSearchMode = isSearchMode,
                 onOpenSearch = {
                     isSearchMode = true
@@ -265,7 +266,7 @@ fun SourceSearchScreen(
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = if (isProtectionChallenge) {
-                                        "$sourceName requires passing a Cloudflare or DDoS-Guard browser challenge."
+                                        "$displayName requires passing a Cloudflare or DDoS-Guard browser challenge."
                                     } else {
                                         state.errorMessage
                                     },
@@ -324,7 +325,7 @@ fun SourceSearchScreen(
                                     text = if (state.selectedListingId == SourceSearchViewModel.SEARCH_LISTING_ID) {
                                         "No results found for \"$searchQuery\""
                                     } else if (state.listings.isEmpty()) {
-                                        "Search in $sourceName to explore novels"
+                                        "Search in $displayName to explore novels"
                                     } else {
                                         "No novels found in this category"
                                     },

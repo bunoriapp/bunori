@@ -6,8 +6,10 @@ import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import com.halovoid.bunori.data.repository.PreferenceRepository
+import com.halovoid.bunori.extension.api.ExtensionJson
 import com.halovoid.bunori.extension.api.IExtension
 import com.halovoid.bunori.extension.api.models.ExtensionFormat
+import com.halovoid.bunori.extension.api.models.ExtensionManifest
 import com.halovoid.bunori.extension.api.pkg.BextPackage
 import com.halovoid.bunori.extension.api.pkg.BextUtils
 import com.halovoid.bunori.wasm.WamrExtension
@@ -25,7 +27,7 @@ class BextLoader(private val context: Context) {
         private const val TAG = "BextLoader"
     }
 
-    fun loadFromBextFile(bextFile: File): LoadedExtension {
+    fun loadFromBextFile(bextFile: File, extensionId: String? = null): LoadedExtension {
         if (!bextFile.exists() || bextFile.length() == 0L) {
             throw IllegalArgumentException("File does not exist or is empty: ${bextFile.absolutePath}")
         }
@@ -35,17 +37,40 @@ class BextLoader(private val context: Context) {
             BextUtils.readPackage(stream, validateApiVersion = true)
         }
 
-        return loadPackage(pkg, bextFile)
+        val effectiveId = extensionId ?: bextFile.parentFile?.name ?: pkg.manifest.id
+        return loadPackage(pkg, bextFile, effectiveId)
     }
 
-    fun loadPackage(pkg: BextPackage, sourceBextFile: File): LoadedExtension {
-        val rawId = pkg.manifest.id.removePrefix("bext.").removePrefix("lnreader.")
-        val normalizedManifest = pkg.manifest.copy(id = rawId, format = ExtensionFormat.BEXT_WASM)
+    fun loadPackage(pkg: BextPackage, sourceBextFile: File, extensionId: String? = null): LoadedExtension {
+        val finalId = extensionId ?: pkg.manifest.id
 
-        val targetDir = File(File(context.filesDir, "installed_extensions"), rawId)
+        val targetDir = File(File(context.filesDir, "installed_extensions"), finalId)
         if (!targetDir.exists()) {
             targetDir.mkdirs()
         }
+
+        val manifestFile = File(targetDir, "manifest.json")
+        val savedManifest = if (manifestFile.exists() && manifestFile.length() > 0) {
+            try {
+                ExtensionJson.json.decodeFromString<ExtensionManifest>(manifestFile.readText(Charsets.UTF_8))
+            } catch (_: Exception) { null }
+        } else null
+
+        val normalizedManifest = pkg.manifest.copy(
+            id = finalId,
+            format = ExtensionFormat.BEXT_WASM,
+            latestChangelog = savedManifest?.latestChangelog ?: pkg.manifest.latestChangelog
+        )
+
+        try {
+            manifestFile.writeText(
+                ExtensionJson.json.encodeToString(
+                    ExtensionManifest.serializer(),
+                    normalizedManifest
+                ),
+                Charsets.UTF_8
+            )
+        } catch (_: Exception) {}
 
         // 1. Pick the best binary: Native AOT matching device ABI, or portable source.wasm
         var selectedBytes = pkg.wasmBytes

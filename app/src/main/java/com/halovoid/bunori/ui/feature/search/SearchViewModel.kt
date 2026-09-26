@@ -61,6 +61,13 @@ class SearchViewModel(
         _selectedSource.value = source
     }
 
+    val extensionRepos: StateFlow<List<com.halovoid.bunori.extension.api.models.ExtensionRepo>> =
+        preferenceRepository.extensionRepos.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val failedExtensions: StateFlow<List<String>> =
         com.halovoid.bunori.extension.manager.ExtensionManager.getInstance(application).failedExtensions
 
@@ -76,7 +83,7 @@ class SearchViewModel(
             }
 
             val crawlers = if (!targetSource.isNullOrBlank()) {
-                allCrawlers.filter { it.name.equals(targetSource, ignoreCase = true) }
+                allCrawlers.filter { it.id.equals(targetSource, ignoreCase = true) || it.name.equals(targetSource, ignoreCase = true) }
             } else {
                 allCrawlers
             }
@@ -88,7 +95,7 @@ class SearchViewModel(
                 return@launch
             }
 
-            val initialStates = crawlers.associate { it.name to SourceSearchStatus.Loading }
+            val initialStates = crawlers.associate { it.id to SourceSearchStatus.Loading }
             _searchState.value = SearchState.Searching(query, initialStates)
 
             crawlers.forEach { crawler ->
@@ -107,20 +114,20 @@ class SearchViewModel(
                                 imageUrl = novel.coverHttpsUrl ?: novel.coverUrl
                             )
                         }
-                        updateSourceState(crawler.name, SourceSearchStatus.Success(searchItems))
+                        updateSourceState(crawler.id, SourceSearchStatus.Success(searchItems))
                     } catch (e: Exception) {
-                        updateSourceState(crawler.name, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
+                        updateSourceState(crawler.id, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
                     }
                 }
             }
         }
     }
 
-    private fun updateSourceState(sourceName: String, status: SourceSearchStatus) {
+    private fun updateSourceState(sourceId: String, status: SourceSearchStatus) {
         val currentState = _searchState.value
         if (currentState is SearchState.Searching) {
             val updatedMap = currentState.sourceStates.toMutableMap().apply {
-                put(sourceName, status)
+                put(sourceId, status)
             }
 
             val allDone = updatedMap.all { it.value !is SourceSearchStatus.Loading }
@@ -148,7 +155,7 @@ class SearchViewModel(
         val query = currentState.query
         val crawlers = try {
             CrawlerFactory.getCrawlers().filter { crawler ->
-                failedSources.any { it.equals(crawler.name, ignoreCase = true) }
+                failedSources.any { it.equals(crawler.id, ignoreCase = true) || it.equals(crawler.name, ignoreCase = true) }
             }
         } catch (_: Exception) {
             emptyList()
@@ -157,7 +164,7 @@ class SearchViewModel(
         if (crawlers.isEmpty()) return
 
         val updatedMap = currentState.sourceStates.toMutableMap().apply {
-            crawlers.forEach { put(it.name, SourceSearchStatus.Loading) }
+            crawlers.forEach { put(it.id, SourceSearchStatus.Loading) }
         }
         _searchState.value = currentState.copy(
             sourceStates = updatedMap,
@@ -180,25 +187,25 @@ class SearchViewModel(
                             imageUrl = novel.coverHttpsUrl ?: novel.coverUrl
                         )
                     }
-                    updateSourceState(crawler.name, SourceSearchStatus.Success(searchItems))
+                    updateSourceState(crawler.id, SourceSearchStatus.Success(searchItems))
                 } catch (e: Exception) {
-                    updateSourceState(crawler.name, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
+                    updateSourceState(crawler.id, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
                 }
             }
         }
     }
 
-    fun retrySource(sourceName: String) {
+    fun retrySource(sourceIdentifier: String) {
         val currentState = _searchState.value as? SearchState.Searching ?: return
         val query = currentState.query
         val crawler = try {
-            CrawlerFactory.getCrawlers().find { it.name.equals(sourceName, ignoreCase = true) }
+            CrawlerFactory.getCrawler(sourceIdentifier)
         } catch (_: Exception) {
             null
         } ?: return
 
         val updatedMap = currentState.sourceStates.toMutableMap().apply {
-            put(crawler.name, SourceSearchStatus.Loading)
+            put(crawler.id, SourceSearchStatus.Loading)
         }
         _searchState.value = currentState.copy(
             sourceStates = updatedMap,
@@ -220,9 +227,9 @@ class SearchViewModel(
                         imageUrl = novel.coverHttpsUrl ?: novel.coverUrl
                     )
                 }
-                updateSourceState(crawler.name, SourceSearchStatus.Success(searchItems))
+                updateSourceState(crawler.id, SourceSearchStatus.Success(searchItems))
             } catch (e: Exception) {
-                updateSourceState(crawler.name, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
+                updateSourceState(crawler.id, SourceSearchStatus.Error(e.message ?: "Unknown error occurred"))
             }
         }
     }

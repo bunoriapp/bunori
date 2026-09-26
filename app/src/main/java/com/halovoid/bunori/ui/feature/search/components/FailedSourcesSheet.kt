@@ -52,9 +52,11 @@ fun FailedSourcesSheet(
 
             allFailedSources.forEach { sourceName ->
                 val crawler = remember(sourceName) {
-                    CrawlerFactory.getCrawlers().find { it.name.equals(sourceName, ignoreCase = true) }
+                    CrawlerFactory.getCrawler(sourceName)
                 }
                 val isCloudflare = crawler?.webviewNeeded == true
+                val repoTag = if (sourceName.contains('.')) sourceName.substringBefore('.') else null
+                val displayName = if (repoTag != null) "${crawler?.name ?: sourceName} ($repoTag)" else (crawler?.name ?: sourceName)
 
                 Surface(
                     color = DarkSurfaceVariant.copy(alpha = 0.4f),
@@ -73,7 +75,7 @@ fun FailedSourcesSheet(
                     ) {
                         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                             Text(
-                                text = sourceName,
+                                text = displayName,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = PrimaryText

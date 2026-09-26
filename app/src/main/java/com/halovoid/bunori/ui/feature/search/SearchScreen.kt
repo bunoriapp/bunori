@@ -42,6 +42,7 @@ fun SearchScreen(
     val libraryUrls by browseViewModel.libraryUrls.collectAsStateWithLifecycle()
     val failedExtensions by viewModel.failedExtensions.collectAsStateWithLifecycle()
     val installedCrawlers by CrawlerFactory.crawlersFlow.collectAsStateWithLifecycle()
+    val extensionRepos by viewModel.extensionRepos.collectAsStateWithLifecycle()
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
@@ -86,6 +87,7 @@ fun SearchScreen(
                     }
                 },
                 installedCrawlers = installedCrawlers,
+                extensionRepos = extensionRepos,
                 onSearch = {
                     if (searchQuery.isNotBlank()) {
                         viewModel.search(searchQuery.trim(), selectedSource)

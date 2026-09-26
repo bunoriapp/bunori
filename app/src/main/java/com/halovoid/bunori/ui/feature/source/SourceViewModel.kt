@@ -61,6 +61,7 @@ data class ExtensionUiItem(
     val isInstalled: Boolean,
     val hasUpdate: Boolean,
     val isActionInProgress: Boolean = false,
+    val repoDisplayName: String? = null,
     val repoEntry: ExtensionRepoEntry? = null,
     val loadedExtension: LoadedExtension? = null
 ) {
@@ -108,7 +109,7 @@ data class ExtensionUiItem(
             ?: emptyList()
 
     val latestChangelog: String?
-        get() = repoEntry?.latestChangelog
+        get() = loadedExtension?.manifest?.latestChangelog ?: repoEntry?.latestChangelog
 }
 
 class SourceViewModel(
@@ -139,46 +140,64 @@ class SourceViewModel(
         extensionManager.installedExtensions,
         _catalogEntries,
         _inProgressIds,
-        preferenceRepository.enabledExtensionLanguages
-    ) { installed, catalog, inProgress, enabledLangs ->
+        preferenceRepository.enabledExtensionLanguages,
+        preferenceRepository.extensionRepos
+    ) { installed, catalog, inProgress, enabledLangs, repos ->
         val items = mutableListOf<ExtensionUiItem>()
-        val catalogMap = catalog.associateBy { "${it.format.name}:${it.id}" }
+        val catalogMap = catalog.associateBy { it.id }
 
         val activeLangs = enabledLangs.map { it.lowercase().trim() }.toSet()
+        val enabledRepoKeys = repos.filter { it.enabled }.map { it.stableKey.lowercase() }.toSet()
+
+        fun isRepoEnabled(extId: String): Boolean {
+            val key = if (extId.contains('.')) extId.substringBefore('.').lowercase() else "bext"
+            if (key in enabledRepoKeys) return true
+            val matching = repos.find { it.stableKey.equals(key, ignoreCase = true) || it.name.equals(key, ignoreCase = true) }
+            return matching?.enabled ?: true
+        }
 
         fun isLangEnabled(lang: String): Boolean {
-            if (activeLangs.isEmpty()) return true
-            val lower = lang.lowercase().trim()
-            return lower in activeLangs || "all" in activeLangs
+            if (activeLangs.isEmpty() || "all" in activeLangs) return true
+            return lang.lowercase().trim() in activeLangs
+        }
+
+        fun resolveRepoName(extId: String): String? {
+            val key = if (extId.contains('.')) extId.substringBefore('.') else return null
+            return repos.find { it.stableKey.equals(key, ignoreCase = true) || it.name.equals(key, ignoreCase = true) }?.name
+                ?: key.uppercase()
         }
 
         for (entry in catalog) {
-            val inst = installed.values.find { it.manifest.id == entry.id && it.manifest.format == entry.format }
+            if (!isRepoEnabled(entry.id)) continue
+            if (!isLangEnabled(entry.lang)) continue
+
+            val inst = installed[entry.id]
             val installedVer = inst?.manifest?.version
             val hasUpdate = inst != null && ExtensionRepoEntry.isVersionNewer(entry.version, installedVer)
 
-            if (inst != null || isLangEnabled(entry.lang)) {
-                items.add(
-                    ExtensionUiItem(
-                        id = entry.id,
-                        name = entry.name,
-                        lang = entry.lang,
-                        baseUrl = entry.baseUrl,
-                        installedVersion = installedVer,
-                        repoVersion = entry.version,
-                        isInstalled = inst != null,
-                        hasUpdate = hasUpdate,
-                        isActionInProgress = inProgress.contains(entry.id),
-                        repoEntry = entry,
-                        loadedExtension = inst
-                    )
+            items.add(
+                ExtensionUiItem(
+                    id = entry.id,
+                    name = entry.name,
+                    lang = entry.lang,
+                    baseUrl = entry.baseUrl,
+                    installedVersion = installedVer,
+                    repoVersion = entry.version,
+                    isInstalled = inst != null,
+                    hasUpdate = hasUpdate,
+                    isActionInProgress = inProgress.contains(entry.id),
+                    repoDisplayName = resolveRepoName(entry.id),
+                    repoEntry = entry,
+                    loadedExtension = inst
                 )
-            }
+            )
         }
 
         for ((id, inst) in installed) {
-            val key = "${inst.manifest.format.name}:${inst.manifest.id}"
-            if (!catalogMap.containsKey(key) && !catalogMap.containsKey(id)) {
+            if (!catalogMap.containsKey(id)) {
+                if (!isRepoEnabled(id)) continue
+                if (!isLangEnabled(inst.manifest.lang)) continue
+
                 items.add(
                     ExtensionUiItem(
                         id = id,
@@ -190,6 +209,7 @@ class SourceViewModel(
                         isInstalled = true,
                         hasUpdate = false,
                         isActionInProgress = inProgress.contains(id),
+                        repoDisplayName = resolveRepoName(id),
                         repoEntry = null,
                         loadedExtension = inst
                     )
@@ -212,8 +232,14 @@ class SourceViewModel(
 
     init {
         viewModelScope.launch {
+            val repos = preferenceRepository.extensionRepos.first()
+            val initialCached = extensionManager.getAllCachedRepoCatalogs(repos)
+            if (initialCached.isNotEmpty()) {
+                _catalogEntries.value = initialCached
+                _catalogState.value = CatalogState.Success(initialCached.size)
+            }
             extensionManager.loadInstalledExtensions()
-            refreshCatalog()
+            refreshCatalog(forceNetwork = false)
         }
         checkForUpdates()
     }
@@ -222,15 +248,13 @@ class SourceViewModel(
         viewModelScope.launch {
             _catalogState.value = CatalogState.Loading
             try {
-                val urls = preferenceRepository.extensionRepoUrls.first()
-                val disabledUrls = preferenceRepository.disabledExtensionRepoUrls.first()
-                val activeUrls = urls.filter { it !in disabledUrls }
-                if (activeUrls.isEmpty()) {
+                val repos = preferenceRepository.extensionRepos.first().filter { it.enabled }
+                if (repos.isEmpty()) {
                     _catalogEntries.value = emptyList()
                     _catalogState.value = CatalogState.Idle
                     return@launch
                 }
-                val result = extensionManager.fetchAllRepoCatalogs(activeUrls, forceNetwork = forceNetwork)
+                val result = extensionManager.fetchAllRepoCatalogs(repos, forceNetwork = forceNetwork)
                 result.onSuccess { entries ->
                     _catalogEntries.value = entries
                     _catalogState.value = CatalogState.Success(entries.size)

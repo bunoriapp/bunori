@@ -38,7 +38,7 @@ fun FailedSourcesBanner(
     val singleFailedSource = if (allFailedSources.size == 1) allFailedSources.first() else null
     val singleCrawler = remember(singleFailedSource) {
         singleFailedSource?.let { src ->
-            CrawlerFactory.getCrawlers().find { it.name.equals(src, ignoreCase = true) }
+            CrawlerFactory.getCrawler(src)
         }
     }
 

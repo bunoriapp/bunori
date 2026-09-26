@@ -18,10 +18,6 @@ import com.halovoid.bunori.data.db.entities.NovelEntity
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.db.migrations.DatabaseMigrations
 
-/**
- * Main Room database for the application.
- * Part of the Data layer, responsible for local persistence.
- */
 @Database(
     entities = [NovelEntity::class, ChapterEntity::class, BatchEntity::class, TaskEntity::class, ArtifactEntity::class, DownloadEntity::class],
     version = 3,

@@ -20,6 +20,7 @@ import com.halovoid.bunori.domain.models.ReaderSettings
 import com.halovoid.bunori.domain.models.ReaderTextAlign
 import com.halovoid.bunori.domain.models.ReaderTheme
 import com.halovoid.bunori.domain.models.ReadingMode
+import com.halovoid.bunori.extension.api.models.ExtensionRepo
 import com.halovoid.bunori.extension.manager.ExtensionManager
 import com.halovoid.bunori.ui.core.theme.ThemeMode
 import com.halovoid.bunori.ui.feature.novel.DownloadFilter
@@ -65,12 +66,6 @@ class SettingsViewModel(
         initialValue = false
     )
 
-    val betaModeCrawlers: StateFlow<Boolean> = preferenceRepository.betaModeCrawlers.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = false
-    )
-
     val showWasmSlowModeToast: StateFlow<Boolean> = preferenceRepository.showWasmSlowModeToast.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -83,40 +78,37 @@ class SettingsViewModel(
         initialValue = null
     )
 
+    val extensionRepos: StateFlow<List<ExtensionRepo>> = preferenceRepository.extensionRepos.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPOS
+    )
+
     val extensionRepoUrl: StateFlow<String> = preferenceRepository.extensionRepoUrl.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL
     )
 
-    val extensionRepoUrls: StateFlow<List<String>> = preferenceRepository.extensionRepoUrls.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = listOf(com.halovoid.bunori.data.repository.DEFAULT_EXTENSION_REPO_URL)
-    )
-
-    val disabledExtensionRepoUrls: StateFlow<Set<String>> = preferenceRepository.disabledExtensionRepoUrls.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptySet()
-    )
-
     val enabledExtensionLanguages: StateFlow<Set<String>> = preferenceRepository.enabledExtensionLanguages.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = setOf("en")
+        initialValue = setOf("en", "english")
     )
 
-    val availableExtensionLanguages: StateFlow<List<String>> = flow {
+    val availableExtensionLanguages: StateFlow<List<String>> = combine(
+        extensionRepos,
+        ExtensionManager.getInstance(getApplication()).installedExtensions
+    ) { repos, installedMap ->
         val app = getApplication<Application>()
-        val installed = ExtensionManager.getInstance(app).installedExtensions.value.values.map { it.manifest.lang }
-        val catalog = ExtensionManager.getInstance(app).getCachedRepoCatalog()?.map { it.lang } ?: emptyList()
-        val allLangs = (installed + catalog)
+        val installedLangs = installedMap.values.map { it.manifest.lang }
+        val catalogLangs = ExtensionManager.getInstance(app).getAllCachedRepoCatalogs(repos).map { it.lang }
+        val allLangs = (installedLangs + catalogLangs)
             .map { it.lowercase().trim() }
             .filter { it.isNotBlank() }
             .distinct()
             .sorted()
-        emit(allLangs.ifEmpty { listOf("all", "en") })
+        allLangs.ifEmpty { listOf("all", "en") }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -126,30 +118,32 @@ class SettingsViewModel(
     fun setExtensionLanguageEnabled(language: String, enabled: Boolean) {
         viewModelScope.launch {
             preferenceRepository.setExtensionLanguageEnabled(language, enabled)
+            ExtensionManager.getInstance(getApplication()).syncWithCrawlerFactory()
         }
     }
 
-    fun addExtensionRepoUrl(url: String) {
+    fun addExtensionRepo(repo: ExtensionRepo) {
         viewModelScope.launch {
-            preferenceRepository.addExtensionRepoUrl(url)
+            preferenceRepository.addExtensionRepo(repo)
+            ExtensionManager.getInstance(getApplication()).syncWithCrawlerFactory()
         }
     }
 
-    fun removeExtensionRepoUrl(url: String) {
+    fun removeExtensionRepo(name: String) {
         viewModelScope.launch {
-            preferenceRepository.removeExtensionRepoUrl(url)
+            val repoToRemove = extensionRepos.value.firstOrNull { it.name.equals(name, ignoreCase = true) }
+            preferenceRepository.removeExtensionRepo(name)
+            repoToRemove?.let { repo ->
+                ExtensionManager.getInstance(getApplication()).deleteRepoCatalogCache(repo)
+            }
+            ExtensionManager.getInstance(getApplication()).syncWithCrawlerFactory()
         }
     }
 
-    fun setExtensionRepoUrls(urls: List<String>) {
+    fun setExtensionRepoEnabledByName(name: String, enabled: Boolean) {
         viewModelScope.launch {
-            preferenceRepository.setExtensionRepoUrls(urls)
-        }
-    }
-
-    fun setExtensionRepoEnabled(url: String, enabled: Boolean) {
-        viewModelScope.launch {
-            preferenceRepository.setExtensionRepoEnabled(url, enabled)
+            preferenceRepository.setExtensionRepoEnabled(name, enabled)
+            ExtensionManager.getInstance(getApplication()).syncWithCrawlerFactory()
         }
     }
 
@@ -249,18 +243,6 @@ class SettingsViewModel(
         initialValue = "Every 4 Days"
     )
 
-    val lastNovelPruneTime: StateFlow<Long> = preferenceRepository.lastNovelPruneTime.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0L
-    )
-
-    val lastCacheClearTime: StateFlow<Long> = preferenceRepository.lastCacheClearTime.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0L
-    )
-
     val themeMode: StateFlow<ThemeMode> = preferenceRepository.themeMode
         .map { modeName ->
             runCatching { ThemeMode.valueOf(modeName) }.getOrDefault(ThemeMode.SYSTEM)
@@ -278,12 +260,6 @@ class SettingsViewModel(
     )
 
     val isAmoledMode: StateFlow<Boolean> = preferenceRepository.isAmoledMode.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = false
-    )
-
-    val isOfflineMode: StateFlow<Boolean> = preferenceRepository.isOfflineMode.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = false
@@ -350,7 +326,7 @@ class SettingsViewModel(
             _error.value = null
             try {
                 updateRepository.checkForUpdates()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 _error.value = "Failed to check for updates"
             } finally {
                 _refreshing.value = false
@@ -403,13 +379,6 @@ class SettingsViewModel(
         }
     }
 
-    fun setBetaModeCrawlers(enabled: Boolean) {
-        viewModelScope.launch {
-            preferenceRepository.setBetaModeCrawlers(enabled)
-            checkForUpdates()
-        }
-    }
-
     fun setShowWasmSlowModeToast(enabled: Boolean) {
         viewModelScope.launch {
             preferenceRepository.setShowWasmSlowModeToast(enabled)
@@ -431,12 +400,6 @@ class SettingsViewModel(
     fun setExportFolder(uri: Uri) {
         viewModelScope.launch {
             preferenceRepository.setExportFolder(uri)
-        }
-    }
-
-    fun resetOnboarding() {
-        viewModelScope.launch {
-            preferenceRepository.setOnboardingCompleted(false)
         }
     }
 
@@ -513,7 +476,7 @@ class SettingsViewModel(
                 }
                 preferenceRepository.setLastNovelPruneTime(System.currentTimeMillis())
                 onComplete(prunable.size)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 onComplete(0)
             }
         }
@@ -540,7 +503,7 @@ class SettingsViewModel(
                 downloadRepo.deleteAllCachedDownloads()
                 preferenceRepository.setLastCacheClearTime(System.currentTimeMillis())
                 onComplete(cached.size.coerceAtLeast(count))
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 onComplete(0)
             }
         }
@@ -561,12 +524,6 @@ class SettingsViewModel(
     fun setAmoledMode(enabled: Boolean) {
         viewModelScope.launch {
             preferenceRepository.setAmoledMode(enabled)
-        }
-    }
-
-    fun setOfflineMode(enabled: Boolean) {
-        viewModelScope.launch {
-            preferenceRepository.setOfflineMode(enabled)
         }
     }
 

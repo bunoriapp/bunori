@@ -1,5 +1,6 @@
 package com.halovoid.bunori.ui.feature.browse
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -51,6 +52,11 @@ fun BrowseScreen(
             isSearchActive = false
             searchQuery = ""
         }
+    }
+
+    BackHandler(enabled = isSearchActive) {
+        isSearchActive = false
+        searchQuery = ""
     }
 
     val updatesCount by sourceViewModel.updatesCount.collectAsStateWithLifecycle()

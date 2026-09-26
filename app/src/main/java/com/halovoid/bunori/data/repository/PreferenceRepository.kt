@@ -15,7 +15,10 @@ import com.halovoid.bunori.domain.models.ReaderSettings
 import com.halovoid.bunori.domain.models.ReaderTextAlign
 import com.halovoid.bunori.domain.models.ReaderTheme
 import com.halovoid.bunori.domain.models.ReadingMode
+import com.halovoid.bunori.extension.api.ExtensionJson
+import com.halovoid.bunori.extension.api.models.ExtensionRepo
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val EXPORT_FOLDER_URI = stringPreferencesKey("export_folder_uri")
@@ -45,12 +48,17 @@ private val IS_OFFLINE_MODE = booleanPreferencesKey("is_offline_mode")
 private val SHOW_ALL_SAVED_NOVELS = booleanPreferencesKey("show_all_saved_novels")
 private val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
 private val EXTENSION_REPO_URLS = stringSetPreferencesKey("extension_repo_urls")
+private val EXTENSION_REPOSITORIES_JSON = stringPreferencesKey("extension_repositories_json")
 private val DISABLED_EXTENSION_REPO_URLS = stringSetPreferencesKey("disabled_extension_repo_urls")
 private val ENABLED_EXTENSION_LANGUAGES = stringSetPreferencesKey("enabled_extension_languages")
 private val CUSTOM_USER_AGENT = stringPreferencesKey("custom_user_agent")
 private val SHOW_WASM_SLOW_MODE_TOAST = booleanPreferencesKey("show_wasm_slow_mode_toast")
 const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/extensions/index.min.json"
 const val DEFAULT_LNREADER_REPO_URL = "https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/.dist/plugins.min.json"
+
+val DEFAULT_EXTENSION_REPOS = listOf(
+    ExtensionRepo(name = "bext", url = DEFAULT_EXTENSION_REPO_URL, enabled = true)
+)
 
 // Reader Preferences
 private val READER_THEME = stringPreferencesKey("reader_theme")
@@ -100,10 +108,14 @@ interface PreferenceRepository {
     val isAmoledMode: Flow<Boolean>
     val isOfflineMode: Flow<Boolean>
     val showAllSavedNovels: Flow<Boolean>
+    val extensionRepos: Flow<List<ExtensionRepo>>
     val extensionRepoUrl: Flow<String>
     val extensionRepoUrls: Flow<List<String>>
     val disabledExtensionRepoUrls: Flow<Set<String>>
     val enabledExtensionLanguages: Flow<Set<String>>
+    suspend fun addExtensionRepo(repo: ExtensionRepo)
+    suspend fun removeExtensionRepo(name: String)
+    suspend fun setExtensionRepos(repos: List<ExtensionRepo>)
     suspend fun addExtensionRepoUrl(url: String)
     suspend fun removeExtensionRepoUrl(url: String)
     suspend fun setExtensionRepoUrls(urls: List<String>)
@@ -465,89 +477,121 @@ class PreferenceRepositoryImpl private constructor(
         }
     }
 
-    override val extensionRepoUrl: Flow<String> =
+    override val extensionRepos: Flow<List<ExtensionRepo>> =
         context.appDataStore.data.map { preferences ->
-            val stored = preferences[EXTENSION_REPO_URL]
-            when {
-                stored == null -> DEFAULT_EXTENSION_REPO_URL
-                stored.isNotBlank() && isDeprecatedRepoUrl(stored) -> DEFAULT_EXTENSION_REPO_URL
-                else -> stored
-            }
-        }
-
-    override val extensionRepoUrls: Flow<List<String>> =
-        context.appDataStore.data.map { preferences ->
-            val set = preferences[EXTENSION_REPO_URLS]
-            if (set != null && set.isNotEmpty()) {
-                set.toList()
+            val jsonStr = preferences[EXTENSION_REPOSITORIES_JSON]
+            if (!jsonStr.isNullOrBlank()) {
+                try {
+                    ExtensionJson.json.decodeFromString<List<ExtensionRepo>>(jsonStr)
+                } catch (_: Exception) {
+                    DEFAULT_EXTENSION_REPOS
+                }
             } else {
-                val single = preferences[EXTENSION_REPO_URL]
-                if (!single.isNullOrBlank()) {
-                    listOf(single)
+                val urls = preferences[EXTENSION_REPO_URLS] ?: preferences[EXTENSION_REPO_URL]?.let { setOf(it) } ?: emptySet()
+                val disabled = preferences[DISABLED_EXTENSION_REPO_URLS] ?: emptySet()
+                if (urls.isNotEmpty()) {
+                    urls.mapIndexed { index, url ->
+                        val defaultName = when (url) {
+                            DEFAULT_EXTENSION_REPO_URL -> "bext"
+                            DEFAULT_LNREADER_REPO_URL -> "lnreader"
+                            else -> "repo_${index + 1}"
+                        }
+                        ExtensionRepo(
+                            name = defaultName,
+                            url = url,
+                            enabled = url !in disabled
+                        )
+                    }
                 } else {
-                    listOf(DEFAULT_EXTENSION_REPO_URL)
+                    DEFAULT_EXTENSION_REPOS
                 }
             }
         }
 
-    override val disabledExtensionRepoUrls: Flow<Set<String>> =
-        context.appDataStore.data.map { preferences ->
-            preferences[DISABLED_EXTENSION_REPO_URLS] ?: emptySet()
+    override suspend fun addExtensionRepo(repo: ExtensionRepo) {
+        val trimmedName = repo.name.trim()
+        val trimmedUrl = repo.url.trim()
+        if (trimmedName.isBlank() || trimmedUrl.isBlank()) return
+        val current = extensionRepos.first()
+        if (current.any { it.name.equals(trimmedName, ignoreCase = true) }) return
+        val updated = current + repo.copy(name = trimmedName, url = trimmedUrl)
+        setExtensionRepos(updated)
+    }
+
+    override suspend fun removeExtensionRepo(name: String) {
+        val current = extensionRepos.first()
+        val updated = current.filterNot { it.name.equals(name.trim(), ignoreCase = true) }
+        setExtensionRepos(updated)
+    }
+
+    override suspend fun setExtensionRepos(repos: List<ExtensionRepo>) {
+        val jsonStr = ExtensionJson.json.encodeToString(
+            kotlinx.serialization.builtins.ListSerializer(ExtensionRepo.serializer()),
+            repos
+        )
+        context.appDataStore.edit { preferences ->
+            preferences[EXTENSION_REPOSITORIES_JSON] = jsonStr
+            preferences[EXTENSION_REPO_URLS] = repos.map { it.url }.toSet()
+            preferences[DISABLED_EXTENSION_REPO_URLS] = repos.filterNot { it.enabled }.map { it.url }.toSet()
         }
+    }
+
+    override val extensionRepoUrl: Flow<String> =
+        extensionRepos.map { repos -> repos.firstOrNull { it.enabled }?.url ?: DEFAULT_EXTENSION_REPO_URL }
+
+    override val extensionRepoUrls: Flow<List<String>> =
+        extensionRepos.map { repos -> repos.map { it.url } }
+
+    override val disabledExtensionRepoUrls: Flow<Set<String>> =
+        extensionRepos.map { repos -> repos.filterNot { it.enabled }.map { it.url }.toSet() }
 
     override suspend fun addExtensionRepoUrl(url: String) {
         val trimmed = url.trim()
         if (trimmed.isBlank()) return
-        context.appDataStore.edit { preferences ->
-            val current = preferences[EXTENSION_REPO_URLS] 
-                ?: preferences[EXTENSION_REPO_URL]?.let { setOf(it) } 
-                ?: setOf(DEFAULT_EXTENSION_REPO_URL)
-            preferences[EXTENSION_REPO_URLS] = current + trimmed
+        val name = when (trimmed) {
+            DEFAULT_EXTENSION_REPO_URL -> "bext"
+            DEFAULT_LNREADER_REPO_URL -> "lnreader"
+            else -> "repo_${System.currentTimeMillis() % 1000}"
         }
+        addExtensionRepo(ExtensionRepo(name = name, url = trimmed, enabled = true))
     }
 
     override suspend fun removeExtensionRepoUrl(url: String) {
-        val trimmed = url.trim()
-        context.appDataStore.edit { preferences ->
-            val current = preferences[EXTENSION_REPO_URLS] 
-                ?: preferences[EXTENSION_REPO_URL]?.let { setOf(it) } 
-                ?: setOf(DEFAULT_EXTENSION_REPO_URL)
-            preferences[EXTENSION_REPO_URLS] = current - trimmed
-            val disabled = preferences[DISABLED_EXTENSION_REPO_URLS] ?: emptySet()
-            if (disabled.contains(trimmed)) {
-                preferences[DISABLED_EXTENSION_REPO_URLS] = disabled - trimmed
-            }
+        val current = extensionRepos.first()
+        val match = current.firstOrNull { it.url.equals(url.trim(), ignoreCase = true) }
+        if (match != null) {
+            removeExtensionRepo(match.name)
         }
     }
 
     override suspend fun setExtensionRepoEnabled(url: String, enabled: Boolean) {
-        val trimmed = url.trim()
-        if (trimmed.isBlank()) return
-        context.appDataStore.edit { preferences ->
-            val current = preferences[DISABLED_EXTENSION_REPO_URLS] ?: emptySet()
-            if (enabled) {
-                preferences[DISABLED_EXTENSION_REPO_URLS] = current - trimmed
+        val current = extensionRepos.first()
+        val updated = current.map { repo ->
+            if (repo.url.equals(url.trim(), ignoreCase = true) ||
+                repo.name.equals(url.trim(), ignoreCase = true) ||
+                repo.stableKey.equals(url.trim(), ignoreCase = true)) {
+                repo.copy(enabled = enabled)
             } else {
-                preferences[DISABLED_EXTENSION_REPO_URLS] = current + trimmed
+                repo
             }
         }
+        setExtensionRepos(updated)
     }
 
     override suspend fun setExtensionRepoUrls(urls: List<String>) {
-        context.appDataStore.edit { preferences ->
-            preferences[EXTENSION_REPO_URLS] = urls.map { it.trim() }.filter { it.isNotBlank() }.toSet()
+        val repos = urls.mapIndexed { index, u ->
+            val name = when (u.trim()) {
+                DEFAULT_EXTENSION_REPO_URL -> "bext"
+                DEFAULT_LNREADER_REPO_URL -> "lnreader"
+                else -> "repo_${index + 1}"
+            }
+            ExtensionRepo(name = name, url = u.trim(), enabled = true)
         }
+        setExtensionRepos(repos)
     }
 
     override suspend fun setExtensionRepoUrl(url: String) {
-        context.appDataStore.edit { preferences ->
-            val trimmed = url.trim()
-            if (trimmed == DEFAULT_EXTENSION_REPO_URL) {
-                preferences.remove(EXTENSION_REPO_URL)
-            } else {
-                preferences[EXTENSION_REPO_URL] = trimmed
-            }
-        }
+        addExtensionRepoUrl(url)
     }
 
     override fun getSavedSourcesForNovel(novelUrl: String): Flow<Set<String>?> {

@@ -1,11 +1,19 @@
 package com.halovoid.bunori.ui.feature.onboarding
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,6 +30,7 @@ fun ExtensionRepoScreen(
 ) {
     val currentRepoUrl by viewModel.extensionRepoUrl.collectAsStateWithLifecycle()
     var inputUrl by remember(currentRepoUrl) { mutableStateOf(currentRepoUrl) }
+    val clipboardManager = LocalClipboardManager.current
 
     OnboardingStep(
         title = "Extension Repository",
@@ -36,14 +45,33 @@ fun ExtensionRepoScreen(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Text(
-                text = "The default repository is currently the only repository supporting the .bext architecture that the app is built upon.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = PrimaryText,
-                lineHeight = 22.sp
-            )
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = DarkSurfaceVariant.copy(alpha = 0.35f),
+                border = BorderStroke(1.dp, BorderColor.copy(alpha = 0.25f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = null,
+                        tint = BrandAccent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Bunori supports both native .bext extension catalogs and LNReader plugin repositories.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = PrimaryText,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -60,15 +88,53 @@ fun ExtensionRepoScreen(
                     value = inputUrl,
                     onValueChange = { inputUrl = it },
                     singleLine = true,
-                    placeholder = { Text("https://...", color = SecondaryText.copy(alpha = 0.5f)) },
+                    placeholder = { Text("https://...", color = SecondaryText.copy(alpha = 0.45f)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.Link,
+                            contentDescription = null,
+                            tint = SecondaryText.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (inputUrl.isNotBlank()) {
+                            IconButton(onClick = { inputUrl = "" }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Clear,
+                                    contentDescription = "Clear",
+                                    tint = SecondaryText,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        } else {
+                            IconButton(
+                                onClick = {
+                                    val clipData = clipboardManager.getText()
+                                    if (clipData != null && clipData.text.isNotBlank()) {
+                                        inputUrl = clipData.text.trim()
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ContentPaste,
+                                    contentDescription = "Paste from clipboard",
+                                    tint = BrandAccent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = BrandAccent,
-                        unfocusedBorderColor = BorderColor.copy(alpha = 0.5f),
+                        unfocusedBorderColor = BorderColor.copy(alpha = 0.4f),
+                        focusedContainerColor = DarkSurfaceVariant.copy(alpha = 0.35f),
+                        unfocusedContainerColor = DarkSurfaceVariant.copy(alpha = 0.2f),
                         focusedTextColor = PrimaryText,
                         unfocusedTextColor = PrimaryText,
                         cursorColor = BrandAccent
                     ),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -84,7 +150,7 @@ fun ExtensionRepoScreen(
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "Reset to Default",
+                            text = "Reset to Official Default",
                             style = MaterialTheme.typography.labelMedium,
                             color = BrandAccent,
                             fontWeight = FontWeight.SemiBold
