@@ -43,6 +43,9 @@ interface DownloadDao {
     @Upsert
     suspend fun upsertDownload(download: DownloadEntity): Long
 
+    @Upsert
+    suspend fun upsertDownloads(downloads: List<DownloadEntity>)
+
     @Query("DELETE FROM downloads WHERE novelUrl = :novelUrl AND chapterUrl = :chapterUrl")
     suspend fun deleteDownload(novelUrl: String, chapterUrl: String)
 

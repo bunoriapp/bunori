@@ -38,7 +38,7 @@ object DatabaseMigrations {
                         val loc = cursor.getString(locIdx)
                         if (loc != null && (loc.startsWith("content://", ignoreCase = true) || loc.startsWith("file://", ignoreCase = true))) {
                             val decoded = Uri.decode(loc)
-                            val novelIndex = decoded.indexOf("novels/")
+                            val novelIndex = decoded.lastIndexOf("novels/", ignoreCase = true)
                             if (novelIndex != -1) {
                                 val relPath = decoded.substring(novelIndex)
                                 db.execSQL("UPDATE downloads SET fileLocation = ? WHERE id = ?", arrayOf<Any>(relPath, id))
@@ -55,7 +55,7 @@ object DatabaseMigrations {
                         val cover = cursor.getString(coverIdx)
                         if (cover != null && (cover.startsWith("content://", ignoreCase = true) || cover.startsWith("file://", ignoreCase = true))) {
                             val decoded = Uri.decode(cover)
-                            val novelIndex = decoded.indexOf("novels/")
+                            val novelIndex = decoded.lastIndexOf("novels/", ignoreCase = true)
                             if (novelIndex != -1) {
                                 val relPath = decoded.substring(novelIndex)
                                 db.execSQL("UPDATE novels SET coverUrl = ? WHERE url = ?", arrayOf<Any>(relPath, url))
@@ -71,7 +71,7 @@ object DatabaseMigrations {
                         val dest = cursor.getString(destIdx)
                         if (dest != null && (dest.startsWith("content://", ignoreCase = true) || dest.startsWith("file://", ignoreCase = true))) {
                             val decoded = Uri.decode(dest)
-                            val artifactIndex = decoded.indexOf("artifacts/")
+                            val artifactIndex = decoded.lastIndexOf("artifacts/", ignoreCase = true)
                             if (artifactIndex != -1) {
                                 val relPath = decoded.substring(artifactIndex)
                                 db.execSQL("UPDATE artifacts SET artifactDestination = ? WHERE id = ?", arrayOf<Any>(relPath, id))

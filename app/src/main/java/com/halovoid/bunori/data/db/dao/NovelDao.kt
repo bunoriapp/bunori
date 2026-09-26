@@ -38,6 +38,9 @@ interface NovelDao {
     @Upsert
     suspend fun upsertNovel(novel: NovelEntity)
 
+    @Upsert
+    suspend fun upsertNovels(novels: List<NovelEntity>)
+
     @Query("""
         SELECT * FROM novels
         UNION

@@ -7,6 +7,7 @@ import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepositoryImpl
 import kotlinx.coroutines.flow.firstOrNull
 import org.json.JSONObject
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
@@ -21,16 +22,20 @@ class RestoreService(private val context: Context) {
                 mkdirs()
             }
 
-            ZipInputStream(inputStream).use { zis ->
+            ZipInputStream(inputStream.buffered(65536)).use { zis ->
                 var entry = zis.nextEntry
+                val buffer = ByteArray(65536)
                 while (entry != null) {
                     val file = File(tempDir, entry.name)
                     if (entry.isDirectory) {
                         file.mkdirs()
                     } else {
                         file.parentFile?.mkdirs()
-                        FileOutputStream(file).use { fos ->
-                            zis.copyTo(fos)
+                        BufferedOutputStream(FileOutputStream(file), 65536).use { fos ->
+                            var read: Int
+                            while (zis.read(buffer).also { read = it } != -1) {
+                                fos.write(buffer, 0, read)
+                            }
                         }
                     }
                     zis.closeEntry()
@@ -131,29 +136,33 @@ class RestoreService(private val context: Context) {
             val novelDao = db.novelDao()
 
             val allDownloads = downloadDao.getAllDownloads()
+            val updatedDownloads = mutableListOf<com.halovoid.bunori.data.db.entities.DownloadEntity>()
+
             for (download in allDownloads) {
                 val oldLocation = download.fileLocation
-                val matchingEntry = restoredFilesMap.entries.firstOrNull { (fileName, _) ->
-                    oldLocation.endsWith(fileName) || oldLocation.contains(fileName)
-                }
+                val fileName = oldLocation.substringAfterLast('/')
 
-                if (matchingEntry != null) {
+                if (restoredFilesMap.containsKey(fileName)) {
                     val decoded = Uri.decode(oldLocation)
-                    val novelIdx = decoded.indexOf("novels/")
+                    val novelIdx = decoded.lastIndexOf("novels/", ignoreCase = true)
                     val relPath = if (novelIdx != -1) {
                         decoded.substring(novelIdx)
                     } else {
-                        "novels/${download.novelUrl.hashCode()}/chapters/${matchingEntry.key}"
+                        "novels/${download.novelUrl.hashCode()}/chapters/$fileName"
                     }
                     if (download.fileLocation != relPath) {
-                        downloadDao.upsertDownload(
-                            download.copy(fileLocation = relPath)
-                        )
+                        updatedDownloads.add(download.copy(fileLocation = relPath))
                     }
                 }
             }
 
+            if (updatedDownloads.isNotEmpty()) {
+                downloadDao.upsertDownloads(updatedDownloads)
+            }
+
             val allNovels = novelDao.getAllNovelsOnce()
+            val updatedNovels = mutableListOf<com.halovoid.bunori.data.db.entities.NovelEntity>()
+
             for (novel in allNovels) {
                 val oldCover = novel.coverUrl
                 if (oldCover != null) {
@@ -163,19 +172,21 @@ class RestoreService(private val context: Context) {
 
                     if (matchedCoverEntry != null) {
                         val decoded = Uri.decode(oldCover)
-                        val novelIdx = decoded.indexOf("novels/")
+                        val novelIdx = decoded.lastIndexOf("novels/", ignoreCase = true)
                         val relPath = if (novelIdx != -1) {
                             decoded.substring(novelIdx)
                         } else {
                             "novels/${matchedCoverEntry.key}/covers/cover.jpg"
                         }
                         if (novel.coverUrl != relPath) {
-                            novelDao.upsertNovel(
-                                novel.copy(coverUrl = relPath)
-                            )
+                            updatedNovels.add(novel.copy(coverUrl = relPath))
                         }
                     }
                 }
+            }
+
+            if (updatedNovels.isNotEmpty()) {
+                novelDao.upsertNovels(updatedNovels)
             }
         } catch (e: Exception) {
             e.printStackTrace()

@@ -1,6 +1,8 @@
 package com.halovoid.bunori
 
 import android.app.Application
+import coil.ImageLoader
+import coil.ImageLoaderFactory
 import com.halovoid.bunori.api.core.network.NetworkClient
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.crash.CrashActivity
@@ -8,31 +10,38 @@ import com.halovoid.bunori.crash.GlobalExceptionHandler
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.scheduler.workers.BackgroundMaintenanceScheduler
 import com.halovoid.bunori.extension.manager.ExtensionManager
+import com.halovoid.bunori.ui.core.coil.BunoriStorageFetcher
 import com.halovoid.bunori.ui.feature.source.webview.WebViewResolverImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-class BunoriApplication : Application() {
+class BunoriApplication : Application(), ImageLoaderFactory {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    override fun newImageLoader(): ImageLoader {
+        return ImageLoader.Builder(this)
+            .components {
+                add(BunoriStorageFetcher.Factory(this@BunoriApplication))
+            }
+            .crossfade(true)
+            .build()
+    }
 
     override fun onCreate() {
         super.onCreate()
         GlobalExceptionHandler.initialize(this, CrashActivity::class.java)
         NetworkClient.init(this)
 
-        // Initialize WebView Resolver
         WebViewResolverImpl.initialize(this)
         Scrapper.globalResolver = WebViewResolverImpl.getInstance()
 
-        // Load installed extensions as early as possible
         applicationScope.launch {
             ExtensionManager.getInstance(this@BunoriApplication)
                 .loadInstalledExtensions()
         }
 
-        // Sync custom user agent
         applicationScope.launch {
             PreferenceRepository.getInstance(this@BunoriApplication)
                 .customUserAgent.collect { customUa ->
@@ -41,7 +50,6 @@ class BunoriApplication : Application() {
                 }
         }
 
-        // Initialize and sync background maintenance schedules (Auto-backup, Novel pruning, Cache clearing)
         applicationScope.launch {
             BackgroundMaintenanceScheduler.syncAll(this@BunoriApplication)
         }

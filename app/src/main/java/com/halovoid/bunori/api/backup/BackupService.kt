@@ -11,9 +11,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
+import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -38,7 +40,7 @@ class BackupService(private val context: Context): JobHandler {
 
         val tempFile = File(context.cacheDir, fileName)
         withContext(Dispatchers.IO) {
-            FileOutputStream(tempFile).use { fos ->
+            BufferedOutputStream(FileOutputStream(tempFile), 65536).use { fos ->
                 writeBackupToStream(fos, backupDatabase, backupChapters, backupCovers, timestamp)
             }
         }
@@ -121,14 +123,16 @@ class BackupService(private val context: Context): JobHandler {
             })
         }
 
-        ZipOutputStream(outputStream).use { zos ->
+        ZipOutputStream(outputStream.buffered(65536)).use { zos ->
+            zos.setLevel(Deflater.BEST_SPEED)
             zos.putNextEntry(ZipEntry("manifest.json"))
             zos.write(manifestJson.toString(2).toByteArray())
             zos.closeEntry()
 
             if (backupDatabase && dbFile.exists()) {
+                zos.setLevel(Deflater.BEST_SPEED)
                 zos.putNextEntry(ZipEntry("database.db"))
-                dbFile.inputStream().use { it.copyTo(zos) }
+                dbFile.inputStream().buffered(65536).use { it.copyTo(zos, 65536) }
                 zos.closeEntry()
             }
 
@@ -148,8 +152,15 @@ class BackupService(private val context: Context): JobHandler {
 
                         if (addedEntries.add(relPath)) {
                             try {
+                                if (relPath.endsWith(".gz", ignoreCase = true)) {
+                                    zos.setLevel(Deflater.NO_COMPRESSION)
+                                } else {
+                                    zos.setLevel(Deflater.BEST_SPEED)
+                                }
                                 zos.putNextEntry(ZipEntry(relPath))
-                                context.contentResolver.openInputStream(fileInfo.uri)?.use { it.copyTo(zos) }
+                                context.contentResolver.openInputStream(fileInfo.uri)?.buffered(65536)?.use {
+                                    it.copyTo(zos, 65536)
+                                }
                                 zos.closeEntry()
                             } catch (e: Exception) {
                                 e.printStackTrace()
