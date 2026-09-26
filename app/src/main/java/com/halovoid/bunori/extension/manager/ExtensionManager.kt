@@ -31,13 +31,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 
-/**
- * Central manager for installing, loading, updating, and uninstalling extensions.
- *
- * All extension IDs follow the multicatalog convention: `repoKey.rawId`
- * (e.g. `bunori_7cf2a3b1.novelbins`). This class never hardcodes any
- * specific repo — ID prefixing is handled by [ExtensionRepoEntry.parseIndex].
- */
 class ExtensionManager private constructor(private val context: Context) {
 
     private val bextLoader = BextLoader(context)

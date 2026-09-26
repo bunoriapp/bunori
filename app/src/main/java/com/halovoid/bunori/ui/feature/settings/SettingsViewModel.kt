@@ -27,8 +27,12 @@ import com.halovoid.bunori.ui.feature.novel.DownloadFilter
 import com.halovoid.bunori.ui.feature.novel.SortOrder
 import com.halovoid.bunori.ui.feature.novel.SortType
 import com.halovoid.bunori.ui.feature.onboarding.UriUtils
+import com.halovoid.bunori.api.backup.BackupService
+import com.halovoid.bunori.api.backup.RestoreService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class AppUpdateState {
     object Idle : AppUpdateState()
@@ -47,6 +51,13 @@ sealed class AppUpdateState {
     data class Error(val message: String) : AppUpdateState()
 }
 
+sealed class BackupEvent {
+    data object BackupSuccess : BackupEvent()
+    data class BackupFailure(val message: String) : BackupEvent()
+    data object RestoreSuccess : BackupEvent()
+    data class RestoreFailure(val message: String) : BackupEvent()
+}
+
 class SettingsViewModel(
     application: Application,
     private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application),
@@ -59,6 +70,18 @@ class SettingsViewModel(
     private val _isDownloading = MutableStateFlow(false)
     private val _isInstalling = MutableStateFlow(false)
     private val _error = MutableStateFlow<String?>(null)
+
+    private val _isBackingUp = MutableStateFlow(false)
+    val isBackingUp: StateFlow<Boolean> = _isBackingUp.asStateFlow()
+
+    private val _isRestoring = MutableStateFlow(false)
+    val isRestoring: StateFlow<Boolean> = _isRestoring.asStateFlow()
+
+    private val _backupMetadata = MutableStateFlow(getLatestBackupMetadata(application))
+    val backupMetadata: StateFlow<BackupMetadata> = _backupMetadata.asStateFlow()
+
+    private val _backupEvents = MutableSharedFlow<BackupEvent>()
+    val backupEvents: SharedFlow<BackupEvent> = _backupEvents.asSharedFlow()
 
     val betaModeApp: StateFlow<Boolean> = preferenceRepository.betaModeApp.stateIn(
         scope = viewModelScope,
@@ -453,6 +476,54 @@ class SettingsViewModel(
         viewModelScope.launch {
             preferenceRepository.setBackupFrequency(frequency)
             BackgroundMaintenanceScheduler.scheduleBackupWork(getApplication(), frequency)
+        }
+    }
+
+    fun createBackup(
+        backupDatabase: Boolean = true,
+        backupChapters: Boolean = true,
+        backupCovers: Boolean = true
+    ) {
+        if (_isBackingUp.value) return
+        viewModelScope.launch {
+            _isBackingUp.value = true
+            try {
+                withContext(Dispatchers.IO) {
+                    BackupService(getApplication()).createBackup(
+                        backupDatabase = backupDatabase,
+                        backupChapters = backupChapters,
+                        backupCovers = backupCovers
+                    )
+                }
+                _backupMetadata.value = getLatestBackupMetadata(getApplication())
+                _backupEvents.emit(BackupEvent.BackupSuccess)
+            } catch (e: Exception) {
+                _backupEvents.emit(BackupEvent.BackupFailure(e.message ?: "Unknown error"))
+            } finally {
+                _isBackingUp.value = false
+            }
+        }
+    }
+
+    fun restoreBackup(uri: Uri) {
+        if (_isRestoring.value) return
+        viewModelScope.launch {
+            _isRestoring.value = true
+            try {
+                val success = withContext(Dispatchers.IO) {
+                    RestoreService(getApplication()).restoreBackup(uri)
+                }
+                if (success) {
+                    _backupMetadata.value = getLatestBackupMetadata(getApplication())
+                    _backupEvents.emit(BackupEvent.RestoreSuccess)
+                } else {
+                    _backupEvents.emit(BackupEvent.RestoreFailure("Failed to restore backup. Please ensure the file is valid."))
+                }
+            } catch (e: Exception) {
+                _backupEvents.emit(BackupEvent.RestoreFailure("Error restoring backup: ${e.message}"))
+            } finally {
+                _isRestoring.value = false
+            }
         }
     }
 

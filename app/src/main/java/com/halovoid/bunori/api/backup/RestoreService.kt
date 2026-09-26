@@ -93,7 +93,7 @@ class RestoreService(private val context: Context) {
                             relativePath = parentRelDir.trimEnd('/'),
                             fileName = fileName,
                             mimeType = mimeType,
-                            data = file.readBytes()
+                            sourceFile = file
                         )
                         restoredFilesMap[fileName] = newUri
                         if (parentRelDir.contains("/covers")) {

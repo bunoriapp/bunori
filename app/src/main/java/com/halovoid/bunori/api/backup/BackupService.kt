@@ -42,8 +42,6 @@ class BackupService(private val context: Context): JobHandler {
                 writeBackupToStream(fos, backupDatabase, backupChapters, backupCovers, timestamp)
             }
         }
-        val bytes = tempFile.readBytes()
-        tempFile.delete()
 
         val included = mutableListOf<String>()
         if (backupDatabase) included.add("Database")
@@ -64,8 +62,9 @@ class BackupService(private val context: Context): JobHandler {
         if (exportUri != null) {
             try {
                 val storageRepository = StorageRepositoryImpl.getInstance(context)
-                storageRepository.saveFile("backup", fileName, "application/octet-stream", bytes)
+                storageRepository.saveFile("backup", fileName, "application/octet-stream", tempFile)
                 storageRepository.saveText("backup", "backup_metadata.json", "application/json", metadataJson)
+                tempFile.delete()
                 return null
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -74,7 +73,8 @@ class BackupService(private val context: Context): JobHandler {
 
         val backupDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "backup").apply { mkdirs() }
         val fallbackFile = File(backupDir, fileName)
-        fallbackFile.writeBytes(bytes)
+        tempFile.copyTo(fallbackFile, overwrite = true)
+        tempFile.delete()
         File(backupDir, "backup_metadata.json").writeText(metadataJson)
 
         return fallbackFile

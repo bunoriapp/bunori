@@ -43,7 +43,7 @@ class JobRunner(
             }
 
             val maxAttempts = maxAttemptsFor(task)
-            val isHighPriority = task.priority >= 5 || task.type == JobType.NOVEL_METADATA || task.type == JobType.CHAPTER
+            val isHighPriority = task.priority >= 5 || task.type == JobType.NOVEL_METADATA
 
             val crawlerName = task.crawlerName
             if (crawlerName != null && rateLimiter != null) {

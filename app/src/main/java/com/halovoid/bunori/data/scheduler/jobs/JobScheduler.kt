@@ -206,6 +206,10 @@ class JobScheduler(
                 crawlerPools.getOrPut(crawlerName) {
                     val crawler = CrawlerFactory.getCrawler(crawlerName)
                     val limit = crawler?.config?.runnerConcurrency ?: currentGlobalLimit
+                    // Ensure the global pool doesn't undercut per-source concurrency
+                    if (limit > globalPool.baseLimit) {
+                        globalPool = WorkerPool(limit)
+                    }
                     WorkerPool(limit)
                 }
             } else {

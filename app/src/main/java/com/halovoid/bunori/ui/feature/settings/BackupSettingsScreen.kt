@@ -20,8 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.halovoid.bunori.api.backup.BackupService
-import com.halovoid.bunori.api.backup.RestoreService
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.ui.core.components.AppDialog
 import com.halovoid.bunori.ui.core.components.AppTopBar
@@ -31,9 +29,6 @@ import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.settings.components.BackupFrequencyBottomSheet
 import com.halovoid.bunori.ui.feature.settings.components.CreateBackupBottomSheet
 import java.io.File
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 data class BackupMetadata(
@@ -87,49 +82,43 @@ fun BackupSettingsScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     val exportUri by PreferenceRepository.getInstance(context).exportFolderUri.collectAsStateWithLifecycle(initialValue = null)
     val storageLocation = exportUri?.toString() ?: File(context.getExternalFilesDir(null) ?: context.filesDir, "backup").absolutePath
 
-    var metadata by remember { mutableStateOf(getLatestBackupMetadata(context)) }
-
-    var isBackingUp by remember { mutableStateOf(false) }
-    var isRestoring by remember { mutableStateOf(false) }
+    val metadata by viewModel.backupMetadata.collectAsStateWithLifecycle()
+    val isBackingUp by viewModel.isBackingUp.collectAsStateWithLifecycle()
+    val isRestoring by viewModel.isRestoring.collectAsStateWithLifecycle()
     val isOperating = isBackingUp || isRestoring
 
     val backupFrequency by viewModel.backupFrequency.collectAsStateWithLifecycle()
     var activeDialog by remember { mutableStateOf<BackupDialogState?>(null) }
 
-    val launchRestorePicker = rememberFileOpenLauncher(mimeTypes = arrayOf("*/*")) { uri ->
-        isRestoring = true
-        Toast.makeText(context, "Restoring backup...", Toast.LENGTH_SHORT).show()
-        scope.launch {
-            try {
-                val success = withContext(Dispatchers.IO) {
-                    RestoreService(context).restoreBackup(uri)
+    LaunchedEffect(Unit) {
+        viewModel.backupEvents.collect { event ->
+            when (event) {
+                is BackupEvent.BackupSuccess -> {
+                    Toast.makeText(context, "Backup created successfully!", Toast.LENGTH_SHORT).show()
                 }
-                if (success) {
-                    metadata = getLatestBackupMetadata(context)
-                    val message = "Backup restored successfully! Please restart the app."
-                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                    snackbarHostState.showSnackbar(message)
+                is BackupEvent.BackupFailure -> {
+                    Toast.makeText(context, "Failed to create backup: ${event.message}", Toast.LENGTH_LONG).show()
+                }
+                is BackupEvent.RestoreSuccess -> {
+                    Toast.makeText(context, "Backup restored successfully! Please restart the app.", Toast.LENGTH_LONG).show()
                     activeDialog = BackupDialogState.RestartDialog
-                } else {
-                    val message = "Failed to restore backup. Please ensure the file is valid."
-                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                    snackbarHostState.showSnackbar(message)
                 }
-            } catch (e: Exception) {
-                val message = "Error restoring backup: ${e.message}"
-                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                snackbarHostState.showSnackbar(message)
-            } finally {
-                isRestoring = false
+                is BackupEvent.RestoreFailure -> {
+                    Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
+
+    val launchRestorePicker = rememberFileOpenLauncher(mimeTypes = arrayOf("*/*")) { uri ->
+        Toast.makeText(context, "Restoring backup...", Toast.LENGTH_SHORT).show()
+        viewModel.restoreBackup(uri)
+    }
+
 
     Scaffold(
         topBar = {
@@ -145,8 +134,7 @@ fun BackupSettingsScreen(
                 }
             )
         },
-        containerColor = DarkBackground,
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        containerColor = DarkBackground
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -329,27 +317,12 @@ fun BackupSettingsScreen(
                     onDismiss = { activeDialog = null },
                     onCreateBackup = { db, ch, cov ->
                         activeDialog = null
-                        isBackingUp = true
                         Toast.makeText(context, "Creating backup...", Toast.LENGTH_SHORT).show()
-                        scope.launch {
-                            try {
-                                withContext(Dispatchers.IO) {
-                                    BackupService(context).createBackup(
-                                        backupDatabase = db,
-                                        backupChapters = ch,
-                                        backupCovers = cov
-                                    )
-                                }
-                                metadata = getLatestBackupMetadata(context)
-                                Toast.makeText(context, "Backup created successfully!", Toast.LENGTH_SHORT).show()
-                                snackbarHostState.showSnackbar("Backup created successfully!")
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Failed to create backup: ${e.message}", Toast.LENGTH_LONG).show()
-                                snackbarHostState.showSnackbar("Failed to create backup")
-                            } finally {
-                                isBackingUp = false
-                            }
-                        }
+                        viewModel.createBackup(
+                            backupDatabase = db,
+                            backupChapters = ch,
+                            backupCovers = cov
+                        )
                     }
                 )
             }

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export Progress is now clearly visible
 - Metadata updates have been given an extra slot to always work fast
 - Optimised the amount of DB Calls required for getting files for exports
+- Fixed runnerCooldown and concurrency Implementation
 
 ### Added
 - Multi Catalog System to support JS and BEXT based extensions
