@@ -338,7 +338,6 @@ class PdfGenerator(
         metadata: JobMetadata,
         onProgress: (suspend (current: Int, total: Int, stage: String) -> Unit)?
     ): File = withContext(Dispatchers.IO) {
-        val startTime = System.currentTimeMillis()
         val ignoreImages = preferenceRepository?.ignoreImages?.first() ?: false
 
         val coverTitlePaint = TextPaint().apply { isAntiAlias = true; textSize = 26f; color = Color.BLACK; isFakeBoldText = true }
@@ -370,7 +369,10 @@ class PdfGenerator(
             onProgress?.invoke(index + 1, totalChapters, displayTitle)
 
             val download = downloadsByUrl[chapter.url] ?: downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
-            val rawContent = download?.fileLocation?.let { loc -> storageRepository.readText(loc) }
+            val rawContent = download?.fileLocation?.let { loc ->
+                val locUri = storageRepository.relativeToUri(loc) ?: throw IllegalStateException("Failed to figure out the URI for download location");
+                storageRepository.read(locUri)
+            }
                 ?: "<p><em>Content not available</em></p>"
             chapterBlocks[chapter.id] = buildChapterBlocks(rawContent, bodyPaint, printableWidthPx, imageCache, ignoreImages)
         }

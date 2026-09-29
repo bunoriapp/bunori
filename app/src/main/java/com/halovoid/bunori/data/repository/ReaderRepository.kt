@@ -108,9 +108,11 @@ class ReaderRepositoryImpl private constructor(
     private suspend fun readDownloaded(download: Download): String? {
         val fileLocation = download.fileLocation
         if (fileLocation.isBlank()) return null
+
+        val fileLocationUri = storageRepository.relativeToUri(fileLocation) ?: return null
         return try {
-            storageRepository.readText(fileLocation)
-        } catch (e: Exception) {
+            storageRepository.read(fileLocationUri)
+        } catch (_: Exception) {
             downloadRepository.deleteDownload(download.novelUrl, download.chapterUrl)
             null
         }

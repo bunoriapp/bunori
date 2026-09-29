@@ -8,8 +8,6 @@ import android.os.Build
 import android.os.IBinder
 import com.halovoid.bunori.api.backup.BackupService
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
-import com.halovoid.bunori.api.core.network.NetworkClient
-import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.artifact.ArtifactGeneratorFactory
 import com.halovoid.bunori.data.artifact.generators.EpubGenerator
 import com.halovoid.bunori.data.artifact.generators.PdfGenerator
@@ -68,11 +66,7 @@ class SchedulerService : Service() {
             val intent = Intent(context, SchedulerService::class.java).apply {
                 action = ACTION_START
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun cancelJob(context: Context, jobId: String) {
@@ -96,11 +90,7 @@ class SchedulerService : Service() {
                 action = ACTION_RESUME_JOB
                 putExtra(EXTRA_JOB_ID, jobId)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun unblockCrawler(context: Context, crawlerName: String) {
@@ -108,11 +98,7 @@ class SchedulerService : Service() {
                 action = ACTION_UNBLOCK_CRAWLER
                 putExtra(EXTRA_CRAWLER_NAME, crawlerName)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun replayJob(context: Context, jobId: String) {
@@ -120,11 +106,7 @@ class SchedulerService : Service() {
                 action = ACTION_REPLAY_JOB
                 putExtra(EXTRA_JOB_ID, jobId)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun createPausePendingIntent(context: Context, jobId: String): PendingIntent {
@@ -145,21 +127,12 @@ class SchedulerService : Service() {
                 action = ACTION_RESUME_JOB
                 putExtra(EXTRA_JOB_ID, jobId)
             }
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                PendingIntent.getForegroundService(
-                    context,
-                    (jobId.hashCode() and 0xFFFF) + 20,
-                    intent,
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
-            } else {
-                PendingIntent.getService(
-                    context,
-                    (jobId.hashCode() and 0xFFFF) + 20,
-                    intent,
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
-            }
+            return PendingIntent.getForegroundService(
+                context,
+                (jobId.hashCode() and 0xFFFF) + 20,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
         }
 
         fun createCancelPendingIntent(context: Context, jobId: String): PendingIntent {
@@ -180,21 +153,12 @@ class SchedulerService : Service() {
                 action = ACTION_REPLAY_JOB
                 putExtra(EXTRA_JOB_ID, jobId)
             }
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                PendingIntent.getForegroundService(
-                    context,
-                    (jobId.hashCode() and 0xFFFF) + 40,
-                    intent,
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
-            } else {
-                PendingIntent.getService(
-                    context,
-                    (jobId.hashCode() and 0xFFFF) + 40,
-                    intent,
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
-            }
+            return PendingIntent.getForegroundService(
+                context,
+                (jobId.hashCode() and 0xFFFF) + 40,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
         }
     }
 
@@ -219,8 +183,6 @@ class SchedulerService : Service() {
         val registry = JobHandlerRegistry()
         val crawlerFactory = CrawlerFactory
 
-        val scrapper = Scrapper(NetworkClient.okHttpClient)
-
         registry.register(JobType.CHAPTER, ChapterHandler(
             chapterRepository, storageRepository, crawlerFactory,
             downloadRepository, novelRepository
@@ -231,7 +193,6 @@ class SchedulerService : Service() {
         registry.register(JobType.ARTIFACT, ArtifactHandler(
             novelRepository, chapterRepository, crawlerFactory, storageRepository, generatorFactory, artifactRepository, downloadRepository, taskDao
         ))
-        registry.register(JobType.BACKUP, BackupService(applicationContext))
 
         scheduler = JobScheduler(batchDao, taskDao, registry, preferenceRepository = preferenceRepository)
         scheduler.setOnEmptyListener {

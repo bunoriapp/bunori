@@ -9,14 +9,12 @@ import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.BatchRepository
-import com.halovoid.bunori.data.repository.CopyResult
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.data.repository.StorageRepositoryImpl
 import com.halovoid.bunori.domain.models.Artifact
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.domain.models.Task
-import com.halovoid.bunori.utils.Logger
 import com.halovoid.bunori.ui.core.platform.openFile
 import androidx.core.net.toUri
 import com.halovoid.bunori.api.core.scrapper.Scrapper
@@ -24,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class JobDetailViewModel(
     application: Application,
@@ -212,28 +211,63 @@ class JobDetailViewModel(
         }
     }
 
-    fun copyArtifactToUri(artifact: Artifact, destinationUri: Uri, onComplete: (Uri?) -> Unit, onFileMissing: () -> Unit) {
-        viewModelScope.launch {
-            when (val result = storageRepository.copyLocationToUri(artifact.artifactDestination, destinationUri)) {
-                is CopyResult.Success -> onComplete(result.destinationUri)
-                is CopyResult.SourceMissing -> {
-                    artifactRepository.removeArtifact(artifact)
-                    onFileMissing()
+    fun copyArtifactToUri(
+        artifact: Artifact,
+        destinationUri: Uri,
+        onComplete: (Uri?) -> Unit,
+        onFileMissing: () -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val sourceUri = storageRepository.relativeToUri(artifact.artifactDestination)
+                ?: runCatching { artifact.artifactDestination.toUri() }.getOrNull()
+
+            if (sourceUri == null || !storageRepository.exists(sourceUri)) {
+                artifactRepository.removeArtifact(artifact)
+                withContext(Dispatchers.Main) { onFileMissing() }
+                return@launch
+            }
+
+            val success = try {
+                val input = storageRepository.openInputStream(sourceUri)
+                val output = getApplication<Application>().contentResolver.openOutputStream(destinationUri, "wt")
+
+                if (input != null && output != null) {
+                    input.use { inStream ->
+                        output.use { outStream ->
+                            inStream.copyTo(outStream, 65536)
+                        }
+                    }
+                    true
+                } else {
+                    false
                 }
-                is CopyResult.Error -> onComplete(null)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+
+            withContext(Dispatchers.Main) {
+                onComplete(if (success) destinationUri else null)
             }
         }
     }
 
+
+
     fun openArtifact(context: Context, artifact: Artifact, onNoAppFound: (String) -> Unit) {
         viewModelScope.launch {
-            val resolvedUri = storageRepository.resolveLocationUri(artifact.artifactDestination)
-                ?: artifact.artifactDestination.toUri()
-            val mimeType = if (artifact.artifactName.endsWith(".pdf", ignoreCase = true)) "application/pdf" else "application/epub+zip"
-            val docType = if (artifact.artifactName.endsWith(".pdf", ignoreCase = true)) "PDF" else "EPUB"
+            val resolvedUri = storageRepository.relativeToUri(artifact.artifactDestination)
+                ?: runCatching { artifact.artifactDestination.toUri() }.getOrNull()
+                ?: return@launch
+
+            val isPdf = artifact.artifactName.endsWith(".pdf", ignoreCase = true)
+            val mimeType = if (isPdf) "application/pdf" else "application/epub+zip"
+            val docType = if (isPdf) "PDF" else "EPUB"
+
             context.openFile(resolvedUri, mimeType) {
                 onNoAppFound(docType)
             }
         }
     }
+
 }

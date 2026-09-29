@@ -77,9 +77,7 @@ class ArtifactHandler(
 
             val existingArtifacts = artifactRepository.getArtifactForBatch(task.batchId)
             existingArtifacts.forEach { existing ->
-                try {
-                    storageRepository.delete(existing.artifactDestination)
-                } catch (_: Exception) { }
+                // no need to delete a file from user's location just remove it from the database
                 artifactRepository.removeArtifact(existing)
             }
 
@@ -97,12 +95,14 @@ class ArtifactHandler(
             val relativePath = "$relativeDir/$fileName"
             val mimeType = if (format.equals("pdf", ignoreCase = true)) "application/pdf" else "application/epub+zip"
 
-            storageRepository.saveFile(
-                relativePath = relativeDir,
-                fileName = fileName,
-                mimeType = mimeType,
-                sourceFile = tempFile
-            )
+            val targetDirUri = storageRepository.ensureDirectory(relativePath) ?: return@withContext JobResult.Failure(Exception("Failed to create $novelKey directory"))
+
+            storageRepository.createFile(
+                parentUri = targetDirUri,
+                name = fileName,
+                mime = mimeType,
+                data = tempFile.readBytes()
+            ) ?: return@withContext JobResult.Failure(Exception("Failed to write artifact to storage"))
 
             val artifact = Artifact(
                 id = 0,
@@ -115,6 +115,7 @@ class ArtifactHandler(
 
             tempFile.delete()
 
+            // task completion update by changing the name
             try {
                 taskDao?.updateTaskName(task.id, "Export completed: ${downloadedChapters.size} chapters ($format)")
             } catch (_: Exception) { }

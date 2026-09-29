@@ -17,11 +17,6 @@ class ReplayChapterUseCase(
     suspend operator fun invoke(novel: Novel, chapter: Chapter) {
         val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
         if (download != null) {
-            try {
-                storageRepository.delete(download.fileLocation)
-            } catch (e: Exception) {
-                Logger.w("ReplayChapterUseCase : Failed to delete chapter file at ${download.fileLocation} on replay", e)
-            }
             downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
         }
         val batch = jobFactory.createChapterBatch(novel, chapter)

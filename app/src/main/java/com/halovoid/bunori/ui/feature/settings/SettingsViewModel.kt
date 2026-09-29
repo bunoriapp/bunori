@@ -489,11 +489,7 @@ class SettingsViewModel(
             _isBackingUp.value = true
             try {
                 withContext(Dispatchers.IO) {
-                    BackupService(getApplication()).createBackup(
-                        backupDatabase = backupDatabase,
-                        backupChapters = backupChapters,
-                        backupCovers = backupCovers
-                    )
+                    BackupService(getApplication()).handle()
                 }
                 _backupMetadata.value = getLatestBackupMetadata(getApplication())
                 _backupEvents.emit(BackupEvent.BackupSuccess)

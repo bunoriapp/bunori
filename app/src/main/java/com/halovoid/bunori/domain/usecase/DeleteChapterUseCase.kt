@@ -12,11 +12,6 @@ class DeleteChapterUseCase(
     suspend operator fun invoke(chapter: Chapter) {
         val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
         if (download != null) {
-            try {
-                storageRepository.delete(download.fileLocation)
-            } catch (e: Exception) {
-                Logger.w("DeleteChapterUseCase : Failed to delete chapter file at ${download.fileLocation}", e)
-            }
             downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
         }
     }

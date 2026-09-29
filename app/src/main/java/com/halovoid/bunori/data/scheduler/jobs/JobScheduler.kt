@@ -44,10 +44,6 @@ class JobScheduler(
         }?.launchIn(scope)
     }
 
-    fun isCrawlerBlocked(crawlerName: String): Boolean = blockedCrawlers.contains(crawlerName)
-
-    fun getBlockedCrawlers(): Set<String> = blockedCrawlers.toSet()
-
     suspend fun blockCrawler(crawlerName: String) {
         blockedCrawlers.add(crawlerName)
         val activeBatches = batchDao.getActiveBatches()
@@ -249,7 +245,7 @@ class JobScheduler(
                         }
                     )
                     runner.run(task) { activeJobs.remove(task.id) }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     activeJobs.remove(task.id)
                 } finally {
                     pool.release()
@@ -312,14 +308,14 @@ internal class ReadyQueue {
     fun pushAll(jobs: Collection<TaskEntity>) {
         for (job in jobs) {
             val novelMap = buckets.getOrPut(job.priority) { LinkedHashMap() }
-            val queue = novelMap.getOrPut(job.novelUrl ?: "") { ArrayDeque() }
+            val queue = novelMap.getOrPut(job.novelUrl) { ArrayDeque() }
             queue.add(job)
         }
     }
 
     fun pushFirst(task: TaskEntity) {
         val novelMap = buckets.getOrPut(task.priority) { LinkedHashMap() }
-        val queue = novelMap.getOrPut(task.novelUrl ?: "") { ArrayDeque() }
+        val queue = novelMap.getOrPut(task.novelUrl) { ArrayDeque() }
         queue.addFirst(task)
     }
 

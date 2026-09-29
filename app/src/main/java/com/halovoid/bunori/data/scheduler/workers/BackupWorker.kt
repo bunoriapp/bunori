@@ -32,11 +32,7 @@ class BackupWorker(
 
         return try {
             val backupService = BackupService(applicationContext)
-            backupService.createBackup(
-                backupDatabase = true,
-                backupChapters = true,
-                backupCovers = true
-            )
+            backupService.handle()
 
             // Show completion notification
             showSuccessNotification(notificationManager)

@@ -89,24 +89,6 @@ class ActivityViewModel(
         }
     }
 
-    fun selectBatchesBySource(visibleBatches: List<Batch>) {
-        val currentSelected = _selectedBatchIds.value
-        if (currentSelected.isEmpty()) return
-
-        val selectedSources = visibleBatches
-            .filter { it.id in currentSelected }
-            .mapNotNull { it.crawlerName ?: it.novelUrl }
-            .toSet()
-
-        if (selectedSources.isEmpty()) return
-
-        val matchingIds = visibleBatches
-            .filter { batch -> (batch.crawlerName ?: batch.novelUrl) in selectedSources }
-            .map { it.id }
-
-        _selectedBatchIds.update { it + matchingIds }
-    }
-
     fun cancelSelectedBatches() {
         val selectedIds = _selectedBatchIds.value
         if (selectedIds.isEmpty()) return
@@ -134,25 +116,6 @@ class ActivityViewModel(
             preferenceRepository.setActivityCompactView(compact)
         }
     }
-
-    fun cancelBatch(batchId: String) {
-        viewModelScope.launch {
-            batchRepository.cancelBatch(batchId)
-        }
-    }
-
-    fun replayBatch(batchId: String) {
-        viewModelScope.launch {
-            batchRepository.replayBatch(batchId)
-        }
-    }
-
-    fun resumeBatch(batchId: String) {
-        viewModelScope.launch {
-            batchRepository.resumeBatch(batchId)
-        }
-    }
-
     fun resolveWebView(batchId: String, url: String) {
         viewModelScope.launch {
             val success = Scrapper.globalResolver?.resolve(url) ?: false

@@ -6,6 +6,7 @@ import com.halovoid.bunori.data.scheduler.JobMetadata
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
 import androidx.core.net.toUri
+import com.halovoid.bunori.api.core.network.NetworkClient
 import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +17,7 @@ import com.halovoid.bunori.utils.Logger
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.CRC32
+import java.util.zip.GZIPInputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.math.abs
@@ -96,7 +98,7 @@ class EpubGenerator(
     }
 
     private val imageHttpClient: okhttp3.OkHttpClient by lazy {
-        com.halovoid.bunori.api.core.network.NetworkClient.okHttpClient.newBuilder()
+        NetworkClient.okHttpClient.newBuilder()
             .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
             .callTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
@@ -380,7 +382,14 @@ class EpubGenerator(
 
             val download = downloadsByUrl[chapter.url] ?: downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
             val rawContent = download?.fileLocation?.let { loc ->
-                storageRepository.readText(loc)
+                val absUri = storageRepository.relativeToUri(loc) ?: return@let null
+                try {
+                    storageRepository.openInputStream(absUri)?.use { inp ->
+                        GZIPInputStream(inp).bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    }
+                } catch (_: Exception) {
+                    null
+                }
             } ?: "<p><em>Content not available</em></p>"
             val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, failedImageCache, ::addItem, ignoreImages)
 

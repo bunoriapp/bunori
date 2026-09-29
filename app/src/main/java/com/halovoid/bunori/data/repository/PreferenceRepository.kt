@@ -9,7 +9,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
-import com.halovoid.bunori.data.preferences.appDataStore
+import androidx.datastore.preferences.preferencesDataStore
 import com.halovoid.bunori.domain.models.CustomFont
 import com.halovoid.bunori.domain.models.ReaderSettings
 import com.halovoid.bunori.domain.models.ReaderTextAlign
@@ -57,6 +57,9 @@ const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/extensions/i
 
 val DEFAULT_EXTENSION_REPOS = listOf(
     ExtensionRepo(name = "Bunori", url = DEFAULT_EXTENSION_REPO_URL, enabled = true)
+)
+val Context.appDataStore by preferencesDataStore(
+    name = "app_preferences"
 )
 
 // Reader Preferences

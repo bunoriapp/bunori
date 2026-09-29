@@ -86,7 +86,7 @@ fun NovelCoverImage(
     LaunchedEffect(coverUrl, coverHttpsUrl) {
         if (!coverUrl.isNullOrBlank()) {
             val storageRepo = StorageRepository.getInstance(context)
-            val resolved = storageRepo.resolveLocationUri(coverUrl)
+            val resolved = storageRepo.relativeToUri(coverUrl)
             currentModel = resolved ?: coverUrl
         } else {
             currentModel = coverHttpsUrl

@@ -1,6 +1,5 @@
 package com.halovoid.bunori.data.handlers
 
-import android.net.Uri
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.network.interceptor.CloudflareBypassException
@@ -15,10 +14,6 @@ import com.halovoid.bunori.data.scheduler.jobs.JobResult
 import com.halovoid.bunori.wasm.WamrHttpBridge
 import kotlinx.coroutines.flow.first
 
-/**
- * Handler for [JobType.NOVEL_METADATA] requests.
- * Responsible for refreshing novel metadata and chapter lists from the source.
- */
 class NovelMetadataHandler(
     private val crawlerFactory: CrawlerFactory,
     private val novelRepository: NovelRepository,
@@ -135,14 +130,16 @@ class NovelMetadataHandler(
             val fileName = "cover.$extension"
             val relativeDir = "novels/$novelKey/covers"
 
-            storageRepository.saveFile(
-                relativePath = relativeDir,
-                fileName = fileName,
-                mimeType = "image/$extension",
+            val targetDirUri = storageRepository.ensureDirectory(relativeDir) ?: throw IllegalStateException("Failed to ensure directory $relativeDir");
+
+            storageRepository.createFile(
+                parentUri = targetDirUri,
+                name = fileName,
+                mime = "image/$extension",
                 data = bytes
             )
             "$relativeDir/$fileName"
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }

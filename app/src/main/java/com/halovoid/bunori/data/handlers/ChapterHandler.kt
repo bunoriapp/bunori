@@ -14,6 +14,8 @@ import com.halovoid.bunori.data.scheduler.jobs.JobResult
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Download
 import com.halovoid.bunori.wasm.WamrHttpBridge
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
 
 class ChapterHandler(
     private val chapterRepository: ChapterRepository,
@@ -54,7 +56,7 @@ class ChapterHandler(
             val isExpired = existingDownload.expirationTime?.let { it < now } ?: false
             if (!isExpired) {
                 val cachedContent = try {
-                    storageRepository.readText(existingDownload.fileLocation)
+                    storageRepository.read(existingDownload.fileLocation) // cached file location is stored as direct String URI no need to convert
                 } catch (_: Exception) {
                     null
                 }
@@ -62,19 +64,17 @@ class ChapterHandler(
                 if (!cachedContent.isNullOrBlank() && cachedContent.trim().length > 50) {
                     val novelKey = crawler.getNovelKey(chapter.novelUrl)
                     val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html.gz"
-                    val relativePath = "novels/$novelKey/chapters"
+                    val relativeDir = "novels/$novelKey/chapters"
 
-                    val relativeLocation = "$relativePath/$fileName"
+                    val relativeLocation = "$relativeDir/$fileName"
 
-                    storageRepository.saveCompressedText(
-                        relativePath = relativePath,
-                        fileName = fileName,
-                        content = cachedContent
-                    )
-
-                    try {
-                        storageRepository.delete(existingDownload.fileLocation)
-                    } catch (_: Exception) {}
+                    val targetDirUri = storageRepository.ensureDirectory(relativeDir) ?: return JobResult.Failure(Exception("Failed to ensure target directory $relativeDir"))
+                    storageRepository.createFile(
+                        parentUri = targetDirUri,
+                        name = fileName,
+                        mime = "application/gzip",
+                        data = cachedContent.gzip()
+                    ) ?: return JobResult.Failure(Exception("Failed to write cache file"))
 
                     downloadRepository.saveDownload(
                         existingDownload.copy(
@@ -143,14 +143,25 @@ class ChapterHandler(
 
         val novelKey = crawler.getNovelKey(chapter.novelUrl)
         val fileName = "${chapter.index.toString().padStart(4, '0')}_${chapter.id}.html.gz"
-        val relativePath = "novels/$novelKey/chapters"
+        val relativeDir = "novels/$novelKey/chapters"
 
-        storageRepository.saveCompressedText(
-            relativePath = relativePath,
-            fileName = fileName,
-            content = chapterContent
-        )
+        val targetDirUri = storageRepository.ensureDirectory(relativeDir) ?: throw IllegalStateException("Failed to ensure directory : $relativeDir");
 
-        return "$relativePath/$fileName"
+        storageRepository.createFile(
+            parentUri = targetDirUri,
+            name = fileName,
+            mime = "application/gzip",
+            data = chapterContent.gzip()
+        ) ?: throw IllegalStateException("Failed to create file: $fileName")
+
+        return "$relativeDir/$fileName"
     }
+}
+
+fun String.gzip(): ByteArray {
+    val byteStream = ByteArrayOutputStream()
+    GZIPOutputStream(byteStream).use { gzip ->
+        gzip.write(this.toByteArray(Charsets.UTF_8))
+    }
+    return byteStream.toByteArray();
 }
