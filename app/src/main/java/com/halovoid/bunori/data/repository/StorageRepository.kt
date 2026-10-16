@@ -14,6 +14,7 @@ import okio.IOException
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.zip.GZIPInputStream
 
 data class StorageFileInfo(
     val name: String,
@@ -162,7 +163,12 @@ class StorageRepositoryImpl private constructor(
     @SuppressLint("Recycle")
     override suspend fun openInputStream(uri: Uri): InputStream? = withContext(Dispatchers.IO) {
         try {
-            context.contentResolver.openInputStream(uri)
+            if (uri.scheme == null || uri.scheme == "file") {
+                val path = uri.path ?: return@withContext null
+                File(path).inputStream()
+            } else {
+                context.contentResolver.openInputStream(uri)
+            }
         } catch (_: Exception) {
             null
         }
@@ -177,8 +183,12 @@ class StorageRepositoryImpl private constructor(
         }
     }
 
-    override suspend fun read(uri: Uri): String? = withContext(Dispatchers.IO) {
-        openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+    override suspend fun read(uri: Uri): String = withContext(Dispatchers.IO) {
+        openInputStream(uri).use { input ->
+            GZIPInputStream(input)
+                .bufferedReader(Charsets.UTF_8)
+                .use { it.readText() }
+        }
     }
 
     override suspend fun read(url: String): String? = withContext(Dispatchers.IO) {

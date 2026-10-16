@@ -6,13 +6,14 @@ import androidx.core.net.toUri
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Download
+import com.halovoid.bunori.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
 
-/**
- * Main repository interface for reader content fetching and cached chapter management.
- */
 interface ReaderRepository {
     suspend fun getChapterContent(chapter: Chapter, crawlerName: String): String
     suspend fun saveExtractedChapter(
@@ -24,7 +25,6 @@ interface ReaderRepository {
         scanlationSource: String,
         html: String
     ): Boolean
-
     companion object {
         fun getInstance(context: Context): ReaderRepository = ReaderRepositoryImpl.getInstance(context)
     }
@@ -106,20 +106,23 @@ class ReaderRepositoryImpl private constructor(
     }
 
     private suspend fun readDownloaded(download: Download): String? {
+        Logger.e("READDOWNLOAD: ${download.fileLocation} trying to open")
         val fileLocation = download.fileLocation
         if (fileLocation.isBlank()) return null
 
-        val fileLocationUri = storageRepository.relativeToUri(fileLocation) ?: return null
-        return try {
-            storageRepository.read(fileLocationUri)
-        } catch (_: Exception) {
-            downloadRepository.deleteDownload(download.novelUrl, download.chapterUrl)
-            null
+        if (download.isCache) {
+            Logger.e("READDOWNLOAD: ${download.fileLocation} found in cache")
+            return storageRepository.read(fileLocation.toUri())
         }
+
+        val locToUri = storageRepository.relativeToUri(fileLocation) ?: return null;
+        return storageRepository.read(locToUri);
     }
 
     private suspend fun fetchAndCache(chapter: Chapter, crawlerName: String): String? {
-        val html = fetchLive(chapter, crawlerName) ?: return null
+        val crawler = CrawlerFactory.getCrawler(crawlerName) ?: return null
+        val url = chapter.sourceUrl?.takeIf { it.isNotBlank() } ?: chapter.url
+        val html = crawler.getChapterContent(url) ?: return null
         if (html.isNotBlank() && html.trim().length > 50) {
             try {
                 val cacheDir = File(context.cacheDir, "chapter_cache").apply { mkdirs() }
@@ -152,15 +155,9 @@ class ReaderRepositoryImpl private constructor(
     }
 
     private fun writeCompressed(file: File, text: String) {
-        val bos = java.io.ByteArrayOutputStream()
-        java.util.zip.GZIPOutputStream(bos).use { it.write(text.toByteArray(Charsets.UTF_8)) }
+        val bos = ByteArrayOutputStream()
+        GZIPOutputStream(bos).use { it.write(text.toByteArray(Charsets.UTF_8)) }
         file.writeBytes(bos.toByteArray())
-    }
-
-    private suspend fun fetchLive(chapter: Chapter, crawlerName: String): String? {
-        val crawler = CrawlerFactory.getCrawler(crawlerName) ?: return null
-        val url = chapter.sourceUrl?.takeIf { it.isNotBlank() } ?: chapter.url
-        return crawler.getChapterContent(url)
     }
 
     private fun deleteCacheFile(fileLocation: String) {

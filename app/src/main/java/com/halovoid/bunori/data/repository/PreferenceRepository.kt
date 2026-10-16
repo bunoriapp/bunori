@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.map
 
 private val EXPORT_FOLDER_URI = stringPreferencesKey("export_folder_uri")
 private val ONBOARDING_COMPLETED = stringPreferencesKey("onboarding_completed")
-private val LAST_SYNC_TIME = stringPreferencesKey("last_sync_time")
 private val CURRENT_DEX_TAG = stringPreferencesKey("current_dex_tag")
 private val BETA_MODE_APP = booleanPreferencesKey("beta_mode_app")
 private val BETA_MODE_CRAWLERS = booleanPreferencesKey("beta_mode_crawlers")
@@ -799,11 +798,4 @@ class PreferenceRepositoryImpl private constructor(
             prefs[CUSTOM_DOMAIN_SELECTORS] = filtered + "$domain|$selector"
         }
     }
-}
-
-private fun isDeprecatedRepoUrl(url: String): Boolean {
-    return url.contains("Binit06") ||
-           url.contains("/releases/download/") ||
-           url.endsWith("/repo/index.json") ||
-           url.endsWith("/repo/index.min.json")
 }

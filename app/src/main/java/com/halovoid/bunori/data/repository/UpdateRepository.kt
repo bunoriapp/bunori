@@ -9,16 +9,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 
-/**
- * Main repository interface for app and extension update checking.
- */
 interface UpdateRepository {
     val isAppUpdateAvailable: StateFlow<Boolean>
     val latestAppRelease: StateFlow<AppUpdateManager.AppReleaseInfo?>
     val isCrawlerUpdateAvailable: StateFlow<Boolean>
-
     suspend fun checkForUpdates()
-
     companion object {
         fun getInstance(context: Context): UpdateRepository = UpdateRepositoryImpl.getInstance(context)
     }

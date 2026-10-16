@@ -1,5 +1,6 @@
 package com.halovoid.bunori.data.handlers
 
+import androidx.core.net.toUri
 import com.halovoid.bunori.api.core.crawler.Crawler
 import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.network.interceptor.CloudflareBypassException
@@ -13,6 +14,7 @@ import com.halovoid.bunori.data.scheduler.jobs.JobHandler
 import com.halovoid.bunori.data.scheduler.jobs.JobResult
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Download
+import com.halovoid.bunori.utils.Logger
 import com.halovoid.bunori.wasm.WamrHttpBridge
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
@@ -50,13 +52,15 @@ class ChapterHandler(
         val existingDownload = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
         if (existingDownload != null) {
             if (!existingDownload.isCache) {
+                // it's like saying the thing is in the download still I am redownloading
+                // I don't know how and since its there and is not a cache I consider it downloaded
                 return JobResult.Success
             }
             val now = System.currentTimeMillis()
             val isExpired = existingDownload.expirationTime?.let { it < now } ?: false
             if (!isExpired) {
                 val cachedContent = try {
-                    storageRepository.read(existingDownload.fileLocation) // cached file location is stored as direct String URI no need to convert
+                    storageRepository.read(existingDownload.fileLocation.toUri()) // cached file location is stored as direct String URI no need to convert
                 } catch (_: Exception) {
                     null
                 }
@@ -85,21 +89,17 @@ class ChapterHandler(
                         )
                     )
 
+                    android.util.Log.e("ChapterHandler", "Cache promotion SUCCESS: saved to $relativeLocation")
                     return JobResult.Success
                 }
             }
         }
 
-        val targetUrl = task.url?.takeIf { it.isNotBlank() }
-            ?: chapter.sourceUrl?.takeIf { it.isNotBlank() }
-            ?: chapter.url.takeIf { it.isNotBlank() }
-            ?: return JobResult.Failure(Exception("No valid URL found for chapter ${chapter.title}"))
+        val targetUrl = task.url?.takeIf { it.isNotBlank() } ?: return JobResult.Failure(Exception("No valid URL found for chapter ${chapter.title}"))
 
-        // 1. Load the Chapter and Save it
         return try {
             val fileLocation = loadAndSaveFile(targetUrl, crawler, chapter)
 
-            // 2. Save into the Download table
             downloadRepository.saveDownload(
                 Download(
                     novelUrl = chapter.novelUrl,
@@ -137,7 +137,7 @@ class ChapterHandler(
         if (chapterContent.isNullOrBlank()) {
             throw IllegalStateException("Empty content returned from source for chapter ${chapter.title}")
         }
-        if (chapterContent.trim().length <= 50) {
+        if (chapterContent.trim().length <= 10) {
             throw IllegalStateException("Content too short (${chapterContent.trim().length} chars) for chapter ${chapter.title}")
         }
 

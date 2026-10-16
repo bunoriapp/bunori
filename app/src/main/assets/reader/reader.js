@@ -298,7 +298,9 @@
     if (state.hasMorePrev && !state.isLoadingPrev) {
       setSentinelState(elements.topSentinel, 'idle', '');
       let banner = elements.topSentinel.querySelector('.prev-chapter-banner');
-      banner.style.display = 'flex';
+      if (banner) {
+        banner.style.display = 'flex';
+      }
     } else {
       const banner = elements.topSentinel.querySelector('.prev-chapter-banner');
       if (banner) banner.style.display = 'none';
