@@ -2,15 +2,15 @@ package com.halovoid.bunori.ui.feature.browse
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.api.core.scrapper.Scrapper
 import com.halovoid.bunori.data.factory.JobFactory
 import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.NovelRepository
+import com.halovoid.bunori.data.scheduler.services.SchedulerService
 import com.halovoid.bunori.domain.models.Novel
-import com.halovoid.bunori.domain.usecase.SaveNovelUseCase
-import com.halovoid.bunori.domain.usecase.StartNovelCrawlUseCase
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,8 +26,6 @@ class BrowseViewModel(
     private val batchRepository: BatchRepository,
     private val novelRepository: NovelRepository = NovelRepository.getInstance(application),
     private val jobFactory: JobFactory = JobFactory(),
-    private val saveNovelUseCase: SaveNovelUseCase = SaveNovelUseCase(novelRepository),
-    private val startNovelCrawlUseCase: StartNovelCrawlUseCase = StartNovelCrawlUseCase(batchRepository, jobFactory)
 ) : AndroidViewModel(application) {
 
     private val _error = MutableStateFlow<String?>(null)
@@ -61,21 +59,19 @@ class BrowseViewModel(
                 val existing = novelRepository.getNovelByUrl(novel.url)
                 if (existing == null) {
                     novelRepository.saveNovel(novel)
-                    startNovelCrawlUseCase(
-                        context = getApplication(),
-                        crawlerName = novel.crawlerName,
-                        url = novel.url,
-                        title = novel.title
-                    )
+                    val batch = jobFactory.createMetadataBatchFromUrl(novel.crawlerName, novel.url, novel.title)
+                    val task = jobFactory.createMetadataTaskFromUrl(batch.id, novel.crawlerName, novel.url, novel.title)
+                    batchRepository.insertBatch(batch)
+                    batchRepository.insertTask(task)
+                    SchedulerService.startService(application)
                 } else {
                     val chapters = chapterRepository.getChaptersByNovelUrl(novel.url)
                     if (chapters.isEmpty()) {
-                        startNovelCrawlUseCase(
-                            context = getApplication(),
-                            crawlerName = novel.crawlerName,
-                            url = novel.url,
-                            title = novel.title
-                        )
+                        val batch = jobFactory.createMetadataBatchFromUrl(novel.crawlerName, novel.url, novel.title)
+                        val task = jobFactory.createMetadataTaskFromUrl(batch.id, novel.crawlerName, novel.url, novel.title)
+                        batchRepository.insertBatch(batch)
+                        batchRepository.insertTask(task)
+                        SchedulerService.startService(application)
                     }
                 }
                 onSaved()

@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
@@ -14,7 +15,6 @@ import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.DownloadRepositoryImpl
 import com.halovoid.bunori.data.repository.NovelRepository
-import com.halovoid.bunori.data.repository.NovelRepositoryImpl
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepositoryImpl
 import com.halovoid.bunori.data.scheduler.services.SchedulerService
@@ -22,12 +22,9 @@ import com.halovoid.bunori.domain.models.Artifact
 import com.halovoid.bunori.domain.models.Batch
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.domain.models.Novel
-import com.halovoid.bunori.domain.usecase.DeleteChapterUseCase
-import com.halovoid.bunori.domain.usecase.DownloadRangeUseCase
-import com.halovoid.bunori.domain.usecase.ReplayChapterUseCase
-import com.halovoid.bunori.domain.usecase.SaveNovelUseCase
 import com.halovoid.bunori.ui.core.platform.openFile
 import com.halovoid.bunori.ui.feature.novel.components.artifact.ExportFormat
+import com.halovoid.bunori.utils.SimhashUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,26 +72,10 @@ class NovelViewModel(
     application: Application,
     private val batchRepository: BatchRepository,
     private val jobFactory: JobFactory = JobFactory(),
-    private val deleteChapterUseCase: DeleteChapterUseCase = DeleteChapterUseCase(
-        DownloadRepositoryImpl.getInstance(application),
-        StorageRepositoryImpl.getInstance(application)
-    ),
-    private val replayChapterUseCase: ReplayChapterUseCase = ReplayChapterUseCase(
-        DownloadRepositoryImpl.getInstance(application),
-        StorageRepositoryImpl.getInstance(application),
-        batchRepository,
-        jobFactory
-    ),
-    private val downloadRangeUseCase: DownloadRangeUseCase = DownloadRangeUseCase(
-        ChapterRepository.getInstance(application),
-        batchRepository,
-        jobFactory
-    ),
-    private val saveNovelUseCae: SaveNovelUseCase = SaveNovelUseCase(NovelRepositoryImpl.getInstance(application)),
     private val preferenceRepository: PreferenceRepository = PreferenceRepository.getInstance(application)
-) : AndroidViewModel(application) {
+) : AndroidViewModel(application)
+{
     private val novelRepository = NovelRepository.getInstance(application)
-
     private val artifactRepository = ArtifactRepository.getInstance(application)
     private val chapterRepository = ChapterRepository.getInstance(application)
     private val downloadRepository = DownloadRepositoryImpl.getInstance(application)
@@ -359,7 +340,8 @@ class NovelViewModel(
             }
         } else {
             viewModelScope.launch(Dispatchers.IO) {
-                val similar = saveNovelUseCae.check(novel)
+                val hash = novel.titleHash ?: SimhashUtils.generateSimhash(novel.title)
+                val similar = novelRepository.getSimilarNovels(hash, 3)
                 if (similar.isNotEmpty() && onSimilarFound != null) {
                     withContext(Dispatchers.Main) {
                         onSimilarFound(similar)
@@ -444,7 +426,10 @@ class NovelViewModel(
             val selectedIds = _selectedChapterIds.value
             val toDelete = chapters.value.filter { selectedIds.contains(it.id) }
             toDelete.forEach { chapter ->
-                deleteChapterUseCase(chapter)
+                val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
+                if (download != null) {
+                    downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
+                }
             }
             clearSelection()
         }
@@ -457,42 +442,13 @@ class NovelViewModel(
     fun startBackgroundExport(
         novel: Novel,
         format: ExportFormat,
-        selectedSources: Set<String>? = null,
-        start: Int? = null,
-        end: Int? = null
+        selectedSources: Set<String>,
+        start: Int,
+        end: Int
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            val allChapters = chapterRepository.getChaptersByNovelUrl(novel.url).ifEmpty {
-                downloadRepository.getDownloadsForNovel(novel.url).mapIndexed { idx, dl ->
-                    Chapter(
-                        id = if (dl.id > 0) dl.id.toInt() else (idx + 1),
-                        url = dl.chapterUrl,
-                        title = dl.chapterTitle.ifBlank { "Chapter ${dl.chapterIndex}" },
-                        index = dl.chapterIndex,
-                        novelUrl = dl.novelUrl,
-                        isDownloaded = true,
-                        read = false,
-                        scanlationSource = dl.scanlationSource
-                    )
-                }
-            }
-            val matchingChapters = if (!selectedSources.isNullOrEmpty()) {
-                allChapters.filter { chapter ->
-                    val eff = if (chapter.scanlationSource.isBlank() || chapter.scanlationSource == "NotProvided" || chapter.scanlationSource == "Not Provided") {
-                        novel.crawlerName
-                    } else {
-                        chapter.scanlationSource
-                    }
-                    selectedSources.contains(chapter.scanlationSource) || selectedSources.contains(eff)
-                }
-            } else {
-                allChapters
-            }
-
-            val startIndex = start ?: matchingChapters.minOfOrNull { it.index } ?: 1
-            val endIndex = end ?: matchingChapters.maxOfOrNull { it.index } ?: startIndex
-            val batch = jobFactory.createExportBatch(novel, format, startIndex, endIndex, selectedSources)
-            val task = jobFactory.createExportTask(batch.id, novel, format, startIndex, endIndex, selectedSources)
+            val batch = jobFactory.createExportBatch(novel, format, start, end, selectedSources)
+            val task = jobFactory.createExportTask(batch.id, novel, format, start, end, selectedSources)
 
             batchRepository.insertBatch(batch)
             batchRepository.insertTask(task)
@@ -528,7 +484,15 @@ class NovelViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val start = _chapterRange.value.start.toInt()
             val end = _chapterRange.value.endInclusive.toInt()
-            downloadRangeUseCase(getApplication(), novel, start, end)
+            val chapters = chapterRepository.getChaptersByNovelUrl(novel.url)
+            val rangeChapters = chapters.filter { it.index in start .. end }
+
+            val batch = jobFactory.createRangeDownloadBatch(novel, start, end)
+            val tasks = jobFactory.createChapterTasks(batch.id, novel.crawlerName, rangeChapters, batch.priority)
+
+            batchRepository.insertBatch(batch)
+            batchRepository.insertTasks(tasks)
+            SchedulerService.startService(application)
         }
     }
 
@@ -544,17 +508,27 @@ class NovelViewModel(
 
     fun deleteChapter(chapter: Chapter) {
         viewModelScope.launch(Dispatchers.IO) {
-            deleteChapterUseCase(chapter)
+            val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
+            if (download != null) {
+                downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
+            }
         }
     }
 
     fun replayChapter(novel: Novel, chapter: Chapter) {
         viewModelScope.launch(Dispatchers.IO) {
-            replayChapterUseCase(novel, chapter)
+            val download = downloadRepository.getDownload(chapter.novelUrl, chapter.url)
+            if (download != null) {
+                downloadRepository.deleteDownload(chapter.novelUrl, chapter.url)
+            }
+            val batch = jobFactory.createChapterBatch(novel, chapter)
+            val tasks = jobFactory.createChapterTasks(batch.id, novel.crawlerName, listOf(chapter), batch.priority)
+            batchRepository.insertBatch(batch)
+            batchRepository.insertTasks(tasks)
         }
     }
 
-    // copied and pasted from JobDetailViewModel
+    // copied from JobDetailViewModel
     fun copyArtifactToUri(
         artifact: Artifact,
         destinationUri: Uri,
@@ -595,8 +569,6 @@ class NovelViewModel(
             }
         }
     }
-
-
 
     fun openArtifact(context: Context, artifact: Artifact, onNoAppFound: (String) -> Unit) {
         viewModelScope.launch {

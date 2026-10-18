@@ -131,7 +131,7 @@ class JobFactory {
             TaskEntity(
                 id = "${batchId}_ch_${chapter.index}_${chapter.id}",
                 batchId = batchId,
-                name = chapter.title.ifBlank { "Chapter ${chapter.index}" },
+                name = "Chapter ${chapter.index}",
                 url = effectiveUrl,
                 novelUrl = chapter.novelUrl,
                 type = JobType.CHAPTER,
