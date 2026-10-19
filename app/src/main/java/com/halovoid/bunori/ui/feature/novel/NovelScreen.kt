@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Deselect
 import androidx.compose.material.icons.outlined.DoneAll
@@ -73,6 +75,7 @@ import com.halovoid.bunori.ui.feature.novel.components.NovelSynopsisSection
 import com.halovoid.bunori.ui.feature.novel.components.NovelTopBar
 import com.halovoid.bunori.ui.feature.novel.components.SimilarNovelsBottomSheet
 import com.halovoid.bunori.ui.feature.novel.components.SourceFilterBottomSheet
+import com.halovoid.bunori.ui.feature.novel.components.SourceSwipeSelector
 import com.halovoid.bunori.ui.feature.novel.components.novelTableOfContents
 import kotlinx.coroutines.launch
 
@@ -81,7 +84,7 @@ sealed interface NovelDialogState {
     data object ConfirmDeleteSelectedChapters : NovelDialogState
     data object DownloadRange : NovelDialogState
     data object FilterSheet : NovelDialogState
-    data object SourceFilterSheet : NovelDialogState
+//    data object SourceFilterSheet : NovelDialogState
     data object JumpToChapter : NovelDialogState
     data class SimilarNovelsWarning(val similarNovels: List<Novel>) : NovelDialogState
 }
@@ -106,7 +109,7 @@ fun NovelScreen(
     val chapterRange by viewModel.chapterRange.collectAsState()
     val isSelectionMode by viewModel.isSelectionMode.collectAsStateWithLifecycle()
     val selectedChapterIds by viewModel.selectedChapterIds.collectAsStateWithLifecycle()
-    val selectedSources by viewModel.selectedSources.collectAsStateWithLifecycle()
+    val selectedSource by viewModel.selectedSource.collectAsStateWithLifecycle()
     val availableSources by viewModel.availableSources.collectAsStateWithLifecycle()
 
     BackHandler(enabled = isSelectionMode) {
@@ -153,7 +156,6 @@ fun NovelScreen(
     var activeDialog by remember { mutableStateOf<NovelDialogState?>(null) }
 
     val isFilterActive = downloadFilter != DownloadFilter.ALL
-    val isSourceFilterActive = availableSources.isNotEmpty() && selectedSources.size < availableSources.size
     val isSortModified = sortState.type != SortType.CHAPTER_NUMBER || sortState.order != SortOrder.ASCENDING
 
     LaunchedEffect(novelUrl) {
@@ -198,6 +200,13 @@ fun NovelScreen(
                         icon = Icons.Outlined.RemoveDone,
                         onClick = {
                             viewModel.markSelectedChaptersRead(false)
+                        }
+                    ),
+                    ContextualAction(
+                        title = "Bookmark",
+                        icon = Icons.Default.Bookmark,
+                        onClick = {
+                            viewModel.bookmarkSelectedChapters(true)
                         }
                     ),
                     ContextualAction(
@@ -300,15 +309,23 @@ fun NovelScreen(
                         item {
                             Row(
                                 modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
                                     text = "${chapters.size} Chapters",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = PrimaryText
+                                )
+
+                                SourceSwipeSelector(
+                                    sources = availableSources,
+                                    currentSource = selectedSource,
+                                    onNext = { viewModel.nextSource() },
+                                    onPrevious = { viewModel.prevSource() }
                                 )
                             }
                         }
@@ -326,7 +343,8 @@ fun NovelScreen(
                                 onChapterClick(currentNovel.url, it.id)
                             },
                             onChapterLongClick = { viewModel.selectChapter(it.id) },
-                            onChapterToggleSelect = { viewModel.toggleChapterSelection(it.id) }
+                            onChapterToggleSelect = { viewModel.toggleChapterSelection(it.id) },
+                            onToggleBookmark = { viewModel.toggleBookmark(it) }
                         )
                     }
                 }
@@ -340,8 +358,8 @@ fun NovelScreen(
                     onJumpToChapterClick = { activeDialog = NovelDialogState.JumpToChapter },
                     onFilterClick = { activeDialog = NovelDialogState.FilterSheet },
                     isFilterActive = isFilterActive || isSortModified,
-                    onSourceFilterClick = { activeDialog = NovelDialogState.SourceFilterSheet },
-                    isSourceFilterActive = isSourceFilterActive
+                    onSourceFilterClick = { },
+                    isSourceFilterActive = false
                 )
             }
 
@@ -373,16 +391,11 @@ fun NovelScreen(
                 is NovelDialogState.DownloadRange -> {
                     val minIndex = chapters.minOfOrNull { it.index.toFloat() } ?: 1f
                     val maxIndex = chapters.maxOfOrNull { it.index.toFloat() } ?: currentNovel.chapters.size.toFloat().coerceAtLeast(1f)
-                    val activeSources = if (selectedSources.isNotEmpty()) {
-                        selectedSources.toList()
-                    } else {
-                        availableSources
-                    }
                     DownloadRangeDialog(
                         initialRange = chapterRange,
                         minChapterIndex = minIndex,
                         maxChapterIndex = maxIndex,
-                        sources = activeSources,
+                        source = selectedSource,
                         onConfirm = { range ->
                             viewModel.updateChapterRange(range)
                             viewModel.fetchRange(currentNovel)
@@ -402,14 +415,14 @@ fun NovelScreen(
                     )
                 }
 
-                is NovelDialogState.SourceFilterSheet -> {
+/*                is NovelDialogState.SourceFilterSheet -> {
                     SourceFilterBottomSheet(
                         availableSources = availableSources,
-                        selectedSources = selectedSources,
+                        selectedSource = selectedSource,
                         onToggleSource = { viewModel.toggleSourceSelection(it) },
                         onDismiss = { activeDialog = null }
                     )
-                }
+                }*/
                 is NovelDialogState.JumpToChapter -> {
                     JumpToChapterBottomSheet(
                         chapters = chapters,

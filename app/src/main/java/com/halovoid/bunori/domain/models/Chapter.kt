@@ -16,7 +16,8 @@ data class Chapter(
     val isDownloaded: Boolean = false,
     var sourceUrl: String? = null,
     var read: Boolean = false,
-    var scanlationSource: String = "Not Provided"
+    var scanlationSource: String = "Not Provided",
+    var bookmarked: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -33,6 +34,7 @@ data class Chapter(
         if (sourceUrl != other.sourceUrl) return false
         if (read != other.read) return false
         if (scanlationSource != other.scanlationSource) return false
+        if (bookmarked != other.bookmarked) return false
 
         return true
     }
@@ -47,6 +49,7 @@ data class Chapter(
         result = 31 * result + (sourceUrl?.hashCode() ?: 0)
         result = 31 * result + read.hashCode()
         result = 31 * result + scanlationSource.hashCode()
+        result = 31 * result + bookmarked.hashCode()
         return result
     }
 }

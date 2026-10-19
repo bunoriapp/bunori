@@ -323,7 +323,7 @@ fun NavGraph(navController: NavHostController) {
                     defaultValue = null
                 }
             )
-        ) { backStackEntry ->
+        ) { _ ->
             val searchViewModel: SearchViewModel = viewModel(
                 factory = remember { ViewModelFactory(application) }
             )

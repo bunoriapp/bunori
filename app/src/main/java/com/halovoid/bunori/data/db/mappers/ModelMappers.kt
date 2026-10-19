@@ -60,6 +60,7 @@ fun ChapterEntity.toDomain(): Chapter = Chapter(
     sourceUrl = this@toDomain.sourceUrl
     scanlationSource = this@toDomain.scanlationSource
     read = this@toDomain.read
+    bookmarked = this@toDomain.bookmarked
 }
 
 fun Chapter.toEntity(): ChapterEntity = ChapterEntity(
@@ -70,7 +71,8 @@ fun Chapter.toEntity(): ChapterEntity = ChapterEntity(
     title = title,
     index = index,
     novelUrl = novelUrl,
-    read = read
+    read = read,
+    bookmarked = bookmarked
 )
 
 // Artifact Mappings

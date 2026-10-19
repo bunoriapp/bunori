@@ -21,6 +21,8 @@ interface ChapterRepository {
     suspend fun getChapterById(id: Int): Chapter
     suspend fun updateChapterReadStatus(chapterId: Int, isRead: Boolean)
     suspend fun updateChaptersReadStatus(chapterIds: List<Int>, isRead: Boolean)
+    suspend fun updateChapterBookmarkStatus(chapterId: Int, bookmarked: Boolean)
+    suspend fun updateChaptersBookmarkStatus(chapterIds: List<Int>, bookmarked: Boolean)
 
     companion object {
         fun getInstance(context: Context): ChapterRepository = ChapterRepositoryImpl.getInstance(context)
@@ -69,6 +71,16 @@ class ChapterRepositoryImpl private constructor(context: Context) : ChapterRepos
     override suspend fun updateChaptersReadStatus(chapterIds: List<Int>, isRead: Boolean) = withContext(Dispatchers.IO) {
         if (chapterIds.isNotEmpty()) {
             chapterDao.updateChaptersReadStatus(chapterIds, isRead)
+        }
+    }
+
+    override suspend fun updateChapterBookmarkStatus(chapterId: Int, bookmarked: Boolean) {
+        chapterDao.updateChapterBookmarkStatus(chapterId, bookmarked)
+    }
+
+    override suspend fun updateChaptersBookmarkStatus(chapterIds: List<Int>, bookmarked: Boolean) {
+        if (chapterIds.isNotEmpty()) {
+            chapterDao.updateChaptersBookmarkStatus(chapterIds, bookmarked)
         }
     }
 }

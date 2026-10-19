@@ -117,29 +117,18 @@ class NovelViewModel(
             initialValue = null
         )
 
+    companion object {
+        const val SOURCE_BOOKMARKS = "Bookmarks"
+    }
+
     private val _chapterRange = MutableStateFlow(1f..1f)
     val chapterRange: StateFlow<ClosedFloatingPointRange<Float>> = _chapterRange.asStateFlow()
 
     private val _downloadFilter = MutableStateFlow(DownloadFilter.ALL)
     val downloadFilter: StateFlow<DownloadFilter> = _downloadFilter.asStateFlow()
 
-    private val _selectedSources = MutableStateFlow<Set<String>>(emptySet())
-    val selectedSources: StateFlow<Set<String>> = _selectedSources.asStateFlow()
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val availableSources: StateFlow<List<String>> = novel
-        .filterNotNull()
-        .map { nov ->
-            nov.chapters.map { it.scanlationSource }
-                .map { if (it.isBlank() || it == "NotProvided" || it == "Not Provided") nov.crawlerName else it }
-                .distinct()
-                .ifEmpty { listOf(nov.crawlerName) }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val _selectedSource = MutableStateFlow<String?>(null)
+    val selectedSource: StateFlow<String?> = _selectedSource.asStateFlow()
 
     private val _sortState = MutableStateFlow(ChapterSortState())
     val sortState: StateFlow<ChapterSortState> = _sortState.asStateFlow()
@@ -177,6 +166,7 @@ class NovelViewModel(
                             sourceUrl = chapter.sourceUrl
                             scanlationSource = effSource
                             read = chapter.read
+                            bookmarked = chapter.bookmarked
                         }
                     }
                 } else {
@@ -201,36 +191,65 @@ class NovelViewModel(
             initialValue = emptyList()
         )
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val availableSources: StateFlow<List<String>> = allNovelChapters
+        .map { list ->
+            val sources = list.map { it.scanlationSource }.filter { it.isNotBlank() }.distinct()
+            val hasBookmark = list.any { it.bookmarked }
+
+            if (hasBookmark) {
+                listOf(SOURCE_BOOKMARKS) + sources
+            } else {
+                sources
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val chapters: StateFlow<List<Chapter>> = combine(
         allNovelChapters,
         _downloadFilter,
-        _selectedSources,
+        _selectedSource,
         _sortState
-    ) { rawChapters, filter, selectedSources, sort ->
-        val filteredByDownload = when (filter) {
-            DownloadFilter.ALL -> rawChapters
-            DownloadFilter.DOWNLOADED -> rawChapters.filter { it.isDownloaded }
-            DownloadFilter.NOT_DOWNLOADED -> rawChapters.filter { !it.isDownloaded }
-            DownloadFilter.NONE -> emptyList()
+    ) { rawChapters, filter, activeSource, sort ->
+        val sources = rawChapters.map { it.scanlationSource }.filter { it.isNotBlank() }.distinct()
+        val hasBookmark = rawChapters.any { it.bookmarked }
+
+        val effSource = when {
+            activeSource == SOURCE_BOOKMARKS && !hasBookmark -> sources.firstOrNull()
+            activeSource != null && (activeSource == SOURCE_BOOKMARKS || sources.contains(activeSource)) -> activeSource
+            else -> sources.firstOrNull()
         }
 
-        val filteredBySource = if (selectedSources.isEmpty()) {
-            filteredByDownload
+        val bySource = if (effSource == SOURCE_BOOKMARKS) {
+            rawChapters.filter { it.bookmarked }
+        } else if (effSource != null) {
+            rawChapters.filter { it.scanlationSource == effSource }
         } else {
-            filteredByDownload.filter { selectedSources.contains(it.scanlationSource) }
+            rawChapters
+        }
+
+        val byDownload = when (filter) {
+            DownloadFilter.ALL -> bySource
+            DownloadFilter.DOWNLOADED -> bySource.filter { it.isDownloaded }
+            DownloadFilter.NOT_DOWNLOADED -> bySource.filter { !it.isDownloaded }
+            DownloadFilter.NONE -> emptyList()
         }
 
         when (sort.type) {
             SortType.CHAPTER_NUMBER -> {
                 if (sort.order == SortOrder.ASCENDING) {
-                    filteredBySource.sortedWith(compareBy({ it.index }, { it.scanlationSource }, { it.id }))
+                    byDownload.sortedWith(compareBy({ it.index }, { it.id }))
                 } else {
-                    filteredBySource.sortedWith(compareByDescending<Chapter> { it.index }.thenBy { it.scanlationSource }.thenByDescending { it.id })
+                    byDownload.sortedWith(compareByDescending<Chapter> { it.index }.thenByDescending { it.id })
                 }
             }
             SortType.ALPHABETICAL -> {
-                if (sort.order == SortOrder.ASCENDING) filteredBySource.sortedBy { it.title }
-                else filteredBySource.sortedByDescending { it.title }
+                if (sort.order == SortOrder.ASCENDING) byDownload.sortedBy { it.title }
+                else byDownload.sortedByDescending { it.title }
             }
         }
     }.stateIn(
@@ -296,14 +315,6 @@ class NovelViewModel(
             novel.collect { currentNovel ->
                 if (currentNovel != null) {
                     if (currentNovel.chapters.isNotEmpty()) {
-                        val sources = currentNovel.chapters.map { it.scanlationSource }.distinct()
-                        val saved = preferenceRepository.getSavedSourcesForNovel(currentNovel.url).firstOrNull()
-                        if (!saved.isNullOrEmpty()) {
-                            val validSaved = saved.filter { sources.contains(it) }.toSet()
-                            _selectedSources.value = if (validSaved.isNotEmpty()) validSaved else sources.toSet()
-                        } else if (_selectedSources.value.isEmpty()) {
-                            _selectedSources.value = sources.toSet()
-                        }
                         val currentRange = _chapterRange.value
                         val maxIdx = currentNovel.chapters.maxOfOrNull { it.index.toFloat() } ?: currentNovel.chapters.size.toFloat()
                         if (currentRange.start == 1f && currentRange.endInclusive == 1f) {
@@ -327,9 +338,51 @@ class NovelViewModel(
             }
         }
     }
+    fun toggleBookmark(chapter: Chapter) {
+        viewModelScope.launch(Dispatchers.IO) {
+            chapterRepository.updateChapterBookmarkStatus(chapter.id, !chapter.bookmarked)
+        }
+    }
+    fun bookmarkSelectedChapters(bookmarked: Boolean) {
+        val ids = _selectedChapterIds.value.toList()
+        if (ids.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            chapterRepository.updateChaptersBookmarkStatus(ids, bookmarked)
+            clearSelection()
+        }
+    }
+    fun selectSource(source: String) {
+        _selectedSource.value = source
+    }
+
+    fun selectSourceIndex(index: Int) {
+        val sources = availableSources.value
+        if (index in sources.indices) {
+            _selectedSource.value = sources[index]
+        }
+    }
+
+    fun nextSource() {
+        val sources = availableSources.value
+        if (sources.size <= 1) return
+        val current = _selectedSource.value ?: sources.firstOrNull { it != SOURCE_BOOKMARKS } ?: sources.first()
+        val currIdx = sources.indexOf(current).let { if (it == -1) 0 else it }
+        val nextIdx = (currIdx + 1) % sources.size
+        _selectedSource.value = sources[nextIdx]
+    }
+
+    fun prevSource() {
+        val sources = availableSources.value
+        if (sources.size <= 1) return
+        val current = _selectedSource.value ?: sources.firstOrNull { it != SOURCE_BOOKMARKS } ?: sources.first()
+        val currIdx = sources.indexOf(current).let { if (it == -1) 0 else it }
+        val prevIdx = (currIdx - 1 + sources.size) % sources.size
+        _selectedSource.value = sources[prevIdx]
+    }
 
     fun loadNovel(novelUrl: String) {
         clearSelection()
+        _selectedSource.value = null
         _novelUrl.value = novelUrl
     }
 
@@ -385,21 +438,6 @@ class NovelViewModel(
     fun selectAllChapters(chapters: List<Chapter>) {
         _selectedChapterIds.value = chapters.map { it.id }.toSet()
         _isSelectionMode.value = true
-    }
-
-    fun toggleSourceSelection(source: String) {
-        val current = _selectedSources.value
-        val updated = if (current.contains(source)) {
-            if (current.size > 1) current - source else current
-        } else {
-            current + source
-        }
-        _selectedSources.value = updated
-        _novelUrl.value?.let { url ->
-            viewModelScope.launch(Dispatchers.IO) {
-                preferenceRepository.saveSourcesForNovel(url, updated)
-            }
-        }
     }
 
     fun markSelectedChaptersRead(isRead: Boolean) {
@@ -537,7 +575,6 @@ class NovelViewModel(
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val sourceUri = storageRepository.relativeToUri(artifact.artifactDestination)
-                ?: runCatching { artifact.artifactDestination.toUri() }.getOrNull()
 
             if (sourceUri == null || !storageRepository.exists(sourceUri)) {
                 artifactRepository.removeArtifact(artifact)

@@ -1,8 +1,11 @@
 package com.halovoid.bunori.ui.feature.novel.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -13,16 +16,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.domain.models.Chapter
-import com.halovoid.bunori.ui.core.components.AppBottomSheet
-import com.halovoid.bunori.ui.core.components.AppBottomSheetDivider
-import com.halovoid.bunori.ui.core.components.AppBottomSheetGroup
 import com.halovoid.bunori.ui.core.theme.*
 import com.halovoid.bunori.ui.feature.novel.ChapterActiveStatuses
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 fun LazyListScope.novelTableOfContents(
     chapters: List<Chapter>,
@@ -34,28 +40,136 @@ fun LazyListScope.novelTableOfContents(
     onReplayChapter: (Chapter) -> Unit,
     onChapterClick: (Chapter) -> Unit,
     onChapterLongClick: (Chapter) -> Unit,
-    onChapterToggleSelect: (Chapter) -> Unit
+    onChapterToggleSelect: (Chapter) -> Unit,
+    onToggleBookmark: (Chapter) -> Unit = {}
 ) {
     items(chapters, key = { it.id }) { chapter ->
         val status = chapterStatuses.getStatus(chapter.id, chapter.url, chapter.sourceUrl)
         val isSelected = selectedChapterIds.contains(chapter.id)
-        ChapterRow(
+        SwipeableBookmarkChapterRow(
             chapter = chapter,
-            onFetchChapter = { onFetchChapter(it) },
-            onDeleteChapter = { onDeleteChapter(it) },
-            onReplayChapter = { onReplayChapter(it) },
-            onChapterClick = { onChapterClick(it) },
-            onChapterLongClick = { onChapterLongClick(it) },
-            onChapterToggleSelect = { onChapterToggleSelect(it) },
-            chapterStatus = status,
             isSelectionMode = isSelectionMode,
-            isSelected = isSelected
-        )
+            onToggleBookmark = onToggleBookmark
+        ) {
+            ChapterRow(
+                chapter = chapter,
+                onFetchChapter = { onFetchChapter(it) },
+                onDeleteChapter = { onDeleteChapter(it) },
+                onReplayChapter = { onReplayChapter(it) },
+                onChapterClick = { onChapterClick(it) },
+                onChapterLongClick = { onChapterLongClick(it) },
+                onChapterToggleSelect = { onChapterToggleSelect(it) },
+                chapterStatus = status,
+                isSelectionMode = isSelectionMode,
+                isSelected = isSelected
+            )
+        }
         HorizontalDivider(
             color = BorderColor.copy(alpha = 0.4f),
             thickness = 0.5.dp,
             modifier = Modifier.padding(horizontal = 24.dp)
         )
+    }
+}
+
+@Composable
+fun SwipeableBookmarkChapterRow(
+    chapter: Chapter,
+    isSelectionMode: Boolean,
+    onToggleBookmark: (Chapter) -> Unit,
+    content: @Composable () -> Unit
+) {
+    if (isSelectionMode) {
+        content()
+        return
+    }
+
+    val density = LocalDensity.current
+    val maxDragPx = with(density) { 96.dp.toPx() }
+    val thresholdPx = with(density) { 64.dp.toPx() }
+    val offsetX = remember(chapter.id) { Animatable(0f) }
+    val coroutineScope = rememberCoroutineScope()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(chapter.id) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        coroutineScope.launch {
+                            if (offsetX.value <= -thresholdPx) {
+                                onToggleBookmark(chapter)
+                            }
+                            offsetX.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                        }
+                    },
+                    onDragCancel = {
+                        coroutineScope.launch {
+                            offsetX.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                        }
+                    },
+                    onHorizontalDrag = { _, dragAmount ->
+                        val newOffset = (offsetX.value + dragAmount).coerceIn(-maxDragPx, 0f)
+                        coroutineScope.launch {
+                            offsetX.snapTo(newOffset)
+                        }
+                    }
+                )
+            }
+    ) {
+        val currentOffset = offsetX.value
+        if (currentOffset < -2f) {
+            val progress = (-currentOffset / thresholdPx).coerceIn(0f, 1f)
+            val isPassedThreshold = -currentOffset >= thresholdPx
+            val bgTint = if (chapter.bookmarked) {
+                Color(0xFFE53935).copy(alpha = if (isPassedThreshold) 0.25f else 0.12f)
+            } else {
+                BrandAccent.copy(alpha = if (isPassedThreshold) 0.25f else 0.12f)
+            }
+            val iconTint = if (chapter.bookmarked) {
+                Color(0xFFEF5350)
+            } else {
+                BrandAccent
+            }
+            val icon = if (chapter.bookmarked) {
+                Icons.Default.BookmarkRemove
+            } else {
+                Icons.Default.BookmarkAdd
+            }
+
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(bgTint),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(end = 24.dp)
+                        .graphicsLayer {
+                            alpha = progress
+                            scaleX = 0.8f + (0.3f * progress)
+                            scaleY = 0.8f + (0.3f * progress)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = if (chapter.bookmarked) "Remove bookmark" else "Bookmark",
+                        tint = iconTint,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+        ) {
+            content()
+        }
     }
 }
 
@@ -98,12 +212,23 @@ fun ChapterRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Chapter ${chapter.index}",
-                color = if (chapter.read) SecondaryText.copy(0.5f) else PrimaryText,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Chapter ${chapter.index}",
+                    color = if (chapter.read) SecondaryText.copy(0.5f) else PrimaryText,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (chapter.bookmarked) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Default.Bookmark,
+                        contentDescription = "Bookmarked",
+                        tint = BrandAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
             val hasTitle = chapter.title.isNotBlank()
             val hasSource = chapter.scanlationSource.isNotBlank() && chapter.scanlationSource != "NotProvided" && chapter.scanlationSource != "Not Provided"
 

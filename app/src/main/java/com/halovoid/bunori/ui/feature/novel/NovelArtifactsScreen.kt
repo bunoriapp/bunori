@@ -40,7 +40,6 @@ sealed interface ArtifactsDialogState {
         val format: ExportFormat,
         val totalSelected: Int,
         val downloadedCount: Int,
-        val selectedSources: Set<String>,
         val missingChapters: List<Chapter>
     ) : ArtifactsDialogState
 }
@@ -59,18 +58,17 @@ fun NovelArtifactsScreen(
         val factory = remember { ViewModelFactory(context.applicationContext as Application) }
         viewModel(factory = factory)
     }
+    if (novel == null) {
+        return
+    }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(novel?.url) {
-        novel?.url?.let { actualViewModel.loadNovel(it) }
+    LaunchedEffect(novel.url) {
+        actualViewModel.loadNovel(novel.url)
     }
 
-    val availableSources by actualViewModel.availableSources.collectAsStateWithLifecycle()
-    val selectedSources by actualViewModel.selectedSources.collectAsStateWithLifecycle()
     val allChapters by actualViewModel.allNovelChapters.collectAsStateWithLifecycle()
-    val chapters by actualViewModel.chapters.collectAsStateWithLifecycle()
-    val chapterRange by actualViewModel.chapterRange.collectAsStateWithLifecycle()
 
     var selectedArtifact by remember { mutableStateOf<Artifact?>(null) }
     var activeDialog by remember { mutableStateOf<ArtifactsDialogState?>(null) }
@@ -193,43 +191,30 @@ fun NovelArtifactsScreen(
         when (val dialog = activeDialog) {
             is ArtifactsDialogState.SelectFormat -> {
                 ArtifactExportDialog(
-                    availableSources = availableSources,
-                    initialSelectedSources = selectedSources,
                     allChapters = allChapters,
-                    crawlerName = novel?.crawlerName ?: "",
                     onDismiss = { activeDialog = null },
-                    onExport = { format, chosenSources ->
-                        val matchingChapters = if (availableSources.isEmpty()) {
-                            allChapters
-                        } else {
-                            allChapters.filter { ch ->
-                                val eff = if (ch.scanlationSource.isBlank() || ch.scanlationSource == "NotProvided" || ch.scanlationSource == "Not Provided") {
-                                    novel?.crawlerName ?: ""
-                                } else {
-                                    ch.scanlationSource
-                                }
-                                chosenSources.contains(ch.scanlationSource) || chosenSources.contains(eff)
-                            }
-                        }
-                        val downloaded = matchingChapters.filter { it.isDownloaded }
-                        val missing = matchingChapters.filter { !it.isDownloaded }
+                    onExport = { format ->
+                        val downloaded = allChapters.filter { it.isDownloaded }
+                        val missing = allChapters.filter { !it.isDownloaded }
+
+                        val start = if (allChapters.isNotEmpty()) allChapters.minOf { it.index } else 0
+                        val end = if (allChapters.isNotEmpty()) allChapters.maxOf { it.index } else 0
 
                         if (downloaded.isEmpty()) {
                             activeDialog = null
                             scope.launch {
-                                snackbarHostState.showSnackbar("No downloaded chapters found for the selected sources. Please download them first.")
+                                snackbarHostState.showSnackbar("No downloaded chapters found. Please download them first.")
                             }
                         } else if (missing.isNotEmpty()) {
                             activeDialog = ArtifactsDialogState.ExportWarning(
                                 format = format,
-                                totalSelected = matchingChapters.size,
+                                totalSelected = allChapters.size,
                                 downloadedCount = downloaded.size,
-                                selectedSources = chosenSources,
                                 missingChapters = missing
                             )
                         } else {
                             activeDialog = null
-                            novel?.let { actualViewModel.startBackgroundExport(it, format, chosenSources) }
+                            actualViewModel.startBackgroundExport(novel, format, emptySet(), start, end)
                             onBack()
                         }
                     }
@@ -241,13 +226,13 @@ fun NovelArtifactsScreen(
                     downloadedCount = dialog.downloadedCount,
                     onDownloadFirst = {
                         activeDialog = null
-                        novel?.let { nov ->
-                            actualViewModel.downloadChapters(nov, dialog.missingChapters)
-                        }
+                        actualViewModel.downloadChapters(novel, dialog.missingChapters)
                     },
                     onExportAnyway = {
                         activeDialog = null
-                        novel?.let { actualViewModel.startBackgroundExport(it, dialog.format, dialog.selectedSources) }
+                        val start = if (allChapters.isNotEmpty()) allChapters.minOf { it.index } else 0
+                        val end = if (allChapters.isNotEmpty()) allChapters.maxOf { it.index } else 0
+                        actualViewModel.startBackgroundExport(novel, dialog.format, emptySet(), start, end)
                         onBack()
                     },
                     onDismiss = {

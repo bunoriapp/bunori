@@ -19,27 +19,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.halovoid.bunori.domain.models.Chapter
 import com.halovoid.bunori.ui.core.theme.*
 
 private enum class ExportDialogView {
     MAIN,
-    SELECT_FORMAT,
-    SELECT_SOURCES
+    SELECT_FORMAT
 }
 
 @Composable
 fun ArtifactExportDialog(
-    availableSources: List<String> = emptyList(),
-    initialSelectedSources: Set<String> = emptySet(),
     allChapters: List<Chapter> = emptyList(),
-    crawlerName: String = "",
     onDismiss: () -> Unit,
-    onExport: (ExportFormat, Set<String>) -> Unit,
+    onExport: (ExportFormat) -> Unit
 ) {
     var activeView by remember {
         mutableStateOf(ExportDialogView.MAIN)
@@ -49,39 +43,13 @@ fun ArtifactExportDialog(
         mutableStateOf(ExportFormat.EPUB)
     }
 
-    var selectedSources by remember(availableSources, initialSelectedSources) {
-        mutableStateOf(
-            if (initialSelectedSources.isNotEmpty()) initialSelectedSources
-            else if (availableSources.isNotEmpty()) availableSources.toSet()
-            else emptySet()
-        )
-    }
-
     var formatSearchQuery by remember { mutableStateOf("") }
-    var sourceSearchQuery by remember { mutableStateOf("") }
 
-    val matchingChapters = remember(allChapters, selectedSources, crawlerName, availableSources) {
-        if (availableSources.isEmpty()) {
-            allChapters
-        } else if (selectedSources.isEmpty()) {
-            emptyList()
-        } else {
-            allChapters.filter { chapter ->
-                val eff = if (chapter.scanlationSource.isBlank() || chapter.scanlationSource == "NotProvided" || chapter.scanlationSource == "Not Provided") {
-                    crawlerName
-                } else {
-                    chapter.scanlationSource
-                }
-                selectedSources.contains(chapter.scanlationSource) || selectedSources.contains(eff)
-            }
-        }
+    val totalCount = allChapters.size
+    val downloadedCount = remember(allChapters) {
+        allChapters.count { it.isDownloaded }
     }
-
-    val totalCount = matchingChapters.size
-    val downloadedCount = remember(matchingChapters) {
-        matchingChapters.count { it.isDownloaded }
-    }
-    val canExport = totalCount > 0 && (availableSources.isEmpty() || selectedSources.isNotEmpty())
+    val canExport = totalCount > 0
 
     when (activeView) {
         ExportDialogView.SELECT_FORMAT -> {
@@ -289,262 +257,6 @@ fun ArtifactExportDialog(
             )
         }
 
-        ExportDialogView.SELECT_SOURCES -> {
-            val filteredSources = remember(availableSources, sourceSearchQuery) {
-                if (sourceSearchQuery.isBlank()) availableSources
-                else availableSources.filter { it.contains(sourceSearchQuery, ignoreCase = true) }
-            }
-
-            AlertDialog(
-                onDismissRequest = {
-                    activeView = ExportDialogView.MAIN
-                    sourceSearchQuery = ""
-                },
-                containerColor = DarkSurface,
-                shape = RoundedCornerShape(16.dp),
-                title = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = {
-                                activeView = ExportDialogView.MAIN
-                                sourceSearchQuery = ""
-                            },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = PrimaryText,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Text(
-                            text = "Select Sources",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryText
-                        )
-
-                        Spacer(modifier = Modifier.weight(1f))
-
-                        Text(
-                            text = "${selectedSources.size}/${availableSources.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = BrandAccent,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                },
-                text = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = sourceSearchQuery,
-                            onValueChange = { sourceSearchQuery = it },
-                            placeholder = {
-                                Text(
-                                    text = "Search sources...",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = SecondaryText
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = SecondaryText,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-                            trailingIcon = {
-                                if (sourceSearchQuery.isNotEmpty()) {
-                                    IconButton(
-                                        onClick = { sourceSearchQuery = "" },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Clear,
-                                            contentDescription = "Clear",
-                                            tint = SecondaryText,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-                            },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = BrandAccent,
-                                unfocusedBorderColor = BorderColor.copy(alpha = 0.3f),
-                                focusedContainerColor = DarkSurfaceVariant.copy(alpha = 0.3f),
-                                unfocusedContainerColor = DarkSurfaceVariant.copy(alpha = 0.2f),
-                                cursorColor = BrandAccent,
-                                focusedTextColor = PrimaryText,
-                                unfocusedTextColor = PrimaryText
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (sourceSearchQuery.isNotBlank()) {
-                                    "Showing ${filteredSources.size} of ${availableSources.size}"
-                                } else {
-                                    "${availableSources.size} sources available"
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SecondaryText
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                TextButton(
-                                    onClick = {
-                                        selectedSources = if (sourceSearchQuery.isBlank()) {
-                                            availableSources.toSet()
-                                        } else {
-                                            selectedSources + filteredSources
-                                        }
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-                                ) {
-                                    Text(
-                                        text = "Select All",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = BrandAccent
-                                    )
-                                }
-                                TextButton(
-                                    onClick = {
-                                        selectedSources = if (sourceSearchQuery.isBlank()) {
-                                            emptySet()
-                                        } else {
-                                            selectedSources - filteredSources.toSet()
-                                        }
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-                                ) {
-                                    Text(
-                                        text = "Clear",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = SecondaryText
-                                    )
-                                }
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = DarkSurfaceVariant.copy(alpha = 0.35f),
-                            border = BorderStroke(0.5.dp, BorderColor.copy(alpha = 0.2f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 240.dp)
-                        ) {
-                            if (filteredSources.isEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(24.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "No sources found",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SecondaryText
-                                    )
-                                }
-                            } else {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .verticalScroll(rememberScrollState())
-                                ) {
-                                    filteredSources.forEachIndexed { index, source ->
-                                        val isSelected = selectedSources.contains(source)
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable {
-                                                    selectedSources = if (isSelected) {
-                                                        selectedSources - source
-                                                    } else {
-                                                        selectedSources + source
-                                                    }
-                                                }
-                                                .padding(horizontal = 14.dp, vertical = 6.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text(
-                                                text = source,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = if (isSelected) PrimaryText else SecondaryText,
-                                                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f, fill = false)
-                                            )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Switch(
-                                                checked = isSelected,
-                                                onCheckedChange = { checked ->
-                                                    selectedSources = if (checked) {
-                                                        selectedSources + source
-                                                    } else {
-                                                        selectedSources - source
-                                                    }
-                                                },
-                                                colors = SwitchDefaults.colors(
-                                                    checkedThumbColor = Color.White,
-                                                    checkedTrackColor = BrandAccent,
-                                                    uncheckedThumbColor = SecondaryText.copy(alpha = 0.6f),
-                                                    uncheckedTrackColor = DarkSurfaceVariant,
-                                                    uncheckedBorderColor = BorderColor.copy(alpha = 0.3f)
-                                                ),
-                                                modifier = Modifier.scale(0.85f)
-                                            )
-                                        }
-                                        if (index < filteredSources.lastIndex) {
-                                            HorizontalDivider(
-                                                color = BorderColor.copy(alpha = 0.15f),
-                                                thickness = 0.5.dp,
-                                                modifier = Modifier.padding(horizontal = 14.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            activeView = ExportDialogView.MAIN
-                            sourceSearchQuery = ""
-                        }
-                    ) {
-                        Text(
-                            text = "Done",
-                            color = BrandAccent,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            )
-        }
-
         ExportDialogView.MAIN -> {
             AlertDialog(
                 onDismissRequest = onDismiss,
@@ -591,7 +303,7 @@ fun ArtifactExportDialog(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // Section 1: Format Selection Card (clean typography, no icons)
+                        // Section 1: Format Selection Card
                         Column {
                             Text(
                                 text = "Format",
@@ -643,85 +355,7 @@ fun ArtifactExportDialog(
                             }
                         }
 
-                        // Section 2: Sources Selection Card (opens source selector with toggles)
-                        if (availableSources.size > 1) {
-                            Column {
-                                Text(
-                                    text = "Sources",
-                                    color = PrimaryText,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(10.dp))
-                                    .clickable { activeView = ExportDialogView.SELECT_SOURCES },
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = DarkSurfaceVariant.copy(alpha = 0.35f),
-                                    border = BorderStroke(0.5.dp, BorderColor.copy(alpha = 0.2f))
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = if (selectedSources.size == availableSources.size) {
-                                                    "All Sources (${availableSources.size})"
-                                                } else if (selectedSources.isEmpty()) {
-                                                    "No Sources Selected"
-                                                } else {
-                                                    "${selectedSources.size} of ${availableSources.size} Sources"
-                                                },
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Medium,
-                                                color = PrimaryText,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = "Tap to choose sources",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = SecondaryText
-                                            )
-                                        }
-                                        Icon(
-                                            imageVector = Icons.Default.ChevronRight,
-                                            contentDescription = "Choose sources",
-                                            tint = SecondaryText.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        } else if (availableSources.size == 1) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Source: ",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = SecondaryText
-                                )
-                                Text(
-                                    text = availableSources.first(),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = PrimaryText,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-
-                        // Section 3: Summary Chapter Status Row
+                        // Section 2: Summary Chapter Status Row
                         HorizontalDivider(
                             color = BorderColor.copy(alpha = 0.15f),
                             thickness = 0.5.dp
@@ -734,9 +368,9 @@ fun ArtifactExportDialog(
                         ) {
                             Text(
                                 text = when {
-                                    totalCount == 0 -> if (selectedSources.isEmpty() && availableSources.isNotEmpty()) "No sources selected" else "No chapters available"
-                                    totalCount == 1 -> "1 chapter selected"
-                                    else -> "$totalCount chapters selected"
+                                    totalCount == 0 -> "No chapters available"
+                                    totalCount == 1 -> "1 chapter total"
+                                    else -> "$totalCount chapters total"
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (totalCount == 0) SecondaryText else PrimaryText,
@@ -757,10 +391,7 @@ fun ArtifactExportDialog(
                 },
                 confirmButton = {
                     TextButton(
-                        onClick = {
-                            val finalSources = if (availableSources.isEmpty()) emptySet() else selectedSources
-                            onExport(selectedFormat, finalSources)
-                        },
+                        onClick = { onExport(selectedFormat) },
                         enabled = canExport
                     ) {
                         Text(
@@ -782,20 +413,4 @@ fun ArtifactExportDialog(
             )
         }
     }
-}
-
-// Overload for backward compatibility
-@Composable
-fun ArtifactExportDialog(
-    onDismiss: () -> Unit,
-    onExport: (ExportFormat) -> Unit,
-) {
-    ArtifactExportDialog(
-        availableSources = emptyList(),
-        initialSelectedSources = emptySet(),
-        allChapters = emptyList(),
-        crawlerName = "",
-        onDismiss = onDismiss,
-        onExport = { format, _ -> onExport(format) }
-    )
 }

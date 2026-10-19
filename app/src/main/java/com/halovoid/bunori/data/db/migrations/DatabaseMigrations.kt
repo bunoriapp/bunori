@@ -18,6 +18,12 @@ object DatabaseMigrations {
         }
     }
 
+    val Migration_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE chapters ADD COLUMN bookmarked INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     val SANITIZE_CALLBACK = object : RoomDatabase.Callback() {
         override fun onOpen(db: SupportSQLiteDatabase) {
             super.onOpen(db)

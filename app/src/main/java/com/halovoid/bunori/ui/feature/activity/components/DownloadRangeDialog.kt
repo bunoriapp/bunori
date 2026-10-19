@@ -26,7 +26,7 @@ fun DownloadRangeDialog(
     initialRange: ClosedFloatingPointRange<Float>,
     minChapterIndex: Float = 1f,
     maxChapterIndex: Float,
-    sources: List<String> = emptyList(),
+    source: String?,
     onConfirm: (ClosedFloatingPointRange<Float>) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -177,7 +177,7 @@ fun DownloadRangeDialog(
                     }
                 }
 
-                if (sources.isNotEmpty()) {
+                if (source != null) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Surface(
                         color = DarkSurfaceVariant.copy(alpha = 0.5f),
@@ -197,12 +197,12 @@ fun DownloadRangeDialog(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "Downloading from ${sources.size} ${if (sources.size == 1) "source" else "sources"}:",
+                                    text = "Downloading from $source",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = SecondaryText
                                 )
                                 Text(
-                                    text = if (sources.size <= 2) sources.joinToString(", ") else "${sources.take(2).joinToString(", ")}, ...",
+                                    text = source,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = PrimaryText,
                                     maxLines = 1,
