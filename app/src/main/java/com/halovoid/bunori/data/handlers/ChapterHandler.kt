@@ -37,12 +37,15 @@ class ChapterHandler(
             return JobResult.Failure(Exception("Chapter not found for ID: $chapterId", e))
         }
 
-        val crawlerName = metadata.crawlerName
-            ?: chapter.scanlationSource.takeIf { it.isNotBlank() && it != "NotProvided" && it != "Not Provided" }
+        val chapterSource = chapter.scanlationSource.takeIf {
+            it.isNotBlank() && it != "NotProvided" && it != "Not Provided"
+        }
+        val crawlerName = chapterSource
+            ?: metadata.crawlerName
             ?: return JobResult.Failure(Exception("No Crawler Found"))
 
         val crawler = crawlerFactory.getCrawler(crawlerName)
-            ?: crawlerFactory.getCrawler(chapter.scanlationSource)
+            ?: metadata.crawlerName?.let { crawlerFactory.getCrawler(it) }
             ?: return JobResult.Failure(Exception("No Crawler Found for name: $crawlerName"))
 
         val novel = novelRepository.getNovelByUrl(chapter.novelUrl)

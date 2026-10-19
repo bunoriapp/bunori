@@ -326,6 +326,19 @@ class NovelViewModel(
         }
 
         viewModelScope.launch {
+            _selectedSource.collect {
+                val currentChapters = chapters.value
+                if (currentChapters.isNotEmpty()) {
+                    val minIndex = currentChapters.minOf { it.index }.toFloat()
+                    val maxIndex = currentChapters.maxOf { it.index }.toFloat()
+                    _chapterRange.value = minIndex..maxIndex
+                } else {
+                    _chapterRange.value = 1f..1f
+                }
+            }
+        }
+
+        viewModelScope.launch {
             chapters.collect { filteredChapters ->
                 if (filteredChapters.isNotEmpty()) {
                     val minIndex = filteredChapters.minOf { it.index }.toFloat()
@@ -359,6 +372,7 @@ class NovelViewModel(
         val currIdx = sources.indexOf(current).let { if (it == -1) 0 else it }
         val nextIdx = (currIdx + 1) % sources.size
         _selectedSource.value = sources[nextIdx]
+        _chapterRange.value = 1f..1f
     }
 
     fun prevSource() {
@@ -368,11 +382,13 @@ class NovelViewModel(
         val currIdx = sources.indexOf(current).let { if (it == -1) 0 else it }
         val prevIdx = (currIdx - 1 + sources.size) % sources.size
         _selectedSource.value = sources[prevIdx]
+        _chapterRange.value = 1f..1f
     }
 
     fun loadNovel(novelUrl: String) {
         clearSelection()
         _selectedSource.value = null
+        _chapterRange.value = 1f..1f
         _novelUrl.value = novelUrl
     }
 
@@ -509,19 +525,11 @@ class NovelViewModel(
     }
 
     fun fetchRange(novel: Novel) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val start = _chapterRange.value.start.toInt()
-            val end = _chapterRange.value.endInclusive.toInt()
-            val chapters = chapterRepository.getChaptersByNovelUrl(novel.url)
-            val rangeChapters = chapters.filter { it.index in start .. end }
-
-            val batch = jobFactory.createRangeDownloadBatch(novel, start, end)
-            val tasks = jobFactory.createChapterTasks(batch.id, novel.crawlerName, rangeChapters, batch.priority)
-
-            batchRepository.insertBatch(batch)
-            batchRepository.insertTasks(tasks)
-            SchedulerService.startService(application)
-        }
+        val start = _chapterRange.value.start.toInt()
+        val end = _chapterRange.value.endInclusive.toInt()
+        val currentChapters = chapters.value
+        val rangeChapters = currentChapters.filter { it.index in start..end }
+        downloadChapters(novel, rangeChapters)
     }
 
     fun fetchChapter(novel: Novel, chapter: Chapter) {

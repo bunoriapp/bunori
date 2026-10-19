@@ -391,8 +391,15 @@ fun NovelScreen(
                 is NovelDialogState.DownloadRange -> {
                     val minIndex = chapters.minOfOrNull { it.index.toFloat() } ?: 1f
                     val maxIndex = chapters.maxOfOrNull { it.index.toFloat() } ?: currentNovel.chapters.size.toFloat().coerceAtLeast(1f)
+                    val effectiveInitialRange = chapterRange.let {
+                        if (it.start < minIndex || it.endInclusive > maxIndex || (it.start == 1f && it.endInclusive == 1f)) {
+                            minIndex..maxIndex
+                        } else {
+                            it
+                        }
+                    }
                     DownloadRangeDialog(
-                        initialRange = chapterRange,
+                        initialRange = effectiveInitialRange,
                         minChapterIndex = minIndex,
                         maxChapterIndex = maxIndex,
                         source = selectedSource,

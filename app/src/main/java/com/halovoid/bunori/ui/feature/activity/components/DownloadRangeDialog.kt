@@ -30,7 +30,7 @@ fun DownloadRangeDialog(
     onConfirm: (ClosedFloatingPointRange<Float>) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var currentRange by remember { mutableStateOf(initialRange) }
+    var currentRange by remember(initialRange, minChapterIndex, maxChapterIndex) { mutableStateOf(initialRange) }
     val rangeSpan = (maxChapterIndex - minChapterIndex).toInt()
     val steps = if (rangeSpan > 1) rangeSpan - 1 else 0
     val selectedCount = (currentRange.endInclusive - currentRange.start).toInt() + 1
