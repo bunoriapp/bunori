@@ -89,16 +89,18 @@ fun SwipeableBookmarkChapterRow(
     val thresholdPx = with(density) { 64.dp.toPx() }
     val offsetX = remember(chapter.id) { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
+    val currentChapter by rememberUpdatedState(chapter)
+    val currentOnToggleBookmark by rememberUpdatedState(onToggleBookmark)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .pointerInput(chapter.id) {
+            .pointerInput(chapter.id, chapter.bookmarked) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
                         coroutineScope.launch {
                             if (offsetX.value <= -thresholdPx) {
-                                onToggleBookmark(chapter)
+                                currentOnToggleBookmark(currentChapter)
                             }
                             offsetX.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
                         }

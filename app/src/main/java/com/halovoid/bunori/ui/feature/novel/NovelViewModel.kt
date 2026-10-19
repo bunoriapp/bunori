@@ -340,7 +340,7 @@ class NovelViewModel(
     }
     fun toggleBookmark(chapter: Chapter) {
         viewModelScope.launch(Dispatchers.IO) {
-            chapterRepository.updateChapterBookmarkStatus(chapter.id, !chapter.bookmarked)
+            chapterRepository.toggleChapterBookmark(chapter.id)
         }
     }
     fun bookmarkSelectedChapters(bookmarked: Boolean) {
@@ -349,16 +349,6 @@ class NovelViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             chapterRepository.updateChaptersBookmarkStatus(ids, bookmarked)
             clearSelection()
-        }
-    }
-    fun selectSource(source: String) {
-        _selectedSource.value = source
-    }
-
-    fun selectSourceIndex(index: Int) {
-        val sources = availableSources.value
-        if (index in sources.indices) {
-            _selectedSource.value = sources[index]
         }
     }
 

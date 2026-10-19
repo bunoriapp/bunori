@@ -25,6 +25,9 @@ interface ChapterDao {
     @Query("UPDATE chapters SET bookmarked = :bookmarked WHERE id = :chapterId")
     suspend fun updateChapterBookmarkStatus(chapterId: Int, bookmarked: Boolean)
 
+    @Query("UPDATE chapters SET bookmarked = NOT bookmarked WHERE id = :chapterId")
+    suspend fun toggleChapterBookmark(chapterId: Int)
+
     @Query("UPDATE chapters SET bookmarked = :bookmarked WHERE id IN (:chapterIds)")
     suspend fun updateChaptersBookmarkStatus(chapterIds: List<Int>, bookmarked: Boolean)
 

@@ -22,6 +22,7 @@ interface ChapterRepository {
     suspend fun updateChapterReadStatus(chapterId: Int, isRead: Boolean)
     suspend fun updateChaptersReadStatus(chapterIds: List<Int>, isRead: Boolean)
     suspend fun updateChapterBookmarkStatus(chapterId: Int, bookmarked: Boolean)
+    suspend fun toggleChapterBookmark(chapterId: Int)
     suspend fun updateChaptersBookmarkStatus(chapterIds: List<Int>, bookmarked: Boolean)
 
     companion object {
@@ -76,6 +77,10 @@ class ChapterRepositoryImpl private constructor(context: Context) : ChapterRepos
 
     override suspend fun updateChapterBookmarkStatus(chapterId: Int, bookmarked: Boolean) {
         chapterDao.updateChapterBookmarkStatus(chapterId, bookmarked)
+    }
+
+    override suspend fun toggleChapterBookmark(chapterId: Int) {
+        chapterDao.toggleChapterBookmark(chapterId)
     }
 
     override suspend fun updateChaptersBookmarkStatus(chapterIds: List<Int>, bookmarked: Boolean) {
