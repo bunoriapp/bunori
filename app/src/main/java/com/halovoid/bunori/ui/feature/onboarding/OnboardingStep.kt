@@ -140,7 +140,7 @@ fun OnboardingStep(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .then(scrollModifier)
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (!title.isNullOrBlank()) {
@@ -149,7 +149,8 @@ fun OnboardingStep(
                     style = MaterialTheme.typography.headlineMedium,
                     color = PrimaryText,
                     fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
                 )
             }
             
@@ -161,7 +162,7 @@ fun OnboardingStep(
                     color = SecondaryText,
                     textAlign = TextAlign.Center,
                     lineHeight = 20.sp,
-                    modifier = Modifier.padding(horizontal = 8.dp)
+                    modifier = Modifier.padding(horizontal = 32.dp)
                 )
             }
             

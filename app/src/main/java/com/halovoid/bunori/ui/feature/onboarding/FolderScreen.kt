@@ -52,7 +52,7 @@ fun FolderScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
+                .padding(start = 24.dp, top = 8.dp, end = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Clickable Folder Selection Box

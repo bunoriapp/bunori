@@ -75,7 +75,9 @@ fun ThemeOnboardingScreen(
                 appTheme = currentTheme,
                 isEffectiveDark = isEffectiveDark,
                 isAmoled = isAmoledMode && isEffectiveDark,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
             )
 
             // Theme Mode Selector
@@ -83,13 +85,16 @@ fun ThemeOnboardingScreen(
                 text = "Theme Mode",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = PrimaryText
+                color = PrimaryText,
+                modifier = Modifier.padding(horizontal = 24.dp)
             )
 
             OnboardingThemeModeSelector(
                 selectedMode = themeMode,
                 onModeSelected = { viewModel.setThemeMode(it) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
             )
 
             // Color Palette Header
@@ -97,13 +102,16 @@ fun ThemeOnboardingScreen(
                 text = "Color Palette",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = PrimaryText
+                color = PrimaryText,
+                modifier = Modifier.padding(horizontal = 24.dp)
             )
 
             // Color Palettes Grid
             themePairs.forEach { pair ->
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OnboardingThemeCard(
@@ -137,7 +145,7 @@ fun ThemeOnboardingScreen(
                     .clickable(enabled = isEffectiveDark) {
                         viewModel.setAmoledMode(!isAmoledMode)
                     }
-                    .padding(vertical = 8.dp),
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {

@@ -33,7 +33,9 @@ fun WelcomeScreen(
         // Column, which never actually capped the width because
         // fillMaxSize() locks minWidth == maxWidth before widthIn() runs.)
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp),
             contentAlignment = Alignment.TopCenter
         ) {
             Column(
