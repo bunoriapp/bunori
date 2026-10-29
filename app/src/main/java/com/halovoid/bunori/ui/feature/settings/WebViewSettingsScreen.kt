@@ -229,7 +229,7 @@ fun WebViewSettingsScreen(
                                 },
                                 contentPadding = PaddingValues(0.dp)
                             ) {
-                                Text("Reset to Default (Firefox Desktop)", color = BrandAccent)
+                                Text("Reset to Default (Firefox Mobile)", color = BrandAccent)
                             }
                         }
                     },

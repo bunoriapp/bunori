@@ -394,14 +394,23 @@ class SourceSearchViewModel(
                 }
 
                 searchPage = nextPage
-                searchCache.addAll(items)
-                val hasMore = items.isNotEmpty()
-                searchHasMore = hasMore
+                val newItems = items.filterNot { item ->
+                    searchCache.any { cached -> cached.url == item.url }
+                }
+                if (newItems.isEmpty()) {
+                    // The source either has no more results or ignores the page
+                    // parameter and repeats the first page; stop paginating so
+                    // the grid is not flooded with duplicate cards.
+                    searchHasMore = false
+                } else {
+                    searchCache.addAll(newItems)
+                    searchHasMore = true
+                }
 
                 _uiState.value = currentState.copy(
                     novels = searchCache.toList(),
                     isLoadingMore = false,
-                    hasMore = hasMore
+                    hasMore = searchHasMore
                 )
             } catch (e: Exception) {
                 Logger.e("SourceSearchViewModel : Failed to load next search page: ${e.message}", e)

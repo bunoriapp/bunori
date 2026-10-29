@@ -39,7 +39,7 @@ object NetworkClient {
         cache = Cache(cacheDirectory, cacheSize)
     }
 
-    const val DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:155.0) Gecko/20100101 Firefox/155.0"
+    const val DEFAULT_USER_AGENT = "Mozilla/5.0 (Android; Mobile; rv:155.0) Gecko/155.0 Firefox/155.0"
 
     @Volatile
     var currentUserAgent: String = DEFAULT_USER_AGENT

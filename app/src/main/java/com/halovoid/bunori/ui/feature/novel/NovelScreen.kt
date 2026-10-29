@@ -112,6 +112,10 @@ fun NovelScreen(
     val selectedSource by viewModel.selectedSource.collectAsStateWithLifecycle()
     val availableSources by viewModel.availableSources.collectAsStateWithLifecycle()
 
+    val hasDownloadedSelection = remember(chapters, selectedChapterIds) {
+        chapters.any { it.id in selectedChapterIds && it.isDownloaded }
+    }
+
     BackHandler(enabled = isSelectionMode) {
         viewModel.clearSelection()
     }
@@ -213,6 +217,7 @@ fun NovelScreen(
                         title = "Delete",
                         icon = Icons.Outlined.DeleteSweep,
                         isDestructive = true,
+                        enabled = hasDownloadedSelection,
                         onClick = {
                             activeDialog = NovelDialogState.ConfirmDeleteSelectedChapters
                         }
