@@ -3,7 +3,7 @@ package com.halovoid.bunori.api.core.network
 import android.content.Context
 import android.util.Log
 import android.webkit.CookieManager
-import com.halovoid.bunori.data.repository.PreferenceRepository
+import com.halovoid.bunori.api.core.network.interceptor.CloudflareInterceptor
 import okhttp3.Cache
 import okhttp3.Dns
 import okhttp3.OkHttpClient
@@ -11,6 +11,7 @@ import okhttp3.Response
 import okio.Buffer
 import java.io.File
 import java.net.Inet4Address
+import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
@@ -19,7 +20,7 @@ object NetworkClient {
     private var cache: Cache? = null
 
     val fastDns: Dns = object : Dns {
-        override fun lookup(hostname: String): List<java.net.InetAddress> {
+        override fun lookup(hostname: String): List<InetAddress> {
             return try {
                 Dns.SYSTEM.lookup(hostname).sortedBy { if (it is Inet4Address) 0 else 1 }
             } catch (_: Exception) {
@@ -65,7 +66,7 @@ object NetworkClient {
             }
 
         appContext?.let { ctx ->
-            builder.addInterceptor(com.halovoid.bunori.api.core.network.interceptor.CloudflareInterceptor(ctx, cookieJar) { currentUserAgent })
+            builder.addInterceptor(CloudflareInterceptor(ctx, cookieJar) { currentUserAgent })
         }
 
         builder

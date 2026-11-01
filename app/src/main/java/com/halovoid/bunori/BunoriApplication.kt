@@ -22,6 +22,7 @@ class BunoriApplication : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
+            .okHttpClient { NetworkClient.okHttpClient }
             .components {
                 add(BunoriStorageFetcher.Factory(this@BunoriApplication))
             }
