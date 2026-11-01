@@ -53,10 +53,15 @@ object NetworkClient {
             .readTimeout(30, TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
-                val request = originalRequest.newBuilder()
+                val brequest = originalRequest.newBuilder()
                     .header("User-Agent", currentUserAgent)
-                    .build()
-                chain.proceed(request)
+                if (originalRequest.header("Accept-Language") == null) {
+                    brequest.header("Accept-Language", "en-US,en;q=0.9")
+                }
+                if (originalRequest.header("Accept") == null) {
+                    brequest.header("Accept", "application/json, text/plain, */*")
+                }
+                chain.proceed(brequest.build())
             }
 
         appContext?.let { ctx ->
