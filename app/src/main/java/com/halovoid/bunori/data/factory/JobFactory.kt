@@ -112,7 +112,7 @@ class JobFactory {
             id = "${novel.url}_chapter_${chapter.index}_${chapter.id}",
             type = JobType.CHAPTER,
             priority = 10,
-            name = "Chapter: ${chapter.title}",
+            name = "Chapter: ${chapter.index}",
             status = JobStatus.PENDING,
             metadata = metadata,
             novelUrl = novel.url
@@ -121,13 +121,9 @@ class JobFactory {
 
     fun createChapterTasks(batchId: String, crawlerName: String, chapters: List<Chapter>, priority: Int = 0): List<TaskEntity> {
         return chapters.map { chapter ->
-            val effectiveCrawler = chapter.scanlationSource.takeIf {
-                it.isNotBlank() && it != "Not Provided" && it != "NotProvided"
-            } ?: crawlerName
-
             val taskMetadata = JSONObject().apply {
                 put("chapterId", chapter.id)
-                put("crawlerName", effectiveCrawler)
+                put("crawlerName", crawlerName)
             }.toString()
 
             val effectiveUrl = chapter.sourceUrl?.takeIf { it.isNotBlank() } ?: chapter.url

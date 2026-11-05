@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -123,20 +124,12 @@ fun SwipeableBookmarkChapterRow(
         if (currentOffset < -2f) {
             val progress = (-currentOffset / thresholdPx).coerceIn(0f, 1f)
             val isPassedThreshold = -currentOffset >= thresholdPx
-            val bgTint = if (chapter.bookmarked) {
-                Color(0xFFE53935).copy(alpha = if (isPassedThreshold) 0.25f else 0.12f)
-            } else {
-                BrandAccent.copy(alpha = if (isPassedThreshold) 0.25f else 0.12f)
-            }
-            val iconTint = if (chapter.bookmarked) {
-                Color(0xFFEF5350)
-            } else {
-                BrandAccent
-            }
+            val bgTint = Color.White.copy(alpha = if (isPassedThreshold) 0.16f else 0.08f)
+            val iconTint = Color.White
             val icon = if (chapter.bookmarked) {
-                Icons.Default.BookmarkRemove
+                Icons.Outlined.BookmarkBorder
             } else {
-                Icons.Default.BookmarkAdd
+                Icons.Default.Bookmark
             }
 
             Box(
@@ -226,7 +219,7 @@ fun ChapterRow(
                     Icon(
                         imageVector = Icons.Default.Bookmark,
                         contentDescription = "Bookmarked",
-                        tint = BrandAccent,
+                        tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )
                 }
