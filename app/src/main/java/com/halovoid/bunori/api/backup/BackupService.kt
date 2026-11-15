@@ -7,6 +7,7 @@ import com.halovoid.bunori.data.repository.StorageTree
 import com.halovoid.bunori.data.scheduler.jobs.MaintenanceActivity
 import com.halovoid.bunori.data.scheduler.jobs.MaintenanceScheduler
 import com.halovoid.bunori.data.scheduler.jobs.JobResult
+import com.halovoid.bunori.data.scheduler.notification.IndexNotificationManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -36,12 +37,18 @@ class BackupService(
             return@withContext JobResult.Failure(Exception("Another maintenance activity is currently in progress (${MaintenanceScheduler.currentActivity.value})"))
         }
 
+        val notifManager = IndexNotificationManager(context)
+        notifManager.showProgress("Creating Backup", "Preparing files...", isIndeterminate = true)
+
         try {
             val timestamp = System.currentTimeMillis()
             val fileName = "backup.lnbak"
 
             val backupDirUri = storRepo.ensureDirectory("backup")
-                ?: return@withContext JobResult.Failure(Exception("Failed to ensure backup directory"))
+                ?: run {
+                    notifManager.showCompletion("Backup Failed", "Failed to access backup folder")
+                    return@withContext JobResult.Failure(Exception("Failed to ensure backup directory"))
+                }
 
             // 1. Fetch trees for novels and artifacts
             val novelsUri = storRepo.relativeToUri("novels")
@@ -71,21 +78,33 @@ class BackupService(
             totalItems += datastoreFiles.size
 
             var currentItem = 0
+            fun report(step: String) {
+                currentItem++
+                onProgress(currentItem, totalItems, step)
+                if (currentItem % 5 == 0 || currentItem == totalItems) {
+                    notifManager.showProgress("Creating Backup", step, current = currentItem, max = totalItems)
+                }
+            }
 
             // 3. Create destination file on storage
             val destUri = storRepo.createFile(backupDirUri, fileName, "application/octet-stream", ByteArray(0))
-                ?: return@withContext JobResult.Failure(Exception("Failed to create backup file"))
+                ?: run {
+                    notifManager.showCompletion("Backup Failed", "Failed to create backup file")
+                    return@withContext JobResult.Failure(Exception("Failed to create backup file"))
+                }
 
             val outputStream = storRepo.openOutputStream(destUri)
-                ?: return@withContext JobResult.Failure(Exception("Failed to open output stream"))
+                ?: run {
+                    notifManager.showCompletion("Backup Failed", "Failed to open output stream")
+                    return@withContext JobResult.Failure(Exception("Failed to open output stream"))
+                }
 
             outputStream.buffered(65536).use { bufferedStream ->
                 ZipOutputStream(bufferedStream).use { zos ->
                     zos.setLevel(Deflater.BEST_SPEED)
 
                     // Write manifest.json
-                    currentItem++
-                    onProgress(currentItem, totalItems, "Creating backup manifest...")
+                    report("Creating backup manifest...")
                     val backupItems = JSONArray()
                     if (backupDatabase) backupItems.put("database")
                     if (novelsTree != null) backupItems.put("novels")
@@ -105,8 +124,7 @@ class BackupService(
 
                     // Write database.db
                     if (backupDatabase) {
-                        currentItem++
-                        onProgress(currentItem, totalItems, "Backing up database...")
+                        report("Backing up database...")
                         try {
                             AppDatabase.getDatabase(context).openHelper.writableDatabase
                                 .query("PRAGMA wal_checkpoint(FULL)").use { it.moveToFirst() }
@@ -132,8 +150,7 @@ class BackupService(
                             backupChapters = backupChapters,
                             backupCovers = backupCovers
                         ) { path ->
-                            currentItem++
-                            onProgress(currentItem, totalItems, "Backing up: $path")
+                            report("Backing up: $path")
                         }
                     }
 
@@ -147,16 +164,14 @@ class BackupService(
                             backupChapters = true,
                             backupCovers = true
                         ) { path ->
-                            currentItem++
-                            onProgress(currentItem, totalItems, "Backing up: $path")
+                            report("Backing up: $path")
                         }
                     }
 
                     // Write settings datastore
                     for (file in datastoreFiles) {
-                        currentItem++
                         val relPath = "datastore/${file.relativeTo(datastoreDir).path}"
-                        onProgress(currentItem, totalItems, "Backing up settings: ${file.name}")
+                        report("Backing up settings: ${file.name}")
                         zos.putNextEntry(ZipEntry(relPath))
                         file.inputStream().buffered(65536).use { input ->
                             input.copyTo(zos, 65536)
@@ -188,10 +203,13 @@ class BackupService(
                 metaFile.writeText(metaJson.toString())
             } catch (_: Exception) {}
 
+            notifManager.showCompletion("Backup Completed", "Backup saved to backup/backup.lnbak")
             JobResult.Success
         } catch (e: Exception) {
+            notifManager.showCompletion("Backup Failed", e.message ?: "Unknown error")
             JobResult.Failure(e)
         } finally {
+            notifManager.dismissProgress()
             MaintenanceScheduler.release(MaintenanceActivity.BACKUP)
         }
     }

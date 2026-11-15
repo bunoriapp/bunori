@@ -9,6 +9,7 @@ import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.data.scheduler.jobs.MaintenanceActivity
 import com.halovoid.bunori.data.scheduler.jobs.MaintenanceScheduler
+import com.halovoid.bunori.data.scheduler.notification.IndexNotificationManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
@@ -28,6 +29,9 @@ class RestoreService(
             return@withContext false
         }
 
+        val notifManager = IndexNotificationManager(context)
+        notifManager.showProgress("Restoring Backup", "Scanning archive...", isIndeterminate = true)
+
         val prefRepo = PreferenceRepository.getInstance(context)
 
         // Preserve export folder and onboarding settings
@@ -44,7 +48,10 @@ class RestoreService(
         // 1. First pass: count total entries for the progress bar
         var totalEntries = 0
         try {
-            val countStream = context.contentResolver.openInputStream(uri) ?: return@withContext false
+            val countStream = context.contentResolver.openInputStream(uri) ?: run {
+                notifManager.showCompletion("Restore Failed", "Cannot open backup file")
+                return@withContext false
+            }
             ZipInputStream(countStream.buffered(65536)).use { zis ->
                 var entry = zis.nextEntry
                 while (entry != null) {
@@ -60,12 +67,21 @@ class RestoreService(
         }
 
         var currentEntry = 0
+        fun report(step: String) {
+            onProgress(currentEntry, totalEntries, step)
+            if (currentEntry % 5 == 0 || currentEntry == totalEntries) {
+                notifManager.showProgress("Restoring Backup", step, current = currentEntry, max = totalEntries)
+            }
+        }
 
         // 2. Second pass: extract files
         try {
             AppDatabase.closeAndResetDatabase()
 
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext false
+            val inputStream = context.contentResolver.openInputStream(uri) ?: run {
+                notifManager.showCompletion("Restore Failed", "Cannot open backup file")
+                return@withContext false
+            }
             ZipInputStream(inputStream.buffered(65536)).use { zis ->
                 var entry = zis.nextEntry
 
@@ -80,14 +96,14 @@ class RestoreService(
                     currentEntry++
 
                     if (entryName == "database.db") {
-                        onProgress(currentEntry, totalEntries, "Restoring database...")
+                        report("Restoring database...")
                         tempDbFile = File(context.cacheDir, "restore_temp_db.db")
                         tempDbFile.outputStream().buffered(65536).use { out ->
                             zis.copyTo(out, 65536)
                         }
                     } else if (entryName.startsWith("datastore/")) {
                         val fileName = entryName.substringAfterLast('/')
-                        onProgress(currentEntry, totalEntries, "Restoring settings: $fileName")
+                        report("Restoring settings: $fileName")
                         val targetFile = File(context.filesDir, entryName)
                         val parent = targetFile.parentFile
                         if (parent != null) parent.mkdirs()
@@ -97,7 +113,7 @@ class RestoreService(
                     } else if (entryName.startsWith("novels/") || entryName.startsWith("artifacts/")) {
                         val relDir = entryName.substringBeforeLast('/', "")
                         val fileName = entryName.substringAfterLast('/')
-                        onProgress(currentEntry, totalEntries, "Restoring file: $fileName")
+                        report("Restoring file: $fileName")
 
                         val mimeType = when {
                             fileName.endsWith(".gz", true) -> "application/gzip"
@@ -132,7 +148,7 @@ class RestoreService(
 
             // 3. Restore Database File
             if (tempDbFile != null && tempDbFile.exists()) {
-                onProgress(currentEntry, totalEntries, "Applying restored database...")
+                report("Applying restored database...")
                 val targetDbFile = context.getDatabasePath("bunori.db")
                 val parent = targetDbFile.parentFile
                 if (parent != null) parent.mkdirs()
@@ -179,17 +195,21 @@ class RestoreService(
             } catch (_: Exception) {}
 
             // 6. Synchronize Room downloads table from metadata manifests
-            onProgress(currentEntry, totalEntries, "Syncing database with restored downloads...")
+            report("Syncing database with restored downloads...")
             StorageIndexManager.getInstance(context).reIndex { current, total, novelName ->
                 onProgress(currentEntry, totalEntries, "Restoring to DB: $novelName ($current/$total)")
+                notifManager.showProgress("Restoring Backup", "Restoring to DB: $novelName ($current/$total)", current = current, max = total)
             }
 
             AppDatabase.closeAndResetDatabase()
+            notifManager.showCompletion("Restore Completed", "Backup restored successfully. Please restart the app.")
             true
         } catch (e: Exception) {
+            notifManager.showCompletion("Restore Failed", "Failed to restore backup.")
             tempDbFile?.delete()
             false
         } finally {
+            notifManager.dismissProgress()
             MaintenanceScheduler.release(MaintenanceActivity.RESTORE)
         }
     }
