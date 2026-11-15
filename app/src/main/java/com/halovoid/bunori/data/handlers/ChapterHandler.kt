@@ -6,6 +6,7 @@ import com.halovoid.bunori.api.core.crawler.CrawlerFactory
 import com.halovoid.bunori.api.core.network.interceptor.CloudflareBypassException
 import com.halovoid.bunori.data.db.entities.TaskEntity
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
+import com.halovoid.bunori.data.indexing.StorageIndexManager
 import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.DownloadRepository
 import com.halovoid.bunori.data.repository.NovelRepository
@@ -24,7 +25,8 @@ class ChapterHandler(
     private val storageRepository: StorageRepository,
     private val crawlerFactory: CrawlerFactory,
     private val downloadRepository: DownloadRepository,
-    private val novelRepository: NovelRepository
+    private val novelRepository: NovelRepository,
+    private val storageIndexManager: StorageIndexManager? = null
 ) : JobHandler {
     override suspend fun handle(task: TaskEntity): JobResult {
         val metadata = task.parsedMetadata
@@ -115,6 +117,18 @@ class ChapterHandler(
                 )
             )
 
+            try {
+                storageIndexManager?.recordDownload(
+                    novelUrl = chapter.novelUrl,
+                    novelTitle = novelTitle,
+                    crawlerName = crawlerName,
+                    chapter = chapter,
+                    fileLocation = fileLocation
+                )
+            } catch (ex: Exception) {
+                Logger.e("ChapterHandler: Failed to record download in storage index", ex)
+            }
+
             JobResult.Success
         } catch (e: Exception) {
             val isCloudflare = crawler.webviewNeeded == true || 
@@ -150,11 +164,17 @@ class ChapterHandler(
 
         val targetDirUri = storageRepository.ensureDirectory(relativeDir) ?: throw IllegalStateException("Failed to ensure directory : $relativeDir");
 
+        val escapedUrl = chapter.url.replace("\"", "\\\"")
+        val escapedNovelUrl = chapter.novelUrl.replace("\"", "\\\"")
+        val escapedSource = (chapter.scanlationSource.ifBlank { crawler.name }).replace("\"", "\\\"")
+        val metaHeader = "<!--bunori:{\"url\":\"$escapedUrl\",\"idx\":${chapter.index},\"novelUrl\":\"$escapedNovelUrl\",\"source\":\"$escapedSource\"}-->\n"
+        val contentWithHeader = metaHeader + chapterContent
+
         storageRepository.createFile(
             parentUri = targetDirUri,
             name = fileName,
             mime = "application/gzip",
-            data = chapterContent.gzip()
+            data = contentWithHeader.gzip()
         ) ?: throw IllegalStateException("Failed to create file: $fileName")
 
         return "$relativeDir/$fileName"

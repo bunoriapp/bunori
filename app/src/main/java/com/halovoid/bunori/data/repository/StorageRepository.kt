@@ -23,6 +23,38 @@ data class StorageFileInfo(
     val isDirectory: Boolean
 )
 
+data class StorageTree(
+    val info: StorageFileInfo,
+    val children: List<StorageTree> = emptyList()
+) {
+    val isDirectory: Boolean get() = info.isDirectory
+    val name: String get() = info.name
+    val uri: Uri get() = info.uri
+
+    fun findChild(childName: String): StorageTree? {
+        for (child in children) {
+            if (child.name == childName) return child
+        }
+        return null
+    }
+
+    fun files(): List<StorageTree> {
+        val result = mutableListOf<StorageTree>()
+        for (child in children) {
+            if (!child.isDirectory) result.add(child)
+        }
+        return result
+    }
+
+    fun directories(): List<StorageTree> {
+        val result = mutableListOf<StorageTree>()
+        for (child in children) {
+            if (child.isDirectory) result.add(child)
+        }
+        return result
+    }
+}
+
 /**
  * Storage Repository consists of basic file operation functions
  * why only relativeToUri but not the other way around?
@@ -36,15 +68,16 @@ interface StorageRepository {
     suspend fun read(uri: Uri): String?;
     suspend fun read(url: String): String?;
     suspend fun write(uri: Uri, data: ByteArray): Boolean;
+    suspend fun deleteFile(uri: Uri): Boolean;
     suspend fun openInputStream(uri: Uri): InputStream?;
     suspend fun openInputStream(url: String): InputStream?;
     suspend fun openOutputStream(uri: Uri): OutputStream?;
     suspend fun exists(uri: Uri): Boolean;
-    suspend fun list(uri: Uri): List<StorageFileInfo>;
     suspend fun createDirectory(uri: Uri, name: String): Uri?;
     suspend fun createFile(parentUri: Uri, name: String, mime: String, data: ByteArray): Uri?;
     suspend fun relativeToUri(path: String): Uri?;
     suspend fun ensureDirectory(relativePath: String): Uri?
+    suspend fun tree(path: Uri): StorageTree?
     fun getCacheDir(): File;
     companion object {
         fun getInstance(context: Context): StorageRepository = StorageRepositoryImpl.getInstance(context)
@@ -91,7 +124,8 @@ class StorageRepositoryImpl private constructor(
             val docId = if (segments.isEmpty()) {
                 rootId
             } else {
-                val prefix = if (rootId.endsWith("/") || rootId.endsWith(":")) rootId else "$rootId/"
+                val prefix =
+                    if (rootId.endsWith("/") || rootId.endsWith(":")) rootId else "$rootId/"
                 prefix + segments.joinToString("/")
             }
             val docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId);
@@ -107,17 +141,23 @@ class StorageRepositoryImpl private constructor(
         )
         try {
             for (segment in segments) {
-                val childUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, currentId);
+                val childUri =
+                    DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, currentId);
 
-                currentId = context.contentResolver.query(childUri, projection, null, null, null)?.use { cursor ->
-                    val idIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-                    val nameIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+                currentId = context.contentResolver.query(childUri, projection, null, null, null)
+                    ?.use { cursor ->
+                        val idIndex =
+                            cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
+                        val nameIndex =
+                            cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
 
-                    while (cursor.moveToNext()) {
-                        if (cursor.getString(nameIndex) == segment) return@use cursor.getString(idIndex)
-                    }
-                    null
-                } ?: return@withContext null
+                        while (cursor.moveToNext()) {
+                            if (cursor.getString(nameIndex) == segment) return@use cursor.getString(
+                                idIndex
+                            )
+                        }
+                        null
+                    } ?: return@withContext null
             }
         } catch (_: SecurityException) {
             return@withContext null
@@ -138,7 +178,8 @@ class StorageRepositoryImpl private constructor(
 
         for (segment in segments) {
             currentPath = if (currentPath.isEmpty()) segment else "$currentPath/$segment";
-            val nextUri = relativeToUri(currentPath) ?: createDirectory(currentUri, segment) ?: return null;
+            val nextUri =
+                relativeToUri(currentPath) ?: createDirectory(currentUri, segment) ?: return null;
             currentUri = nextUri;
         }
 
@@ -155,7 +196,7 @@ class StorageRepositoryImpl private constructor(
                 response.close()
                 null
             }
-        } catch (_ : Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -195,7 +236,15 @@ class StorageRepositoryImpl private constructor(
         openInputStream(url)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
     }
 
-    override suspend fun write(uri: Uri, data: ByteArray): Boolean = withContext(Dispatchers.IO){
+    override suspend fun deleteFile(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            DocumentsContract.deleteDocument(context.contentResolver, uri)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    override suspend fun write(uri: Uri, data: ByteArray): Boolean = withContext(Dispatchers.IO) {
         try {
             context.contentResolver.openOutputStream(uri, "wt")?.use {
                 it.write(data);
@@ -211,9 +260,11 @@ class StorageRepositoryImpl private constructor(
         name: String,
         mime: String,
         data: ByteArray
-    ): Uri? = withContext(Dispatchers.IO){
+    ): Uri? = withContext(Dispatchers.IO) {
         try {
-            val newUri = DocumentsContract.createDocument(context.contentResolver, parentUri, mime, name) ?: return@withContext null;
+            val newUri =
+                DocumentsContract.createDocument(context.contentResolver, parentUri, mime, name)
+                    ?: return@withContext null;
             write(newUri, data)
             newUri
         } catch (_: Exception) {
@@ -233,54 +284,79 @@ class StorageRepositoryImpl private constructor(
         }
     }
 
-    override suspend fun createDirectory(uri: Uri, name: String): Uri? = withContext(Dispatchers.IO) {
-        try {
-            DocumentsContract.createDocument(context.contentResolver, uri, DocumentsContract.Document.MIME_TYPE_DIR, name)
-        } catch (_: Exception) {
-            return@withContext null
+    override suspend fun createDirectory(uri: Uri, name: String): Uri? =
+        withContext(Dispatchers.IO) {
+            try {
+                DocumentsContract.createDocument(
+                    context.contentResolver,
+                    uri,
+                    DocumentsContract.Document.MIME_TYPE_DIR,
+                    name
+                )
+            } catch (_: Exception) {
+                return@withContext null
+            }
         }
-    }
 
-    override suspend fun list(uri: Uri): List<StorageFileInfo> = withContext(Dispatchers.IO) {
-        val files = mutableListOf<StorageFileInfo>()
-        try {
-            val docId = DocumentsContract.getTreeDocumentId(uri);
-            val childDocUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, docId);
+    @SuppressLint("Range")
+    override suspend fun tree(path: Uri): StorageTree? = withContext(Dispatchers.IO) {
+        val resolver = context.contentResolver
 
-            val projections = arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-                DocumentsContract.Document.COLUMN_SIZE
-            )
+        fun buildTree(uri: Uri, name: String): StorageTree {
+            val docId = DocumentsContract.getDocumentId(uri)
+            val childUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, docId)
+            val children = mutableListOf<StorageTree>()
 
-            context.contentResolver.query(childDocUri, projections, null, null, null)?.use { cursor ->
-                val idIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-                val nameIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-                val sizeIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_SIZE)
-                val mimeIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+            resolver.query(
+                childUri,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_SIZE,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE
+                ),
+                null, null, null
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val id = cursor.getString(0)
+                    val childName = cursor.getString(1)
+                    val size = if (cursor.isNull(2)) 0L else cursor.getLong(2)
+                    val mime = cursor.getString(3)
 
-                while(cursor.moveToNext()) {
-                    val childDocId = cursor.getString(idIndex);
-                    val name = cursor.getString(nameIndex);
-                    val size = if (cursor.isNull(sizeIndex)) 0L else cursor.getLong(sizeIndex)
-                    val mime = cursor.getString(mimeIndex);
-                    val isDirectory = mime == DocumentsContract.Document.MIME_TYPE_DIR;
-                    val childUri = DocumentsContract.buildDocumentUriUsingTree(uri, childDocId)
+                    val itemUri = DocumentsContract.buildDocumentUriUsingTree(uri, id)
+                    val isDir = mime == DocumentsContract.Document.MIME_TYPE_DIR
+                    val info = StorageFileInfo(
+                        name = childName,
+                        uri = itemUri,
+                        size = size,
+                        isDirectory = isDir
+                    )
 
-                    files.add(
-                        StorageFileInfo(
-                            name,
-                            childUri,
-                            size,
-                            isDirectory
-                        )
+                    children.add(
+                        if (isDir) {
+                            buildTree(itemUri, childName)
+                        } else {
+                            StorageTree(info, emptyList())
+                        }
                     )
                 }
             }
-        } catch (e: Exception) {
-            throw Exception("Failed to list directory: $uri bcs of $e")
+
+            return StorageTree(
+                info = StorageFileInfo(name = name, uri = uri, size = 0L, isDirectory = true),
+                children = children
+            )
         }
-        return@withContext files;
+
+        try {
+            val rootName = try {
+                DocumentsContract.getDocumentId(path).substringAfterLast('/').substringAfterLast(':')
+            } catch (_: Exception) {
+                path.lastPathSegment ?: "novels"
+            }
+            buildTree(path, rootName)
+        } catch (e: Exception) {
+            null
+        }
     }
-}
+};

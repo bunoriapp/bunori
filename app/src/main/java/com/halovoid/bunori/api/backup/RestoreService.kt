@@ -3,8 +3,12 @@ package com.halovoid.bunori.api.backup
 import android.content.Context
 import android.net.Uri
 import com.halovoid.bunori.data.db.AppDatabase
+import com.halovoid.bunori.data.db.entities.NovelEntity
+import com.halovoid.bunori.data.indexing.StorageIndexManager
 import com.halovoid.bunori.data.repository.PreferenceRepository
 import com.halovoid.bunori.data.repository.StorageRepository
+import com.halovoid.bunori.data.scheduler.jobs.MaintenanceActivity
+import com.halovoid.bunori.data.scheduler.jobs.MaintenanceScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
@@ -12,71 +16,110 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.ZipInputStream
 
-class RestoreService(private val context: Context) {
+class RestoreService(
+    private val context: Context,
+    private val storRepo: StorageRepository = StorageRepository.getInstance(context)
+) {
+    suspend fun restoreBackup(
+        uri: Uri,
+        onProgress: (current: Int, total: Int, step: String) -> Unit = { _, _, _ -> }
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (!MaintenanceScheduler.acquire(MaintenanceActivity.RESTORE)) {
+            return@withContext false
+        }
 
-    private val storageRepository by lazy { StorageRepository.getInstance(context) }
+        val prefRepo = PreferenceRepository.getInstance(context)
 
-    suspend fun restoreBackup(uri: Uri): Boolean = withContext(Dispatchers.IO) {
-        val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext false
-        val preferenceRepository = PreferenceRepository.getInstance(context)
+        // Preserve export folder and onboarding settings
+        val currentExportFolderUri = prefRepo.exportFolderUri.firstOrNull()
+        val currentOnboardingCompleted = prefRepo.isOnboardingCompleted.firstOrNull()
 
-        // Preserve current critical settings before DB/datastore overwrite
-        val currentExportFolderUri = preferenceRepository.exportFolderUri.firstOrNull()
-        val currentOnboardingCompleted = preferenceRepository.isOnboardingCompleted.firstOrNull()
-
-        val restoredFilesMap = mutableMapOf<String, String>() // fileName -> relativePath
-        val restoredNovelCoversMap = mutableMapOf<String, String>() // novelKey -> relativePath
+        val restoredFilesMap = mutableMapOf<String, String>()
+        val restoredNovelCoversMap = mutableMapOf<String, String>()
 
         var tempDbFile: File? = null
-        val datastoreDir = File(context.filesDir, "datastore").apply { mkdirs() }
+        val datastoreDir = File(context.filesDir, "datastore")
+        datastoreDir.mkdirs()
 
+        // 1. First pass: count total entries for the progress bar
+        var totalEntries = 0
+        try {
+            val countStream = context.contentResolver.openInputStream(uri) ?: return@withContext false
+            ZipInputStream(countStream.buffered(65536)).use { zis ->
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    if (!entry.isDirectory) {
+                        totalEntries++
+                    }
+                    zis.closeEntry()
+                    entry = zis.nextEntry
+                }
+            }
+        } catch (_: Exception) {
+            totalEntries = 100 // fallback estimate
+        }
+
+        var currentEntry = 0
+
+        // 2. Second pass: extract files
         try {
             AppDatabase.closeAndResetDatabase()
 
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext false
             ZipInputStream(inputStream.buffered(65536)).use { zis ->
-                val buffer = ByteArray(65536)
                 var entry = zis.nextEntry
 
                 while (entry != null) {
                     val entryName = entry.name
+                    if (entry.isDirectory) {
+                        zis.closeEntry()
+                        entry = zis.nextEntry
+                        continue
+                    }
 
-                    when {
-                        entry.isDirectory -> { /* Skip directory entries */ }
+                    currentEntry++
 
-                        entryName == "database.db" -> {
-                            tempDbFile = File(context.cacheDir, "restore_temp_db.db").apply {
-                                outputStream().buffered(65536).use { out -> zis.copyTo(out, 65536) }
-                            }
+                    if (entryName == "database.db") {
+                        onProgress(currentEntry, totalEntries, "Restoring database...")
+                        tempDbFile = File(context.cacheDir, "restore_temp_db.db")
+                        tempDbFile.outputStream().buffered(65536).use { out ->
+                            zis.copyTo(out, 65536)
+                        }
+                    } else if (entryName.startsWith("datastore/")) {
+                        val fileName = entryName.substringAfterLast('/')
+                        onProgress(currentEntry, totalEntries, "Restoring settings: $fileName")
+                        val targetFile = File(context.filesDir, entryName)
+                        val parent = targetFile.parentFile
+                        if (parent != null) parent.mkdirs()
+                        targetFile.outputStream().buffered(65536).use { out ->
+                            zis.copyTo(out, 65536)
+                        }
+                    } else if (entryName.startsWith("novels/") || entryName.startsWith("artifacts/")) {
+                        val relDir = entryName.substringBeforeLast('/', "")
+                        val fileName = entryName.substringAfterLast('/')
+                        onProgress(currentEntry, totalEntries, "Restoring file: $fileName")
+
+                        val mimeType = when {
+                            fileName.endsWith(".gz", true) -> "application/gzip"
+                            fileName.endsWith(".json", true) -> "application/json"
+                            fileName.endsWith(".png", true) -> "image/png"
+                            fileName.endsWith(".webp", true) -> "image/webp"
+                            fileName.endsWith(".jpg", true) || fileName.endsWith(".jpeg", true) -> "image/jpeg"
+                            else -> "application/octet-stream"
                         }
 
-                        entryName.startsWith("datastore/") -> {
-                            val targetFile = File(context.filesDir, entryName)
-                            targetFile.parentFile?.mkdirs()
-                            targetFile.outputStream().buffered(65536).use { out -> zis.copyTo(out, 65536) }
-                        }
+                        val dirUri = storRepo.ensureDirectory(relDir)
+                        if (dirUri != null) {
+                            val byteOut = ByteArrayOutputStream()
+                            zis.copyTo(byteOut, 65536)
+                            val bytes = byteOut.toByteArray()
+                            storRepo.createFile(dirUri, fileName, mimeType, bytes)
 
-                        entryName.startsWith("novels/") -> {
-                            val relDir = entryName.substringBeforeLast('/')
-                            val fileName = entryName.substringAfterLast('/')
-                            val mimeType = when {
-                                fileName.endsWith(".gz", true) -> "application/gzip"
-                                fileName.endsWith(".png", true) -> "image/png"
-                                fileName.endsWith(".webp", true) -> "image/webp"
-                                fileName.endsWith(".jpg", true) || fileName.endsWith(".jpeg", true) -> "image/jpeg"
-                                else -> "application/octet-stream"
-                            }
-
-                            val dirUri = ensureDirectory(relDir)
-                            if (dirUri != null) {
-                                val bytes = ByteArrayOutputStream().apply { zis.copyTo(this, 65536) }.toByteArray()
-                                storageRepository.createFile(dirUri, fileName, mimeType, bytes)
-
-                                restoredFilesMap[fileName] = entryName
-                                if (relDir.contains("/covers")) {
-                                    val novelKey = relDir.removePrefix("novels/").substringBefore('/')
-                                    if (novelKey.isNotBlank()) {
-                                        restoredNovelCoversMap[novelKey] = entryName
-                                    }
+                            restoredFilesMap[fileName] = entryName
+                            if (relDir.contains("/covers")) {
+                                val novelKey = relDir.removePrefix("novels/").substringBefore('/')
+                                if (novelKey.isNotBlank()) {
+                                    restoredNovelCoversMap[novelKey] = entryName
                                 }
                             }
                         }
@@ -87,95 +130,67 @@ class RestoreService(private val context: Context) {
                 }
             }
 
-            // 1. Restore Database File
-            tempDbFile?.let { srcFile ->
-                val targetDbFile = context.getDatabasePath("bunori.db").apply { parentFile?.mkdirs() }
-                srcFile.copyTo(targetDbFile, overwrite = true)
+            // 3. Restore Database File
+            if (tempDbFile != null && tempDbFile.exists()) {
+                onProgress(currentEntry, totalEntries, "Applying restored database...")
+                val targetDbFile = context.getDatabasePath("bunori.db")
+                val parent = targetDbFile.parentFile
+                if (parent != null) parent.mkdirs()
+
+                tempDbFile.copyTo(targetDbFile, overwrite = true)
                 File(targetDbFile.path + "-wal").delete()
                 File(targetDbFile.path + "-shm").delete()
                 File(targetDbFile.path + "-journal").delete()
-                srcFile.delete()
+                tempDbFile.delete()
             }
 
-            // 2. Restore Preferences
+            // 4. Restore preferences
             if (currentExportFolderUri != null) {
-                preferenceRepository.setExportFolder(currentExportFolderUri)
+                prefRepo.setExportFolder(currentExportFolderUri)
             }
             if (currentOnboardingCompleted != null) {
-                preferenceRepository.setOnboardingCompleted(currentOnboardingCompleted)
+                prefRepo.setOnboardingCompleted(currentOnboardingCompleted)
             }
 
-            // 3. Reconcile Database Paths
-            reconcileDatabaseUris(restoredFilesMap, restoredNovelCoversMap)
-            AppDatabase.closeAndResetDatabase()
+            // 5. Reconcile Database novel covers
+            try {
+                val db = AppDatabase.getDatabase(context)
+                val novelDao = db.novelDao()
+                val allNovels = novelDao.getAllNovelsOnce()
+                val updatedNovels = mutableListOf<NovelEntity>()
 
+                for (novel in allNovels) {
+                    val oldCover = novel.coverUrl ?: continue
+                    var matchedPath: String? = null
+                    for ((key, path) in restoredNovelCoversMap) {
+                        if (oldCover.contains(key)) {
+                            matchedPath = path
+                            break
+                        }
+                    }
+                    if (matchedPath != null && novel.coverUrl != matchedPath) {
+                        updatedNovels.add(novel.copy(coverUrl = matchedPath))
+                    }
+                }
+
+                if (updatedNovels.isNotEmpty()) {
+                    novelDao.upsertNovels(updatedNovels)
+                }
+            } catch (_: Exception) {}
+
+            // 6. Synchronize Room downloads table from metadata manifests
+            onProgress(currentEntry, totalEntries, "Syncing database with restored downloads...")
+            StorageIndexManager.getInstance(context).reIndex { current, total, novelName ->
+                onProgress(currentEntry, totalEntries, "Restoring to DB: $novelName ($current/$total)")
+            }
+
+            AppDatabase.closeAndResetDatabase()
             true
         } catch (e: Exception) {
-            e.printStackTrace()
             tempDbFile?.delete()
             false
+        } finally {
+            MaintenanceScheduler.release(MaintenanceActivity.RESTORE)
         }
-    }
-
-    private suspend fun reconcileDatabaseUris(
-        restoredFilesMap: Map<String, String>,
-        restoredNovelCoversMap: Map<String, String>
-    ) {
-        if (restoredFilesMap.isEmpty() && restoredNovelCoversMap.isEmpty()) return
-
-        try {
-            val db = AppDatabase.getDatabase(context)
-            val downloadDao = db.downloadDao()
-            val novelDao = db.novelDao()
-
-            val allDownloads = downloadDao.getAllDownloads()
-            val updatedDownloads = allDownloads.mapNotNull { download ->
-                val fileName = download.fileLocation.substringAfterLast('/')
-                val newRelPath = restoredFilesMap[fileName]
-                if (newRelPath != null && download.fileLocation != newRelPath) {
-                    download.copy(fileLocation = newRelPath)
-                } else null
-            }
-            if (updatedDownloads.isNotEmpty()) {
-                downloadDao.upsertDownloads(updatedDownloads)
-            }
-
-            val allNovels = novelDao.getAllNovelsOnce()
-            val updatedNovels = allNovels.mapNotNull { novel ->
-                val oldCover = novel.coverUrl ?: return@mapNotNull null
-                val matchedKey = restoredNovelCoversMap.keys.firstOrNull { oldCover.contains(it) }
-                val newRelPath = matchedKey?.let { restoredNovelCoversMap[it] }
-
-                if (newRelPath != null && novel.coverUrl != newRelPath) {
-                    novel.copy(coverUrl = newRelPath)
-                } else null
-            }
-            if (updatedNovels.isNotEmpty()) {
-                novelDao.upsertNovels(updatedNovels)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private suspend fun ensureDirectory(relativePath: String): Uri? {
-        val existing = storageRepository.relativeToUri(relativePath)
-        if (existing != null) return existing
-
-        val rootUri = storageRepository.relativeToUri("") ?: return null
-        val segments = relativePath.trim('/').split('/').filter { it.isNotBlank() }
-
-        var currentUri = rootUri
-        var currentPath = ""
-
-        for (segment in segments) {
-            currentPath = if (currentPath.isEmpty()) segment else "$currentPath/$segment"
-            val nextUri = storageRepository.relativeToUri(currentPath)
-                ?: storageRepository.createDirectory(currentUri, segment)
-                ?: return null
-            currentUri = nextUri
-        }
-
-        return currentUri
     }
 }

@@ -9,6 +9,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Backup
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DataObject
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.*
@@ -89,7 +93,10 @@ fun BackupSettingsScreen(
     val metadata by viewModel.backupMetadata.collectAsStateWithLifecycle()
     val isBackingUp by viewModel.isBackingUp.collectAsStateWithLifecycle()
     val isRestoring by viewModel.isRestoring.collectAsStateWithLifecycle()
-    val isOperating = isBackingUp || isRestoring
+    val isReindexing by viewModel.isReindexing.collectAsStateWithLifecycle()
+    val isDeepIndexing by viewModel.isDeepIndexing.collectAsStateWithLifecycle()
+    val isCheckingIndex by viewModel.isCheckingIndex.collectAsStateWithLifecycle()
+    val isOperating = isBackingUp || isRestoring || isReindexing || isDeepIndexing || isCheckingIndex
 
     val backupFrequency by viewModel.backupFrequency.collectAsStateWithLifecycle()
     var activeDialog by remember { mutableStateOf<BackupDialogState?>(null) }
@@ -108,6 +115,9 @@ fun BackupSettingsScreen(
                     activeDialog = BackupDialogState.RestartDialog
                 }
                 is BackupEvent.RestoreFailure -> {
+                    Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
+                }
+                is BackupEvent.Message -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
                 }
             }
@@ -202,6 +212,106 @@ fun BackupSettingsScreen(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (isRestoring) "Restoring backup in progress..." else "Restore your library from an existing backup",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SecondaryText
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = BorderColor.copy(alpha = 0.2f), thickness = 0.5.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SectionHeader(text = "Download Indexing")
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isOperating) { viewModel.triggerReindex() }
+                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = null,
+                    tint = if (isOperating) SecondaryText.copy(alpha = 0.5f) else BrandAccent,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Reindex Downloads",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isOperating) SecondaryText else PrimaryText
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (isReindexing) "Reindexing downloads in progress..." else "Sync downloads database from existing metadata manifests",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SecondaryText
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isOperating) { viewModel.triggerCheckIndex() }
+                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = if (isOperating) SecondaryText.copy(alpha = 0.5f) else BrandAccent,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Check Storage Index",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isOperating) SecondaryText else PrimaryText
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (isCheckingIndex) "Checking storage index in progress..." else "Verify that all chapter files referenced in metadata exist on storage",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SecondaryText
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isOperating) { viewModel.triggerForceRebuildIndex() }
+                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.FolderOpen,
+                    contentDescription = null,
+                    tint = if (isOperating) SecondaryText.copy(alpha = 0.5f) else BrandAccent,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Rebuild Storage Index",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isOperating) SecondaryText else PrimaryText
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (isDeepIndexing) "Rebuilding storage index in progress..." else "Deep scan: reconstructs metadata from files and backs up old index to .bak",
                         style = MaterialTheme.typography.bodyMedium,
                         color = SecondaryText
                     )

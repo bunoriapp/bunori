@@ -14,7 +14,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.sync.Semaphore
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -53,12 +52,6 @@ class JobScheduler(
             }
         }
         notifyWakeup()
-    }
-
-    fun blockCrawlerAsync(crawlerName: String) {
-        scope.launch {
-            blockCrawler(crawlerName)
-        }
     }
 
     suspend fun unblockCrawler(crawlerName: String) {
@@ -155,6 +148,10 @@ class JobScheduler(
     }
 
     private suspend fun schedule() {
+        if (MaintenanceScheduler.isRunning) {
+            return
+        }
+
         val prefMaxJobs = preferenceRepository?.maxConcurrentJobs?.first() ?: config.maxConcurrentJobs
         if (prefMaxJobs != currentGlobalLimit) {
             currentGlobalLimit = prefMaxJobs

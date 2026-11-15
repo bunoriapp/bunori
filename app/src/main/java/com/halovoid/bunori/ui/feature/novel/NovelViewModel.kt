@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.halovoid.bunori.data.db.entities.JobStatus
 import com.halovoid.bunori.data.handlers.utility.parsedMetadata
 import com.halovoid.bunori.data.factory.JobFactory
+import com.halovoid.bunori.data.indexing.StorageIndexManager
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.BatchRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
@@ -390,6 +391,20 @@ class NovelViewModel(
         _selectedSource.value = null
         _chapterRange.value = 1f..1f
         _novelUrl.value = novelUrl
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                StorageIndexManager.getInstance(getApplication()).reindexNovel(novelUrl)
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun reindexDownloads() {
+        val url = _novelUrl.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                StorageIndexManager.getInstance(getApplication()).reindexNovel(url)
+            } catch (_: Exception) {}
+        }
     }
 
     fun toggleLibrary(novel: Novel, onSimilarFound: ((List<Novel>) -> Unit)? = null) {

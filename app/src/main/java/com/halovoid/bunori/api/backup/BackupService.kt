@@ -1,116 +1,262 @@
 package com.halovoid.bunori.api.backup
 
 import android.content.Context
-import android.net.Uri
 import com.halovoid.bunori.data.db.AppDatabase
-import com.halovoid.bunori.data.db.entities.TaskEntity
-import com.halovoid.bunori.data.repository.PreferenceRepository
-import com.halovoid.bunori.data.repository.StorageFileInfo
 import com.halovoid.bunori.data.repository.StorageRepository
-import com.halovoid.bunori.data.repository.StorageRepositoryImpl
-import com.halovoid.bunori.data.scheduler.jobs.JobHandler
+import com.halovoid.bunori.data.repository.StorageTree
+import com.halovoid.bunori.data.scheduler.jobs.MaintenanceActivity
+import com.halovoid.bunori.data.scheduler.jobs.MaintenanceScheduler
 import com.halovoid.bunori.data.scheduler.jobs.JobResult
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedOutputStream
 import java.io.File
-import java.io.FileOutputStream
-import java.io.OutputStream
+import java.io.IOException
 import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-class BackupService(private val context: Context) {
-    private val storageRepository by lazy { StorageRepository.getInstance(context) }
-    suspend fun handle(): JobResult {
-        return try {
+class BackupService(
+    private val context: Context,
+    private val storRepo: StorageRepository = StorageRepository.getInstance(context)
+) {
+    companion object {
+        @Volatile
+        private var isRunning = false
+    }
+
+    suspend fun handle(
+        backupDatabase: Boolean = true,
+        backupChapters: Boolean = true,
+        backupCovers: Boolean = true,
+        onProgress: (current: Int, total: Int, step: String) -> Unit = { _, _, _ -> }
+    ): JobResult = withContext(Dispatchers.IO) {
+        if (!MaintenanceScheduler.acquire(MaintenanceActivity.BACKUP)) {
+            return@withContext JobResult.Failure(Exception("Another maintenance activity is currently in progress (${MaintenanceScheduler.currentActivity.value})"))
+        }
+
+        try {
             val timestamp = System.currentTimeMillis()
-            val fileName = "backup.bbak"
+            val fileName = "backup.lnbak"
 
-            val backupDirUri = storageRepository.ensureDirectory("backup")
-                ?: return JobResult.Failure(Exception("Failed to ensure backup directory"))
-            var destinationUri: Uri?;
+            val backupDirUri = storRepo.ensureDirectory("backup")
+                ?: return@withContext JobResult.Failure(Exception("Failed to ensure backup directory"))
 
-            val outputStream: OutputStream = run {
-                destinationUri = storageRepository.createFile(backupDirUri, fileName, "application/octet-stream", ByteArray(0)) ?: return JobResult.Failure(Exception("Failed to create destination URI"))
-                storageRepository.openOutputStream(destinationUri)
-            } ?: return JobResult.Failure(Exception("Failed to open a output stream to desired path"))
+            // 1. Fetch trees for novels and artifacts
+            val novelsUri = storRepo.relativeToUri("novels")
+            val novelsTree = if (novelsUri != null) storRepo.tree(novelsUri) else null
 
-            outputStream.buffered(65536).use { stream ->
-                ZipOutputStream(stream).use { zos ->
-                    zos.setLevel(Deflater.BEST_SPEED);
+            val artifactsUri = storRepo.relativeToUri("artifacts")
+            val artifactsTree = if (artifactsUri != null) storRepo.tree(artifactsUri) else null
 
-                    val manifest = JSONObject().apply {
-                        put("formatVersion", 1)
-                        put("createdAt", timestamp)
-                        put("database", true) // these three are hardcoded to yes even though the user is given the option to choose what he wants to back up
-                        put("chapters", true) // will fix later on
-                        put("covers", true) // this becomes a todo
-                    }
+            val datastoreDir = File(context.filesDir, "datastore")
+            val datastoreFiles = mutableListOf<File>()
+            if (datastoreDir.exists()) {
+                val files = datastoreDir.walkTopDown().filter { it.isFile }
+                for (f in files) {
+                    datastoreFiles.add(f)
+                }
+            }
+
+            // 2. Calculate total items for accurate progress reporting
+            var totalItems = 1 // manifest.json
+            if (backupDatabase) totalItems += 1
+            if (novelsTree != null) {
+                totalItems += countTreeFiles(novelsTree, isNovel = true, backupChapters, backupCovers)
+            }
+            if (artifactsTree != null) {
+                totalItems += countTreeFiles(artifactsTree, isNovel = false, backupChapters, backupCovers)
+            }
+            totalItems += datastoreFiles.size
+
+            var currentItem = 0
+
+            // 3. Create destination file on storage
+            val destUri = storRepo.createFile(backupDirUri, fileName, "application/octet-stream", ByteArray(0))
+                ?: return@withContext JobResult.Failure(Exception("Failed to create backup file"))
+
+            val outputStream = storRepo.openOutputStream(destUri)
+                ?: return@withContext JobResult.Failure(Exception("Failed to open output stream"))
+
+            outputStream.buffered(65536).use { bufferedStream ->
+                ZipOutputStream(bufferedStream).use { zos ->
+                    zos.setLevel(Deflater.BEST_SPEED)
+
+                    // Write manifest.json
+                    currentItem++
+                    onProgress(currentItem, totalItems, "Creating backup manifest...")
+                    val backupItems = JSONArray()
+                    if (backupDatabase) backupItems.put("database")
+                    if (novelsTree != null) backupItems.put("novels")
+                    if (artifactsTree != null) backupItems.put("artifacts")
+
+                    val manifest = JSONObject()
+                    manifest.put("formatVersion", 1)
+                    manifest.put("createdAt", timestamp)
+                    manifest.put("database", backupDatabase)
+                    manifest.put("chapters", backupChapters)
+                    manifest.put("covers", backupCovers)
+                    manifest.put("backup", backupItems)
 
                     zos.putNextEntry(ZipEntry("manifest.json"))
-                    zos.write(manifest.toString(2).toByteArray())
+                    zos.write(manifest.toString(2).toByteArray(Charsets.UTF_8))
                     zos.closeEntry()
 
-                    try {
-                        AppDatabase.getDatabase(context).openHelper.writableDatabase
-                            .query("PRAGMA wal_checkpoint(FULL)").use { it.moveToFirst() }
-                    } catch (_: Exception) {}
-                    val dbFile = context.getDatabasePath("bunori.db");
-                    if (dbFile.exists()) {
-                        zos.putNextEntry(ZipEntry("database.db"));
-                        dbFile.inputStream().buffered(65536).use { it.copyTo(zos, 65536) }
-                        zos.closeEntry()
-                    }
+                    // Write database.db
+                    if (backupDatabase) {
+                        currentItem++
+                        onProgress(currentItem, totalItems, "Backing up database...")
+                        try {
+                            AppDatabase.getDatabase(context).openHelper.writableDatabase
+                                .query("PRAGMA wal_checkpoint(FULL)").use { it.moveToFirst() }
+                        } catch (_: Exception) {}
 
-                    val novelsUri = storageRepository.relativeToUri("novels")
-                    if (novelsUri != null) {
-                        backupStorageDirectory(novelsUri, "novels", zos,
-                            backupChapters = true,
-                            backupCovers = true
-                        )
-                    }
-
-                    val datastoreDir = File(context.filesDir, "datastore")
-                    if (datastoreDir.exists()) {
-                        datastoreDir.walkTopDown().filter { it.isFile }.forEach { file ->
-                            val relative = "datastore/${file.relativeTo(datastoreDir).path}"
-                            zos.putNextEntry(ZipEntry(relative))
-                            file.inputStream().use { it.copyTo(zos) }
+                        val dbFile = context.getDatabasePath("bunori.db")
+                        if (dbFile.exists()) {
+                            zos.putNextEntry(ZipEntry("database.db"))
+                            dbFile.inputStream().buffered(65536).use { input ->
+                                input.copyTo(zos, 65536)
+                            }
                             zos.closeEntry()
                         }
                     }
+
+                    // Write novels directory
+                    if (novelsTree != null) {
+                        tree_backup(
+                            tree = novelsTree,
+                            currPath = "novels",
+                            zos = zos,
+                            isNovel = true,
+                            backupChapters = backupChapters,
+                            backupCovers = backupCovers
+                        ) { path ->
+                            currentItem++
+                            onProgress(currentItem, totalItems, "Backing up: $path")
+                        }
+                    }
+
+                    // Write artifacts directory
+                    if (artifactsTree != null) {
+                        tree_backup(
+                            tree = artifactsTree,
+                            currPath = "artifacts",
+                            zos = zos,
+                            isNovel = false,
+                            backupChapters = true,
+                            backupCovers = true
+                        ) { path ->
+                            currentItem++
+                            onProgress(currentItem, totalItems, "Backing up: $path")
+                        }
+                    }
+
+                    // Write settings datastore
+                    for (file in datastoreFiles) {
+                        currentItem++
+                        val relPath = "datastore/${file.relativeTo(datastoreDir).path}"
+                        onProgress(currentItem, totalItems, "Backing up settings: ${file.name}")
+                        zos.putNextEntry(ZipEntry(relPath))
+                        file.inputStream().buffered(65536).use { input ->
+                            input.copyTo(zos, 65536)
+                        }
+                        zos.closeEntry()
+                    }
                 }
             }
+
+            // Write metadata summary for settings screen
+            val timeStr = android.text.format.DateFormat.format("MMM dd, yyyy, h:mm a", timestamp).toString()
+            val summaryParts = mutableListOf<String>()
+            if (backupDatabase) summaryParts.add("Database")
+            if (novelsTree != null) {
+                val novelCount = novelsTree.directories().size
+                summaryParts.add("$novelCount Novels")
+            }
+            if (artifactsTree != null) {
+                val artifactCount = artifactsTree.directories().size
+                summaryParts.add("$artifactCount Artifacts")
+            }
+            val summaryStr = summaryParts.joinToString(", ")
+
+            val metaJson = JSONObject()
+            metaJson.put("lastBackupTime", timeStr)
+            metaJson.put("contentsSummary", summaryStr)
+            try {
+                val metaFile = File(context.filesDir, "backup_metadata.json")
+                metaFile.writeText(metaJson.toString())
+            } catch (_: Exception) {}
+
             JobResult.Success
         } catch (e: Exception) {
-            JobResult.Failure(e, isRecoverable = true)
+            JobResult.Failure(e)
+        } finally {
+            MaintenanceScheduler.release(MaintenanceActivity.BACKUP)
         }
     }
 
-    private suspend fun backupStorageDirectory(
-        dirUri: Uri,
-        currentPath: String,
-        zos: ZipOutputStream,
+    private fun countTreeFiles(
+        tree: StorageTree,
+        isNovel: Boolean,
         backupChapters: Boolean,
         backupCovers: Boolean
-    ): Unit = withContext(Dispatchers.IO) {
-        val files: List<StorageFileInfo> = storageRepository.list(dirUri)
-        for (file in files) {
-            val entryPath = "$currentPath/${file.name}"
-            if (file.isDirectory) {
-                backupStorageDirectory(file.uri, entryPath, zos, backupChapters, backupCovers)
+    ): Int {
+        var count = 0
+        for (child in tree.children) {
+            if (child.isDirectory) {
+                if (isNovel && child.name == "chapters" && !backupChapters) continue
+                if (isNovel && child.name == "covers" && !backupCovers) continue
+                count += countTreeFiles(child, isNovel, backupChapters, backupCovers)
             } else {
-                val isChapter = entryPath.contains("/chapters/")
-                val isCover = entryPath.contains("/covers/")
-                if ((isChapter && !backupChapters) || (isCover && !backupCovers)) continue
+                count++
+            }
+        }
+        return count
+    }
 
-                zos.setLevel(if (file.name.endsWith(".gz", ignoreCase = true)) Deflater.NO_COMPRESSION else Deflater.BEST_SPEED)
+    private suspend fun tree_backup(
+        tree: StorageTree,
+        currPath: String,
+        zos: ZipOutputStream,
+        isNovel: Boolean,
+        backupChapters: Boolean,
+        backupCovers: Boolean,
+        onFile: (String) -> Unit
+    ) {
+        for (child in tree.children) {
+            val entryPath = "$currPath/${child.name}"
+
+            if (child.isDirectory) {
+                if (isNovel && child.name == "chapters" && !backupChapters) continue
+                if (isNovel && child.name == "covers" && !backupCovers) continue
+
+                tree_backup(
+                    tree = child,
+                    currPath = entryPath,
+                    zos = zos,
+                    isNovel = isNovel,
+                    backupChapters = backupChapters,
+                    backupCovers = backupCovers,
+                    onFile = onFile
+                )
+            } else {
+                onFile(entryPath)
+                val isGz = child.name.endsWith(".gz", ignoreCase = true)
+                if (isGz) {
+                    zos.setLevel(Deflater.NO_COMPRESSION)
+                } else {
+                    zos.setLevel(Deflater.BEST_SPEED)
+                }
+
                 zos.putNextEntry(ZipEntry(entryPath))
-                storageRepository.openInputStream(file.uri)?.buffered(65536)?.use { input ->
-                    input.copyTo(zos, 65536)
+                val stream = storRepo.openInputStream(child.uri)
+                if (stream != null) {
+                    stream.use { input ->
+                        input.copyTo(zos, 65536)
+                    }
+                } else {
+                    throw IOException("Unable to read ${child.name}")
                 }
                 zos.closeEntry()
             }

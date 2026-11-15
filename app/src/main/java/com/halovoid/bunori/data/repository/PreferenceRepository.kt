@@ -52,6 +52,7 @@ private val DISABLED_EXTENSION_REPO_URLS = stringSetPreferencesKey("disabled_ext
 private val ENABLED_EXTENSION_LANGUAGES = stringSetPreferencesKey("enabled_extension_languages")
 private val CUSTOM_USER_AGENT = stringPreferencesKey("custom_user_agent")
 private val SHOW_WASM_SLOW_MODE_TOAST = booleanPreferencesKey("show_wasm_slow_mode_toast")
+private val STORAGE_METADATA_MIGRATED = booleanPreferencesKey("storage_metadata_migrated")
 const val DEFAULT_EXTENSION_REPO_URL = "https://bunoriapp.github.io/extensions/index.min.json"
 
 val DEFAULT_EXTENSION_REPOS = listOf(
@@ -176,6 +177,8 @@ interface PreferenceRepository {
     suspend fun removeCustomFont(font: CustomFont)
     fun getDomainSelector(domain: String): Flow<String?>
     suspend fun saveDomainSelector(domain: String, selector: String)
+    val storageMetadataMigrated: Flow<Boolean>
+    suspend fun setStorageMetadataMigrated(migrated: Boolean)
 
     companion object {
         fun getInstance(context: Context): PreferenceRepository = PreferenceRepositoryImpl.getInstance(context)
@@ -796,6 +799,16 @@ class PreferenceRepositoryImpl private constructor(
             val current = prefs[CUSTOM_DOMAIN_SELECTORS] ?: emptySet()
             val filtered = current.filterNot { it.startsWith("$domain|") }.toSet()
             prefs[CUSTOM_DOMAIN_SELECTORS] = filtered + "$domain|$selector"
+        }
+    }
+
+    override val storageMetadataMigrated: Flow<Boolean> = context.appDataStore.data.map { prefs ->
+        prefs[STORAGE_METADATA_MIGRATED] ?: false
+    }
+
+    override suspend fun setStorageMetadataMigrated(migrated: Boolean) {
+        context.appDataStore.edit { prefs ->
+            prefs[STORAGE_METADATA_MIGRATED] = migrated
         }
     }
 }

@@ -20,6 +20,7 @@ import com.halovoid.bunori.data.handlers.ArtifactHandler
 import com.halovoid.bunori.data.handlers.ChapterHandler
 import com.halovoid.bunori.data.handlers.NovelMetadataHandler
 import com.halovoid.bunori.data.handlers.utility.crawlerName
+import com.halovoid.bunori.data.indexing.StorageIndexManager
 import com.halovoid.bunori.data.repository.ArtifactRepository
 import com.halovoid.bunori.data.repository.ChapterRepository
 import com.halovoid.bunori.data.repository.DownloadRepositoryImpl
@@ -185,7 +186,8 @@ class SchedulerService : Service() {
 
         registry.register(JobType.CHAPTER, ChapterHandler(
             chapterRepository, storageRepository, crawlerFactory,
-            downloadRepository, novelRepository
+            downloadRepository, novelRepository,
+            StorageIndexManager.getInstance(this)
         ))
         registry.register(JobType.NOVEL_METADATA, NovelMetadataHandler(
             crawlerFactory, novelRepository, chapterRepository, storageRepository, preferenceRepository

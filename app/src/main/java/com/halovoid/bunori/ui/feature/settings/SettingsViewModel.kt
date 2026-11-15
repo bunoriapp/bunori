@@ -29,6 +29,8 @@ import com.halovoid.bunori.ui.feature.novel.SortType
 import com.halovoid.bunori.ui.feature.onboarding.UriUtils
 import com.halovoid.bunori.api.backup.BackupService
 import com.halovoid.bunori.api.backup.RestoreService
+import com.halovoid.bunori.data.indexing.StorageIndexManager
+import com.halovoid.bunori.data.scheduler.notification.IndexNotificationManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -56,6 +58,7 @@ sealed class BackupEvent {
     data class BackupFailure(val message: String) : BackupEvent()
     data object RestoreSuccess : BackupEvent()
     data class RestoreFailure(val message: String) : BackupEvent()
+    data class Message(val message: String) : BackupEvent()
 }
 
 class SettingsViewModel(
@@ -76,6 +79,18 @@ class SettingsViewModel(
 
     private val _isRestoring = MutableStateFlow(false)
     val isRestoring: StateFlow<Boolean> = _isRestoring.asStateFlow()
+
+    private val _isReindexing = MutableStateFlow(false)
+    val isReindexing: StateFlow<Boolean> = _isReindexing.asStateFlow()
+
+    private val _isDeepIndexing = MutableStateFlow(false)
+    val isDeepIndexing: StateFlow<Boolean> = _isDeepIndexing.asStateFlow()
+
+    private val _isCheckingIndex = MutableStateFlow(false)
+    val isCheckingIndex: StateFlow<Boolean> = _isCheckingIndex.asStateFlow()
+    val isGeneratingMetadata: StateFlow<Boolean> get() = _isCheckingIndex
+
+    private val indexNotificationManager = IndexNotificationManager(application)
 
     private val _backupMetadata = MutableStateFlow(getLatestBackupMetadata(application))
     val backupMetadata: StateFlow<BackupMetadata> = _backupMetadata.asStateFlow()
@@ -522,6 +537,113 @@ class SettingsViewModel(
             }
         }
     }
+
+    fun triggerReindex() {
+        if (_isReindexing.value || _isDeepIndexing.value || _isCheckingIndex.value) return
+        viewModelScope.launch {
+            _isReindexing.value = true
+            indexNotificationManager.showProgress(
+                title = "Reindexing Downloads",
+                message = "Scanning storage manifests...",
+                isIndeterminate = true
+            )
+            try {
+                val (novels, chapters) = withContext(Dispatchers.IO) {
+                    StorageIndexManager.getInstance(getApplication()).reIndex { current, total, name ->
+                        indexNotificationManager.showProgress(
+                            title = "Reindexing Downloads",
+                            message = "$name ($current/$total)",
+                            current = current,
+                            max = total
+                        )
+                    }
+                }
+                val msg = if (novels > 0 || chapters > 0) {
+                    "Reindex complete: $novels novels, $chapters chapters synced."
+                } else {
+                    "Reindex complete: No unlinked downloads found."
+                }
+                indexNotificationManager.showCompletion("Reindex Completed", msg)
+                _backupEvents.emit(BackupEvent.Message(msg))
+            } catch (e: Exception) {
+                indexNotificationManager.showCompletion("Reindex Failed", "Error: ${e.message}")
+                _backupEvents.emit(BackupEvent.BackupFailure("Reindex failed: ${e.message}"))
+            } finally {
+                _isReindexing.value = false
+                indexNotificationManager.dismissProgress()
+            }
+        }
+    }
+
+    fun triggerForceRebuildIndex() {
+        if (_isReindexing.value || _isDeepIndexing.value || _isCheckingIndex.value) return
+        viewModelScope.launch {
+            _isDeepIndexing.value = true
+            indexNotificationManager.showProgress(
+                title = "Rebuilding Storage Index",
+                message = "Scanning files and rebuilding manifests...",
+                isIndeterminate = true
+            )
+            try {
+                val (novels, chapters) = withContext(Dispatchers.IO) {
+                    StorageIndexManager.getInstance(getApplication()).forceRebuildIndex { current, total, name ->
+                        indexNotificationManager.showProgress(
+                            title = "Rebuilding Storage Index",
+                            message = "$name ($current/$total)",
+                            current = current,
+                            max = total
+                        )
+                    }
+                }
+                val msg = "Index rebuild complete: $novels novels, $chapters chapters indexed."
+                indexNotificationManager.showCompletion("Index Rebuild Completed", msg)
+                _backupEvents.emit(BackupEvent.Message(msg))
+            } catch (e: Exception) {
+                indexNotificationManager.showCompletion("Index Rebuild Failed", "Error: ${e.message}")
+                _backupEvents.emit(BackupEvent.BackupFailure("Index rebuild failed: ${e.message}"))
+            } finally {
+                _isDeepIndexing.value = false
+                indexNotificationManager.dismissProgress()
+            }
+        }
+    }
+
+    fun triggerDeepIndex() = triggerForceRebuildIndex()
+
+    fun triggerCheckIndex() {
+        if (_isReindexing.value || _isDeepIndexing.value || _isCheckingIndex.value) return
+        viewModelScope.launch {
+            _isCheckingIndex.value = true
+            indexNotificationManager.showProgress(
+                title = "Checking Storage Index",
+                message = "Validating chapter files against manifests...",
+                isIndeterminate = true
+            )
+            try {
+                val (succ, fail) = withContext(Dispatchers.IO) {
+                    StorageIndexManager.getInstance(getApplication()).checkIndex { current, total, status ->
+                        indexNotificationManager.showProgress(
+                            title = "Checking Storage Index",
+                            message = "$status ($current/$total)",
+                            current = current,
+                            max = total
+                        )
+                    }
+                }
+                val msg = "Index check complete: $succ chapters verified, $fail missing."
+                indexNotificationManager.showCompletion("Check Index Completed", msg)
+                _backupEvents.emit(BackupEvent.Message(msg))
+            } catch (e: Exception) {
+                indexNotificationManager.showCompletion("Check Index Failed", "Error: ${e.message}")
+                _backupEvents.emit(BackupEvent.BackupFailure("Check index failed: ${e.message}"))
+            } finally {
+                _isCheckingIndex.value = false
+                indexNotificationManager.dismissProgress()
+            }
+        }
+    }
+
+    fun triggerGenerateMetadata() = triggerCheckIndex()
 
     fun setNovelPruneFrequency(frequency: String) {
         viewModelScope.launch {
