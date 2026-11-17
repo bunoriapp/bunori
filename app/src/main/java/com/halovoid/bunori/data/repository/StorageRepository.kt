@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import okhttp3.Request
-import okio.IOException
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
@@ -68,7 +67,7 @@ interface StorageRepository {
     suspend fun read(uri: Uri): String?;
     suspend fun read(url: String): String?;
     suspend fun write(uri: Uri, data: ByteArray): Boolean;
-    suspend fun deleteFile(uri: Uri): Boolean;
+    suspend fun deleteFile(uri: Uri?): Boolean;
     suspend fun openInputStream(uri: Uri): InputStream?;
     suspend fun openInputStream(url: String): InputStream?;
     suspend fun openOutputStream(uri: Uri): OutputStream?;
@@ -77,7 +76,7 @@ interface StorageRepository {
     suspend fun createFile(parentUri: Uri, name: String, mime: String, data: ByteArray): Uri?;
     suspend fun relativeToUri(path: String): Uri?;
     suspend fun ensureDirectory(relativePath: String): Uri?
-    suspend fun tree(path: Uri): StorageTree?
+    suspend fun tree(path: Uri?): StorageTree?
     fun getCacheDir(): File;
     companion object {
         fun getInstance(context: Context): StorageRepository = StorageRepositoryImpl.getInstance(context)
@@ -236,7 +235,8 @@ class StorageRepositoryImpl private constructor(
         openInputStream(url)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
     }
 
-    override suspend fun deleteFile(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun deleteFile(uri: Uri?): Boolean = withContext(Dispatchers.IO) {
+        if (uri === null) return@withContext false
         try {
             DocumentsContract.deleteDocument(context.contentResolver, uri)
         } catch (_: Exception) {
@@ -299,7 +299,8 @@ class StorageRepositoryImpl private constructor(
         }
 
     @SuppressLint("Range")
-    override suspend fun tree(path: Uri): StorageTree? = withContext(Dispatchers.IO) {
+    override suspend fun tree(path: Uri?): StorageTree? = withContext(Dispatchers.IO) {
+        if (path === null) return@withContext null
         val resolver = context.contentResolver
 
         fun buildTree(uri: Uri, name: String): StorageTree {
