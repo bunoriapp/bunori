@@ -4,6 +4,7 @@ import com.halovoid.bunori.data.artifact.ArtifactGenerator
 import com.halovoid.bunori.data.repository.StorageRepository
 import com.halovoid.bunori.data.scheduler.JobMetadata
 import com.halovoid.bunori.domain.models.Chapter
+import com.halovoid.bunori.domain.models.Download
 import com.halovoid.bunori.domain.models.Novel
 import androidx.core.net.toUri
 import com.halovoid.bunori.api.core.network.NetworkClient
@@ -161,11 +162,12 @@ class EpubGenerator(
         return result
     }
 
-    private fun wrapXHTML(title: String, body: String): String {
+    private fun wrapXHTML(title: String, body: String, language: BookLanguage): String {
+        val dirAttr = if (language.isRtl) " dir=\"rtl\"" else ""
         return """
             |<?xml version="1.0" encoding="utf-8"?>
             |<!DOCTYPE html>
-            |<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+            |<html xmlns="http://www.w3.org/1999/xhtml" lang="${language.code}" xml:lang="${language.code}"$dirAttr>
             |<head>
             |    <meta charset="UTF-8" />
             |    <title>$title</title>
@@ -178,16 +180,16 @@ class EpubGenerator(
         """.trimMargin()
     }
 
-    private fun buildCoverPage(imageFileName: String): String {
+    private fun buildCoverPage(imageFileName: String, language: BookLanguage): String {
         val content = """
             |<div id="cover" style="text-align: center; margin: 0; padding: 0;">
             |    <img src="$imageFileName" alt="Cover Image" style="max-width: 100%; height: auto;" />
             |</div>
         """.trimMargin()
-        return wrapXHTML("Cover", content)
+        return wrapXHTML("Cover", content, language)
     }
 
-    private fun buildIntroPage(novel: Novel): String {
+    private fun buildIntroPage(novel: Novel, language: BookLanguage): String {
         val content = """
             |<div id="intro">
             |    <h1>${novel.title}</h1>
@@ -203,10 +205,10 @@ class EpubGenerator(
             |    </div>
             |</div>
         """.trimMargin()
-        return  wrapXHTML("Intro Page", content)
+        return  wrapXHTML("Intro Page", content, language)
     }
 
-    private fun buildChapterPage(chapter: Chapter, htmlContent: String): String {
+    private fun buildChapterPage(chapter: Chapter, htmlContent: String, language: BookLanguage): String {
         val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
         val content = """
             |<div id="chapter">
@@ -215,7 +217,7 @@ class EpubGenerator(
             |    $htmlContent
             |</div>
         """.trimMargin()
-        return wrapXHTML(displayTitle, content)
+        return wrapXHTML(displayTitle, content, language)
     }
 
     // Content to be written inside content.opf
@@ -230,7 +232,7 @@ class EpubGenerator(
         """.trimMargin()
     }
 
-    private fun generateOpf(novel: Novel, items: List<EpubItem>): String {
+    private fun generateOpf(novel: Novel, items: List<EpubItem>, language: BookLanguage): String {
         val manifest = items.joinToString("\n") {
             val navAttr = if (it.fileName == "nav.xhtml") " properties=\"nav\"" else ""
             val coverAttr = if (it.id == "cover-image") "properties=\"cover-image\"" else ""
@@ -240,6 +242,7 @@ class EpubGenerator(
         // Determined reading order
         val spine = items.filter { it.mediaType == "application/xhtml+xml" }
             .joinToString("\n") { "|        <itemref idref=\"${it.id}\"/>" }
+        val pageDirection = if (language.isRtl) " page-progression-direction=\"rtl\"" else ""
 
         return """
             |<?xml version="1.0" encoding="UTF-8"?>
@@ -248,7 +251,7 @@ class EpubGenerator(
             |        <dc:identifier id="pub-id">${novel.url.hashCode()}</dc:identifier>
             |        <dc:title>${novel.title}</dc:title>
             |        <dc:creator>${novel.author ?: "Unknown"}</dc:creator>
-            |        <dc:language>en</dc:language>
+            |        <dc:language>${language.code}</dc:language>
             |        <dc:description>${novel.description ?: ""}</dc:description>
             |        <meta property="dcterms:modified">${java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }.format(java.util.Date())}</meta>
             |    </metadata>
@@ -256,7 +259,7 @@ class EpubGenerator(
             |        <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
             $manifest
             |    </manifest>
-            |    <spine toc="ncx">
+            |    <spine toc="ncx"$pageDirection>
             $spine
             |    </spine>
             |</package>
@@ -291,7 +294,7 @@ class EpubGenerator(
         """.trimMargin()
     }
 
-    private fun generateNav(items: List<EpubItem>): String {
+    private fun generateNav(items: List<EpubItem>, language: BookLanguage): String {
         val listItems = items.filter { it.mediaType == "application/xhtml+xml" }
             .joinToString("\n") {
                 """<li><a href="${it.fileName}">${it.title}</a></li>"""
@@ -304,7 +307,22 @@ class EpubGenerator(
             |    </ol>
             |</nav>
         """.trimMargin()
-        return wrapXHTML("Table of Contents", content)
+        return wrapXHTML("Table of Contents", content, language)
+    }
+
+    // Reads a downloaded chapter's stored HTML, or null when it isn't available.
+    private suspend fun readChapterHtml(chapter: Chapter, downloadsByUrl: Map<String, Download>): String? {
+        val download = downloadsByUrl[chapter.url] ?: downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
+        return download?.fileLocation?.let { loc ->
+            val absUri = storageRepository.relativeToUri(loc) ?: return@let null
+            try {
+                storageRepository.openInputStream(absUri)?.use { inp ->
+                    GZIPInputStream(inp).bufferedReader(Charsets.UTF_8).use { it.readText() }
+                }
+            } catch (_: Exception) {
+                null
+            }
+        }
     }
 
 
@@ -325,6 +343,15 @@ class EpubGenerator(
         }
 
         val ignoreImages = preferenceRepository?.ignoreImages?.first() ?: false
+        val downloadsByUrl = downloadRepository?.getDownloadsForNovel(novel.url)?.associateBy { it.chapterUrl } ?: emptyMap()
+        val sortedChapters = chapters.sortedBy { it.index }
+
+        // The language and direction come from the book's own text: the title,
+        // synopsis and first chapters.
+        val language = detectBookLanguage(buildString {
+            append(novel.title).append(' ').append(novel.description.orEmpty())
+            sortedChapters.take(3).forEach { append(' ').append(readChapterHtml(it, downloadsByUrl).orEmpty()) }
+        })
 
         if (!ignoreImages) {
             val coverUrl = novel.coverUrl
@@ -363,39 +390,28 @@ class EpubGenerator(
                 val mediaType = if (extension == "png") "image/png" else "image/jpeg"
 
                 addItem(EpubItem(imageFileName, bytes, mediaType, "cover-image"))
-                addItem(EpubItem("cover.xhtml", buildCoverPage(imageFileName).toByteArray(), "application/xhtml+xml", "cover"))
+                addItem(EpubItem("cover.xhtml", buildCoverPage(imageFileName, language).toByteArray(), "application/xhtml+xml", "cover"))
             } ?: run {
                 Logger.d("$TAG : No cover image available for '${novel.title}'")
             }
         }
 
         addItem(EpubItem(styleFileName, epubStyleCSS.toByteArray(), "text/css", "style"))
-        addItem(EpubItem("intro.xhtml", buildIntroPage(novel).toByteArray(), "application/xhtml+xml", "intro"))
+        addItem(EpubItem("intro.xhtml", buildIntroPage(novel, language).toByteArray(), "application/xhtml+xml", "intro"))
 
         val failedImageCache = mutableSetOf<String>()
         val totalChapters = chapters.size
-        val downloadsByUrl = downloadRepository?.getDownloadsForNovel(novel.url)?.associateBy { it.chapterUrl } ?: emptyMap()
-        chapters.sortedBy { it.index }.forEachIndexed { index, chapter ->
+        sortedChapters.forEachIndexed { index, chapter ->
             ensureActive()
             val displayTitle = chapter.title.ifBlank { "Chapter ${chapter.index}" }
             onProgress?.invoke(index + 1, totalChapters, displayTitle)
 
-            val download = downloadsByUrl[chapter.url] ?: downloadRepository?.getDownload(chapter.novelUrl, chapter.url)
-            val rawContent = download?.fileLocation?.let { loc ->
-                val absUri = storageRepository.relativeToUri(loc) ?: return@let null
-                try {
-                    storageRepository.openInputStream(absUri)?.use { inp ->
-                        GZIPInputStream(inp).bufferedReader(Charsets.UTF_8).use { it.readText() }
-                    }
-                } catch (_: Exception) {
-                    null
-                }
-            } ?: "<p><em>Content not available</em></p>"
+            val rawContent = readChapterHtml(chapter, downloadsByUrl) ?: "<p><em>Content not available</em></p>"
             val content = embedChapterImages(chapter.id.toString(), rawContent, chapterImageCache, failedImageCache, ::addItem, ignoreImages)
 
             addItem(EpubItem(
                 "chapter_${chapter.id}_${chapter.index.toString().padStart(5, '0')}.xhtml",
-                buildChapterPage(chapter, content).toByteArray(),
+                buildChapterPage(chapter, content, language).toByteArray(),
                 "application/xhtml+xml",
                 "chapter_${chapter.id}_${chapter.index}",
                 displayTitle
@@ -404,7 +420,7 @@ class EpubGenerator(
 
         val navItem = EpubItem(
             fileName = "nav.xhtml",
-            content = generateNav(items).toByteArray(),
+            content = generateNav(items, language).toByteArray(),
             mediaType = "application/xhtml+xml",
             id = "nav"
         )
@@ -421,7 +437,7 @@ class EpubGenerator(
         items.filter { it.id.startsWith("chapter_") || it.id.startsWith("image_") }
             .forEach { orderedItems.add(it) }
 
-        val opf = generateOpf(novel, orderedItems)
+        val opf = generateOpf(novel, orderedItems, language)
         val ncx = generateNcx(novel, orderedItems)
 
         onProgress?.invoke(totalChapters, totalChapters, "Packaging EPUB archive...")
